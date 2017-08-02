@@ -24,7 +24,8 @@ check_packages () {
     for version in '2.7' '2.6'
     do
         # checks for python2.7, python2, python, etc
-        for py_command in "python${version}" "python${version:0:1}" 'python'
+        major=`echo $version | sed 's/\(.\).*/\1/'`
+        for py_command in "python${version}" "python${major}" 'python'
         do
             # checks if it's a valid command
             if ! command -V "${py_command}" >/dev/null 2>&1; then
