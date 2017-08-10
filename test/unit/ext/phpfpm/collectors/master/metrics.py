@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from hamcrest import *
+from hamcrest import (
+    assert_that, not_none, is_, equal_to, has_item, has_length, not_
+)
 import time
 
 from test.unit.ext.phpfpm.base import PHPFPMTestCase
@@ -13,8 +15,9 @@ from amplify.ext.phpfpm.collectors.master.metrics import PHPFPMMetricsCollector
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __credits__ = [
-    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard",
-    "Arie van Luttikhuizen", "Jason Thigpen"
+    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov",
+    "Andrew Alexeev", "Grant Hulegaard", "Arie van Luttikhuizen",
+    "Jason Thigpen"
 ]
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
@@ -59,11 +62,21 @@ class PHPFPMMetricsCollectorTestCase(PHPFPMTestCase):
         )
         assert_that(phpfpm_metrics_collector, not_none())
 
-        counted_vars = {'php.fpm.queue.req': 0, 'php.fpm.slow_req': 0, 'php.fpm.conn.accepted': 3}
-        counted_vars_2 = {'php.fpm.queue.req': 5, 'php.fpm.slow_req': 4, 'php.fpm.conn.accepted': 5}
+        counted_vars = {
+            'php.fpm.queue.req': 0,
+            'php.fpm.slow_req': 0,
+            'php.fpm.conn.accepted': 3
+        }
+        counted_vars_2 = {
+            'php.fpm.queue.req': 5,
+            'php.fpm.slow_req': 4,
+            'php.fpm.conn.accepted': 5
+        }
 
         # make direct aggregate call like a child collector would
-        phpfpm_metrics_collector.aggregate_counters(counted_vars=counted_vars, stamp=1)
+        phpfpm_metrics_collector.aggregate_counters(
+            counted_vars=counted_vars, stamp=1
+        )
 
         # collect (runs increment)
         phpfpm_metrics_collector.collect()
@@ -73,7 +86,9 @@ class PHPFPMMetricsCollectorTestCase(PHPFPMTestCase):
         assert_that(self.phpfpm_obj.statsd.current, not_(has_item('counter')))
 
         # make a second call
-        phpfpm_metrics_collector.aggregate_counters(counted_vars=counted_vars_2, stamp=2)
+        phpfpm_metrics_collector.aggregate_counters(
+            counted_vars=counted_vars_2, stamp=2
+        )
 
         phpfpm_metrics_collector.collect()
         time.sleep(0.1)
@@ -96,5 +111,56 @@ class PHPFPMMetricsCollectorTestCase(PHPFPMTestCase):
         assert_that(counters['php.fpm.conn.accepted'][0][1], equal_to(2))
 
         for metric_records in counters.itervalues():
-            stamp = metric_records[0][0]   # get stamp from first recording in records
+            # get stamp from first recording in records
+            stamp = metric_records[0][0]
+            assert_that(stamp, equal_to(2))
+
+    def test_gauge_aggregation(self):
+        phpfpm_metrics_collector = PHPFPMMetricsCollector(
+            object=self.phpfpm_obj,
+            interval=self.phpfpm_obj.intervals['metrics']
+        )
+        assert_that(phpfpm_metrics_collector, not_none())
+
+        tracked_gauges_source1 = {
+            'php.fpm.proc.idle': {'source1': 1},
+            'php.fpm.proc.active': {'source1': 1},
+            'php.fpm.proc.total': {'source1': 2}
+        }
+        tracked_gauges_source2 = {
+            'php.fpm.proc.idle': {'source2': 1},
+            'php.fpm.proc.active': {'source2': 1},
+            'php.fpm.proc.total': {'source2': 2}
+        }
+
+        # make direct aggregate call like a child would
+        phpfpm_metrics_collector.aggregate_gauges(
+            tracked_gauges_source1, stamp=1
+        )
+        phpfpm_metrics_collector.aggregate_gauges(
+            tracked_gauges_source2, stamp=2
+        )
+
+        # collect (runs finalize)
+        phpfpm_metrics_collector.collect()
+        time.sleep(0.1)
+
+        assert_that(self.phpfpm_obj.statsd.current, has_item('gauge'))
+
+        gauges = self.phpfpm_obj.statsd.current['gauge']
+        assert_that(gauges, has_length(3))
+        """
+        gauges:
+        {
+            'php.fpm.proc.idle': [[2, 2]],
+            'php.fpm.proc.active': [[2, 2]],
+            'php.fpm.proc.total': [[2, 4]]
+        }
+        """
+        assert_that(gauges['php.fpm.proc.idle'][0][1], equal_to(2))
+        assert_that(gauges['php.fpm.proc.active'][0][1], equal_to(2))
+        assert_that(gauges['php.fpm.proc.total'][0][1], equal_to(4))
+
+        for metric_record in gauges.itervalues():
+            stamp = metric_record[0][0]
             assert_that(stamp, equal_to(2))

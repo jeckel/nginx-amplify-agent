@@ -41,6 +41,7 @@ class NginxObject(AbstractObject):
         self.prefix = self.data['prefix']
         self.bin_path = self.data['bin_path']
         self.conf_path = self.data['conf_path']
+        self.name = self.version
 
         # agent config
         default_config = context.app_config['containers']['nginx']
@@ -163,7 +164,10 @@ class NginxObject(AbstractObject):
             for proto in ('http://', 'https://'):
                 full_url = '%s%s' % (proto, url) if not url.startswith('http') else url
                 try:
-                    status_response = context.http_client.get(full_url, timeout=0.5, json=json, log=False)
+                    status_response = context.http_client.get(
+                        full_url, timeout=0.5, json=json, log=False,
+                        verify_ssl_cert=False   # users can use self-signed certs, we should not check them
+                    )
                     if status_response:
                         if json or 'Active connections' in status_response:
                             return full_url

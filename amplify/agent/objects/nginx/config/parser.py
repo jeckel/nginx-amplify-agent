@@ -71,16 +71,18 @@ class NginxConfigParser(object):
     semicolon = Literal(";").suppress()
 
     # keywords
-    IF, SET, REWRITE, PERL_SET, LOG_FORMAT, ALIAS, RETURN, ERROR_PAGE, MAP, SERVER_NAME, SUB_FILTER, ADD_HEADER = (
-        map(
-            lambda x: x.setParseAction(set_line_number),
+    IF, SET, REWRITE, PERL_SET, LOG_FORMAT, ALIAS, RETURN, ERROR_PAGE, MAP, \
+        SERVER_NAME, SUB_FILTER, ADD_HEADER, LOCATION = (
             map(
-                Keyword,
-                "if set rewrite perl_set log_format alias return "
-                "error_page map server_name sub_filter add_header".split()
+                lambda x: x.setParseAction(set_line_number),
+                map(
+                    Keyword,
+                    "if set rewrite perl_set log_format alias return "
+                    "error_page map server_name sub_filter add_header "
+                    "location".split()
+                )
             )
         )
-    )
 
     # string helpers
     string = (
@@ -103,7 +105,7 @@ class NginxConfigParser(object):
     contains_by_lua_key = Regex(r'\S+_by_lua\S*').setParseAction(set_line_number)
 
     key = (
-        ~MAP & ~ALIAS & ~PERL_SET & ~IF & ~SET & ~REWRITE & ~SERVER_NAME & ~SUB_FILTER & ~ADD_HEADER
+        ~MAP & ~ALIAS & ~PERL_SET & ~IF & ~SET & ~REWRITE & ~SERVER_NAME & ~SUB_FILTER & ~ADD_HEADER & ~LOCATION
     ) + Word(alphanums + '$_:%?"~<>\/-+.,*()[]"' + "'").setParseAction(set_line_number)
 
     # values
@@ -118,8 +120,10 @@ class NginxConfigParser(object):
     if_value = nestedExpr().setParseAction(set_line_number)  # Regex(r'\(.*\)')
     strict_value = CharsNotIn("{};").setParseAction(set_line_number)
     sub_filter_value = (non_space_value | multiline_string_keep_quotes).setParseAction(set_line_number)
+    log_format_value = (non_space_value | multiline_string).setParseAction(set_line_number)
     add_header_value = Regex(r'[^{};]*"[^"]+"').setParseAction(set_line_number)
     map_value = (string | Regex(r'((\\\s|[^{};\s])*)')).setParseAction(set_line_number)
+    raw_value = Word(alphanums + '$_:%?"~<>\/-+.,*()[];|^@"' + "'").setParseAction(set_line_number)
 
     # modifier for location uri [ = | ~ | ~* | ^~ ]
     modifier = oneOf("= ~* ~ ^~")
@@ -153,7 +157,7 @@ class NginxConfigParser(object):
     ).setParseAction(set_line_number)
 
     log_format = (
-        LOG_FORMAT + strict_value + any_value + semicolon
+        LOG_FORMAT + log_format_value + OneOrMore(log_format_value) + semicolon
     ).setParseAction(set_line_number)
 
     server_name = (
@@ -193,7 +197,12 @@ class NginxConfigParser(object):
                 key + Optional(modifier) +
                 Optional(value + Optional(value))
             ) |
-            Group(IF + if_value)
+            Group(
+                IF + if_value
+            ) |
+            Group(
+                LOCATION + Optional(modifier) + Optional(raw_value)
+            )
         ).setParseAction(set_line_number) +
         left_brace -  # <----- use '-' operator instead of '+' to get better error messages
         Group(
@@ -559,6 +568,9 @@ class NginxConfigParser(object):
                     if key in IGNORED_DIRECTIVES:
                         continue  # Pass ignored directives.
                     elif key == 'log_format':
+                        value = value.replace('/s/', " '", 1) + "'"
+                        value = value.replace('/s/', '')
+
                         # work with log formats
                         gwe = re.match("([\w\d_-]+)\s+'(.+)'", value)
                         if gwe:

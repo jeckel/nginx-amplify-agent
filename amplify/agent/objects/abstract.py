@@ -112,7 +112,8 @@ class AbstractObject(object):
         """
         # TODO: Refactor Nginx object to use this style local_id property.
         if not self._local_id and len(self.local_id_args):
-            self._local_id = hashlib.sha256('_'.join(self.local_id_args)).hexdigest()
+            args = map(lambda x: str(x.encode('utf-8') if hasattr(x, 'encode') else x), self.local_id_args)
+            self._local_id = hashlib.sha256('_'.join(args)).hexdigest()
         return self._local_id
 
     @staticmethod
@@ -124,7 +125,7 @@ class AbstractObject(object):
         :return: String 64 len hash of local_id
         """
         if len(local_id_args):
-            args = map(str, local_id_args)
+            args = map(lambda x: str(x.encode('utf-8') if hasattr(x, 'encode') else x), local_id_args)
             return hashlib.sha256('_'.join(args)).hexdigest()
 
     @property

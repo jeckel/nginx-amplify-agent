@@ -97,7 +97,8 @@ if __name__ == '__main__':
             rows, columns = os.popen('stty size', 'r').read().split()
             color_print("\n= USEFUL COMMANDS =" + "="*(int(columns)-20))
             for helper in (
-                "nginx",
+                "service nginx start",
+                "service php7.0-fpm start",
                 "python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development",
                 "python /amplify/nginx-amplify-agent.py stop --config=/amplify/etc/agent.conf.development"
             ):

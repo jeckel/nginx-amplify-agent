@@ -31,7 +31,8 @@ class AbstractCollector(object):
         self.interval = interval
         self.previous_counters = defaultdict(dict)  # for deltas
         self.current_counters = defaultdict(int)  # for aggregating
-        self.current_latest = defaultdict(int)
+        self.current_latest = defaultdict(int)  # for latest
+        self.current_gauges = defaultdict(lambda: defaultdict(float))  # gauges
         self.methods = set()
 
         # stamp store organized by type - metric_name - stamp
@@ -41,7 +42,8 @@ class AbstractCollector(object):
         """
         Helper function for sending 0 values when no data is found.
 
-        :param counters: Iterable String values of names of counters to init as 0 (default is self.zero_counters)
+        :param counters: Iterable String values of names of counters to init as
+                                  0 (default is self.zero_counters)
         """
         counters = counters or self.zero_counters
         for counter in counters:
@@ -69,10 +71,14 @@ class AbstractCollector(object):
                     break
 
             context.teardown_thread_id()
-            raise GreenletExit  # Since kill signals won't work, we raise it ourselves.
+            # Since kill signals won't work, we raise it ourselves.
+            raise GreenletExit
         except GreenletExit:
             context.log.debug(
-                '%s collector for %s received exit signal' % (self.__class__.__name__, self.object.definition_hash)
+                '%s collector for %s received exit signal' % (
+                    self.__class__.__name__,
+                    self.object.definition_hash
+                )
             )
         except:
             context.log.error(
@@ -89,14 +95,20 @@ class AbstractCollector(object):
 
     def _collect(self):
         """
-        Wrapper for actual collect process.  Handles memory reporting before and after collect process.
+        Wrapper for actual collect process.  Handles memory reporting before
+        and after collect process.
         """
         start_time = time.time()
         try:
             self.collect()
         finally:
             end_time = time.time()
-            context.log.debug('%s collect in %.3f' % (self.object.definition_hash, end_time - start_time))
+            context.log.debug(
+                '%s collect in %.3f' % (
+                    self.object.definition_hash,
+                    end_time - start_time
+                )
+            )
 
     def _sleep(self):
         time.sleep(self.interval)
@@ -120,18 +132,25 @@ class AbstractCollector(object):
 
     def increment_counters(self):
         """
-        Increment counter method that takes the "current_values" dictionary of metric name - value pairs increments
-        statsd appropriately based on previous values.
+        Increment counter method that takes the "current_values" dictionary of
+        metric name - value pairs increments statsd appropriately based on
+        previous values.
         """
         for metric_name, value in self.current_counters.iteritems():
-            prev_stamp, prev_value = self.previous_counters.get(metric_name, (None, None))
-            stamp, value = self.current_stamps['counters'][metric_name], self.current_counters[metric_name]
+            prev_stamp, prev_value = self.previous_counters.get(
+                metric_name, (None, None)
+            )
+            stamp = self.current_stamps['counters'][metric_name]
+            value = self.current_counters[metric_name]
 
             if isinstance(prev_value, (int, float, long)) and prev_stamp:
                 value_delta = value - prev_value
                 if value_delta >= 0:
-                    # Only increment our statsd client and send data to backend if calculated value is non-negative.
-                    self.object.statsd.incr(metric_name, value_delta, stamp=stamp)
+                    # Only increment our statsd client and send data to backend
+                    # if calculated value is non-negative.
+                    self.object.statsd.incr(
+                        metric_name, value_delta, stamp=stamp
+                    )
 
             # Re-base the calculation for next collect
             self.previous_counters[metric_name] = (stamp, value)
@@ -143,7 +162,8 @@ class AbstractCollector(object):
 
     def aggregate_counters(self, counted_vars, stamp=None):
         """
-        Aggregate several counter metrics from multiple places and store their sums in a metric_name-value store.
+        Aggregate several counter metrics from multiple places and store their
+        sums in a metric_name-value store.
 
         :param counted_vars: Dict Metric_name - Value dict
         :param stamp: Int Timestamp of Plus collect
@@ -168,7 +188,8 @@ class AbstractCollector(object):
 
     def aggregate_latest(self, latest_vars, stamp=None):
         """
-        Aggregate several latest metrics from multiple places and store the final value in a metric_name-value store.
+        Aggregate several latest metrics from multiple places and store the
+        final value in a metric_name-value store.
 
         :param latest_vars: Dict Metric_name - Value dict
         :param stamp: Int Timestamp of collect
@@ -177,6 +198,53 @@ class AbstractCollector(object):
             self.current_latest[metric_name] += 1
             if stamp:
                 self.current_stamps['latest'][metric_name] = stamp
+
+    def aggregate_gauges(self, gauge_vars, stamp=None):
+        """
+        Aggregate several gauge metrics from multiple sources.  Track their
+        values until collection/finalize and then send the cumalitive to
+        statsd.
+
+        Example gauge_vars:
+            {
+                'gauge_name': {
+                    'source': value
+                    'source2': value
+                }
+            }
+
+        :param gauge_vars: Dict Metric_Name - Source - Value dict
+        :param stamp: Int Timestamp of collect
+        """
+        for metric_name, value_map in gauge_vars.iteritems():
+            for source, value in value_map.iteritems():
+                # override current gauge from source with the passed value
+                self.current_gauges[metric_name][source] = value
+
+            # save this latest stamp
+            if stamp:
+                self.current_stamps['gauges'][metric_name] = stamp
+
+    def finalize_gauges(self):
+        """
+        Iterate through the stored gauges in self.current_gauges, sum them, and
+        then send them to statsd for reporting.
+        """
+        for metric_name, value_map in self.current_gauges.iteritems():
+            total_gauge = 0
+            for source, value in value_map.iteritems():
+                total_gauge += value
+
+            self.object.statsd.gauge(
+                metric_name,
+                total_gauge,
+                stamp=self.current_stamps['gauges'][metric_name]
+            )
+
+        # reset gauge stores
+        self.current_gauges = defaultdict(lambda: defaultdict(int))
+        if self.current_stamps['gauges']:
+            del self.current_stamps['gauges']
 
 
 class AbstractMetaCollector(AbstractCollector):

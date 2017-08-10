@@ -67,6 +67,12 @@ class PHPFPMObjectTestCase(BaseTestCase):
                         'name': 'www',
                         'file': '/etc/php5/fpm/pool.d/www.conf',
                         'listen': '/run/php/php7.0-fpm.sock'
+                    },
+                    {
+                        'status_path': '/status',
+                        'name': 'www2',
+                        'file': '/etc/php5/fpm/pool.d/www2.conf',
+                        'listen': '127.0.0.1:51'
                     }
                 ],
                 'include': ['/etc/php5/fpm/pool.d/*.conf'],

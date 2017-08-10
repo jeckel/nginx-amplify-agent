@@ -149,6 +149,11 @@ fi
 
 
 %changelog
+* Wed Aug  9 2017 Mike Belov <dedm@nginx.com> 0.45-1
+- 0.45-1
+- PHP-FPM bug fixes
+- Fixes for config parser
+
 * Mon Jun 19 2017 Mike Belov <dedm@nginx.com> 0.44-2
 - 0.44-2
 - PHP-FPM bug fixes

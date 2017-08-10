@@ -134,7 +134,9 @@ class ObjectsTank(Singleton):
             self.relations[parent_id].append(obj.id)
 
         context.default_log.debug(
-            '"%s" object registered with %s (id: %s)' % (obj.type, self.__class__.__name__, obj.id)
+            '"%s" object registered with %s (id: %s, name: %s)' % (
+                obj.type, self.__class__.__name__, obj.id, obj.display_name
+            )
         )
 
         return obj.id
@@ -148,11 +150,15 @@ class ObjectsTank(Singleton):
         """
         if obj or obj_id:
             obj_id = obj.id if obj else obj_id
+            obj_name = obj.display_name if obj else obj_id
             obj = self.objects[obj_id] if not obj else obj
 
         if not obj or obj_id not in self.objects:
             context.default_log.error('failed to unregister object')
-            context.default_log.debug('additional info: (obj: %s, obj_id: %s)' % (obj, obj_id))
+            context.default_log.debug(
+                'additional info: (obj: %s, obj_id: %s, name: %s)' % (
+                    obj, obj_id, obj_name)
+            )
             return
 
         obj_type = obj.type
@@ -182,7 +188,9 @@ class ObjectsTank(Singleton):
             self.root_id = 0
 
         context.default_log.debug(
-            '"%s" object unregistered with %s (id: %s)' % (obj.type, self.__class__.__name__, obj_id)
+            '"%s" object unregistered with %s (id: %s, name: %s)' % (
+                obj.type, self.__class__.__name__, obj_id, obj_name
+            )
         )
 
     def find_one(self, obj_id=None):

@@ -10,8 +10,9 @@ from amplify.ext.phpfpm.util.fpmstatus import PHPFPMStatus
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __credits__ = [
-    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard",
-    "Arie van Luttikhuizen", "Jason Thigpen"
+    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov",
+    "Andrew Alexeev", "Grant Hulegaard", "Arie van Luttikhuizen",
+    "Jason Thigpen"
 ]
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
@@ -20,7 +21,8 @@ __email__ = "grant.hulegaard@nginx.com"
 
 class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
     """
-    Metrics collector.  Spawned per pool.  Queries status page and increments metrics in Pool and Master objects
+    Metrics collector.  Spawned per pool.  Queries status page and increments
+    metrics in Pool and Master objects
     """
     short_name = 'phpfpm_pool_metrics'
 
@@ -31,6 +33,8 @@ class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
         self._current = None
         self._current_stamp = None
         self._parent = None
+        # TODO: Consider a more robust way for accessing parent metrics
+        #       collector
 
         if self.status_page is not None:
             self.register(
@@ -41,13 +45,19 @@ class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
         listen = self.object.flisten
 
         if listen.startswith('/'):
-            return PHPFPMStatus(path=listen, url=self.object.status_path)
+            return PHPFPMStatus(
+                path=listen, url=self.object.status_path
+            )
         elif ':' in listen:
             host, port = listen.split(':')
-            return PHPFPMStatus(host=host, port=int(port), url=self.object.status_path)
+            return PHPFPMStatus(
+                host=host, port=int(port), url=self.object.status_path
+            )
         elif listen.isdigit():
             port = int(listen)
-            return PHPFPMStatus(host='127.0.0.1', port=port, url=self.object.status_path)
+            return PHPFPMStatus(
+                host='127.0.0.1', port=port, url=self.object.status_path
+            )
 
         context.log.error(
             'failed to parse listen for "%s" pool [listen:"%s", file:"%s"]' %
@@ -67,7 +77,10 @@ class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
         return result
 
     def collect(self, *args, **kwargs):
-        """Basic collect method with initial logic for storing status pages for parsing."""
+        """
+        Basic collect method with initial logic for storing status pages for\
+        parsing.
+        """
         # hit the status_page and try to store parsed results in _current
         self._current = self._parse_status_page(self.status_page.get_status())
         self._current_stamp = int(time.time())
@@ -77,30 +90,33 @@ class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
 
         # if self._parent is None then something is wrong...
         if self._parent is None:
-            context.log.debug('%s failed to collect because parent was "None"' % self.short_name)
-            # TODO: Create a Naas error to serve as this condition and pass it to self.handle_exception.
+            context.log.debug(
+                '%s failed to collect because parent was "None"' %
+                self.short_name
+            )
+            # TODO: Create a Naas error to serve as this condition and pass it
+            #       to self.handle_exception.
 
             self._current = None  # clear current to save memory
             self._current_stamp = None
             return
 
-        # begin regular collect
-        if self.zero_counters:
-            self.init_counters()
+        super(PHPFPMPoolMetricsCollector, self).collect(*args, **kwargs)
 
-        for method in self.methods:
-            try:
-                method(*args, **kwargs)
-            except Exception as e:
-                self.handle_exception(method, e)
         try:
             self.increment_counters()
         except Exception as e:
             self.handle_exception(self.increment_counters, e)
 
+        try:
+            self.finalize_gauges()
+        except Exception as e:
+            self.handle_exception(self.finalize_gauges, e)
+
         self._current = None  # clear current to save memory
         self._current_stamp = None
-        self._parent = None  # clear parent reference to avoid stale references preventing GC cleanup
+        self._parent = None
+        # clear parent reference to avoid stale refs preventing GC cleanup
 
     def collect_status_page(self):
         metric_map = {
@@ -127,14 +143,25 @@ class PHPFPMPoolMetricsCollector(AbstractMetricsCollector):
             if status_name in self._current:
                 counted_vars[metric] = int(self._current[status_name])
 
-        self.aggregate_counters(counted_vars, stamp=self._current_stamp)
-        self._parent.collectors[1].aggregate_counters(counted_vars, stamp=self._current_stamp)
-        # TODO: Consider a more robust way for accessing parent metrics collector
-        # TODO: Check to make sure parent aggregate metrics with stamps applied from children work as intended
+        self.aggregate_counters(
+            counted_vars, stamp=self._current_stamp
+        )
+        self._parent.collectors[1].aggregate_counters(
+            counted_vars, stamp=self._current_stamp
+        )
 
         # gauges
 
+        tracked_gauges = {}
         for metric, status_name in metric_map['gauges'].iteritems():
             if status_name in self._current:
-                self.object.statsd.gauge(metric, int(self._current[status_name]), stamp=self._current_stamp)
-                self._parent.statsd.gauge(metric, int(self._current[status_name]), stamp=self._current_stamp)
+                tracked_gauges[metric] = {
+                    self.object.definition_hash: int(self._current[status_name])
+                }
+
+        self.aggregate_gauges(
+            tracked_gauges, stamp=self._current_stamp
+        )
+        self._parent.collectors[1].aggregate_gauges(
+            tracked_gauges, stamp=self._current_stamp
+        )

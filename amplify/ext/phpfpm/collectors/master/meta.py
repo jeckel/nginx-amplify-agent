@@ -101,7 +101,7 @@ class PHPFPMMetaCollector(AbstractMetaCollector):
 
                 # this is being kept as an error because it has
                 # implications for meta collection success/failure
-                context.log.error(
+                context.log.debug(
                     'failed to find php-fpm bin path, last attempt: '
                     '"%s" failed due to %s' %
                     (ls_cmd, exc_name)

@@ -15,8 +15,8 @@ __email__ = "grant.hulegaard@nginx.com"
 
 class PHPFPMMetricsCollector(AbstractMetricsCollector):
     """
-    Metrics collector.  Spawned per master.  Sits around to aggregate counters from pool and periodically call
-    increment.
+    Metrics collector.  Spawned per master.  Sits around to aggregate counters
+    from pool and periodically call increment and finalize.
     """
     short_name = 'phpfpm_metrics'
 
@@ -24,8 +24,16 @@ class PHPFPMMetricsCollector(AbstractMetricsCollector):
         super(PHPFPMMetricsCollector, self).__init__(**kwargs)
 
     def collect(self, *args, **kwargs):
-        """Just increment any and all updates from combined pools"""
+        """
+        Just increment counters and finalize gauges any and all updates from
+        combined pools
+        """
         try:
             self.increment_counters()
         except Exception as e:
             self.handle_exception(self.increment_counters, e)
+
+        try:
+            self.finalize_gauges()
+        except Exception as e:
+            self.handle_exception(self.finalize_gauges, e)

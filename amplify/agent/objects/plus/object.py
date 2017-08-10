@@ -29,6 +29,7 @@ class PlusObject(AbstractObject):
         self.root_uuid = self.data.get('root_uuid') or (context.objects.root_object.uuid if context.objects.root_object else None)
         self.parent_local_id = self.data['parent_local_id']
         self.local_name = self.data['local_name']
+        self.name = self.local_name
 
         self.plus_status_internal_url_cache = None
 

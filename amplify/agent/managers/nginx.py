@@ -244,7 +244,7 @@ class NginxManager(ObjectManager):
                     try:
                         bin_path, prefix, conf_path, version = get_prefix_and_conf_path(cmd)
                     except:
-                        context.log.error('failed to find bin_path, prefix and conf_path for %s' % cmd)
+                        context.log.debug('failed to find bin_path, prefix and conf_path for %s' % cmd)
                         context.log.debug('', exc_info=True)
                     else:
                         # calculate local id

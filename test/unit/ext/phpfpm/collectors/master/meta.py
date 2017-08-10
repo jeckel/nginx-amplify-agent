@@ -71,7 +71,7 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
                 'local_id': 'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe2'
                             '1e12b1ae35fb3b4',
                 'type': 'phpfpm',
-                'workers': 2,
+                'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',
                 'pid': self.phpfpm_obj.pid,
                 'conf_path': '/etc/php5/fpm/php-fpm.conf',
@@ -120,7 +120,7 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
                 'local_id': 'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe2'
                             '1e12b1ae35fb3b4',
                 'type': 'phpfpm',
-                'workers': 2,
+                'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',
                 'pid': self.phpfpm_obj.pid,
                 'conf_path': '/etc/php5/fpm/php-fpm.conf',

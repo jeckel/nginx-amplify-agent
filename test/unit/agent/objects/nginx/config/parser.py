@@ -34,6 +34,8 @@ complex_add_header = os.getcwd() + '/test/fixtures/nginx/complex_add_header/ngin
 escaped_string_config = os.getcwd() + '/test/fixtures/nginx/custom/escaped_string.conf'
 tabs_everywhere = os.getcwd() + '/test/fixtures/nginx/tabs/nginx.conf'
 more_clean_headers = os.getcwd() + '/test/fixtures/nginx/more_clean_headers/nginx.conf'
+location_with_semicolon = os.getcwd() + '/test/fixtures/nginx/location_with_semicolon/nginx.conf'
+log_format_string_concat = os.getcwd() + '/test/fixtures/nginx/custom/log_format_string_concat.conf'
 
 
 class ParserTestCase(BaseTestCase):
@@ -154,7 +156,7 @@ class ParserTestCase(BaseTestCase):
 
         # upstream
         upstream = http['upstream']
-        assert_that(upstream, has_length(2))
+        assert_that(upstream, has_length(3))
 
         # ifs
         for server in http['server']:
@@ -425,3 +427,30 @@ class ParserTestCase(BaseTestCase):
         cfg = NginxConfigParser(more_clean_headers)
         cfg.parse()
         assert_that(cfg.errors, has_length(0))
+
+    def test_location_with_semicolon(self):
+        cfg = NginxConfigParser(location_with_semicolon)
+        assert_that(calling(cfg.parse), not_(raises(TypeError)))
+
+    def test_log_format_string_concat(self):
+        cfg = NginxConfigParser(log_format_string_concat)
+
+        cfg.parse()
+        tree = cfg.simplify()
+        formats = tree['http']['log_format']
+
+        expected = (
+            '$remote_addr - $remote_user [$time_local] "$request" '
+            '$status $body_bytes_sent "$http_referer" '
+            '"$http_user_agent" "$http_x_forwarded_for" '
+            '"$host" sn="$server_name" '
+            'rt=$request_time '
+            'ua="$upstream_addr" us="$upstream_status" '
+            'ut="$upstream_response_time" ul="$upstream_response_length" '
+            'cs=$upstream_cache_status'
+        )
+
+        assert_that(formats, has_length(2))
+        assert_that(formats, has_items('with_newlines', 'without_newlines'))
+        assert_that(formats['with_newlines'], equal_to(expected))
+        assert_that(formats['without_newlines'], equal_to(expected))

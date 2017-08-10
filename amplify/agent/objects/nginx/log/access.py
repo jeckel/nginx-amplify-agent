@@ -36,6 +36,7 @@ class NginxAccessLogParser(object):
         'request_length': ['\d+', int],
         'request_time': ['.+', str],
         'status': ['\d+', str],
+        'server_name': ['.*', str],
         'time_iso8601': ['.+', str],
         'time_local': ['.+', str],
         'upstream_response_time': ['.+', str],

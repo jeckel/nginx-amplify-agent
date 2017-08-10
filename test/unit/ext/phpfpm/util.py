@@ -40,7 +40,7 @@ class PHPFPMUtilsTestCase(PHPFPMTestCase):
         ps, _ = subp.call(PS_CMD)
 
         assert_that(ps, not_none())
-        assert_that(ps, has_length(4))  # TODO: Try to eliminate blank line capture from ps (at end)
+        assert_that(ps, has_length(6))  # TODO: Try to eliminate blank line capture from ps (at end)
         assert_that(ps[0], string_contains_in_order('php-fpm:', 'master', 'process', 'php-fpm.conf'))
         for child in ps[1:-1]:
             assert_that(child, string_contains_in_order('php-fpm:', 'pool', 'www'))
@@ -57,11 +57,11 @@ class PHPFPMUtilsTestCase(PHPFPMTestCase):
 
         parsed_lines = [PS_PARSER(line) for line in ps]
         assert_that(parsed_lines, not_none())
-        assert_that(parsed_lines, has_length(4))
+        assert_that(parsed_lines, has_length(6))
 
         # just for ease of testing, let's trim the None at the end
         parsed_lines = filter(lambda item: item is not None, parsed_lines)
-        assert_that(parsed_lines, has_length(3))
+        assert_that(parsed_lines, has_length(5))
 
         master_pid, master_ppid, master_command = parsed_lines[0]
         assert_that(master_pid, not_none())
@@ -79,7 +79,7 @@ class PHPFPMUtilsTestCase(PHPFPMTestCase):
 
         parsed_lines = [PS_PARSER(line) for line in ps]
         assert_that(parsed_lines, not_none())
-        assert_that(parsed_lines, has_length(4))
+        assert_that(parsed_lines, has_length(6))
 
         master_pid, master_ppid, master_command = parsed_lines[0]
 
@@ -221,6 +221,12 @@ class PHPFPMConfigTestCase(PHPFPMTestCase):
                         'name': 'www',
                         'file': '/etc/php5/fpm/pool.d/www.conf',
                         'listen': '/run/php/php7.0-fpm.sock'
+                    },
+                    {
+                        'status_path': '/status',
+                        'name': 'www2',
+                        'file': '/etc/php5/fpm/pool.d/www2.conf',
+                        'listen': '127.0.0.1:51'
                     }
                 ],
                 'include': ['/etc/php5/fpm/pool.d/*.conf'],

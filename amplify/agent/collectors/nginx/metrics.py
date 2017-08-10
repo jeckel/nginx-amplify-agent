@@ -171,7 +171,10 @@ class NginxMetricsCollector(AbstractMetricsCollector):
 
         # get stub status body
         try:
-            stub_body = context.http_client.get(self.object.stub_status_url, timeout=1, json=False, log=False)
+            stub_body = context.http_client.get(
+                self.object.stub_status_url, timeout=1, json=False, log=False,
+                verify_ssl_cert=False  # users can use self-signed certs, we should not check them
+            )
         except:
             context.log.error('failed to check stub_status url %s' % self.object.stub_status_url)
             context.log.debug('additional info', exc_info=True)
@@ -234,7 +237,10 @@ class NginxMetricsCollector(AbstractMetricsCollector):
 
         # get plus status body
         try:
-            status = context.http_client.get(self.object.plus_status_internal_url, timeout=1, log=False)
+            status = context.http_client.get(
+                self.object.plus_status_internal_url, timeout=1, log=False,
+                verify_ssl_cert=False  # users can use self-signed certs, we should not check them
+            )
 
             # Add the status payload to plus_cache so it can be parsed by other collectors (plus objects)
             context.plus_cache.put(self.object.plus_status_internal_url, (status, stamp))

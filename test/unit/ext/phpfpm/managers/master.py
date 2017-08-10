@@ -54,7 +54,7 @@ class PHPFPMManagerTestCase(PHPFPMTestCase):
         assert_that(found_master['local_id'], equal_to(
             'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe21e12b1ae35fb3b4'
         ))
-        assert_that(found_master['workers'], has_length(2))
+        assert_that(found_master['workers'], has_length(4))
 
     def test_discover_objects(self):
         phpfpm_manager = PHPFPMManager()

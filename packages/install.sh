@@ -29,104 +29,104 @@ get_os_name () {
 
     # Use lsb_release if possible
     if command -V lsb_release > /dev/null 2>&1; then
-	os=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
-	codename=`lsb_release -cs | tr '[:upper:]' '[:lower:]'`
-	release=`lsb_release -rs | sed 's/\..*$//'`
+        os=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+        codename=`lsb_release -cs | tr '[:upper:]' '[:lower:]'`
+        release=`lsb_release -rs | sed 's/\..*$//'`
 
-	if [ "$os" = "redhatenterpriseserver" -o "$os" = "oracleserver" ]; then
-	    os="centos"
-	    centos_flavor="red hat linux"
-	fi
+        if [ "$os" = "redhatenterpriseserver" -o "$os" = "oracleserver" ]; then
+            os="centos"
+            centos_flavor="red hat linux"
+        fi
     # Otherwise it's getting a little bit more tricky
     else
-	if ! ls /etc/*-release > /dev/null 2>&1; then
-	    os=`uname -s | \
-		tr '[:upper:]' '[:lower:]'`
-	else
-	    os=`cat /etc/*-release | grep '^ID=' | \
-		sed 's/^ID=["]*\([a-zA-Z]*\).*$/\1/' | \
-		tr '[:upper:]' '[:lower:]'`
+        if ! ls /etc/*-release > /dev/null 2>&1; then
+            os=`uname -s | \
+                tr '[:upper:]' '[:lower:]'`
+        else
+            os=`cat /etc/*-release | grep '^ID=' | \
+                sed 's/^ID=["]*\([a-zA-Z]*\).*$/\1/' | \
+                tr '[:upper:]' '[:lower:]'`
 
-	    if [ -z "$os" ]; then
-		if grep -i "oracle linux" /etc/*-release > /dev/null 2>&1 || \
-		   grep -i "red hat" /etc/*-release > /dev/null 2>&1; then
-		    os="rhel"
-		else
-		    if grep -i "centos" /etc/*-release > /dev/null 2>&1; then
-			os="centos"
-		    else
-			os="linux"
-		    fi
-		fi
-	    fi
-	fi
+            if [ -z "$os" ]; then
+                if grep -i "oracle linux" /etc/*-release > /dev/null 2>&1 || \
+                   grep -i "red hat" /etc/*-release > /dev/null 2>&1; then
+                    os="rhel"
+                else
+                    if grep -i "centos" /etc/*-release > /dev/null 2>&1; then
+                        os="centos"
+                    else
+                        os="linux"
+                    fi
+                fi
+            fi
+        fi
 
-	case "$os" in
-	    ubuntu)
-		codename=`cat /etc/*-release | grep '^DISTRIB_CODENAME' | \
-			  sed 's/^[^=]*=\([^=]*\)/\1/' | \
-			  tr '[:upper:]' '[:lower:]'`
-		;;
-	    debian)
-		codename=`cat /etc/*-release | grep '^VERSION=' | \
-			  sed 's/.*(\(.*\)).*/\1/' | \
-			  tr '[:upper:]' '[:lower:]'`
-		;;
-	    centos)
-		codename=`cat /etc/*-release | grep -i 'centos.*(' | \
-			  sed 's/.*(\(.*\)).*/\1/' | head -1 | \
-			  tr '[:upper:]' '[:lower:]'`
-		# For CentOS grab release
-		release=`cat /etc/*-release | grep -i 'centos.*[0-9]' | \
-			 sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
-		;;
-	    rhel|ol)
-		codename=`cat /etc/*-release | grep -i 'red hat.*(' | \
-			  sed 's/.*(\(.*\)).*/\1/' | head -1 | \
-			  tr '[:upper:]' '[:lower:]'`
-		# For Red Hat also grab release
-		release=`cat /etc/*-release | grep -i 'red hat.*[0-9]' | \
-			 sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
-		
-		if [ -z "$release" ]; then
-		    release=`cat /etc/*-release | grep -i '^VERSION_ID=' | \
-			     sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
-		fi
-		
-		os="centos"
-		centos_flavor="red hat linux"
-		;;
-	    amzn)
-		codename="amazon-linux-ami"
-		release_amzn=`cat /etc/*-release | grep -i 'amazon.*[0-9]' | \
-			 sed 's/^[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/' | \
-			 head -1`
-		release="latest"
+        case "$os" in
+            ubuntu)
+                codename=`cat /etc/*-release | grep '^DISTRIB_CODENAME' | \
+                          sed 's/^[^=]*=\([^=]*\)/\1/' | \
+                          tr '[:upper:]' '[:lower:]'`
+                ;;
+            debian)
+                codename=`cat /etc/*-release | grep '^VERSION=' | \
+                          sed 's/.*(\(.*\)).*/\1/' | \
+                          tr '[:upper:]' '[:lower:]'`
+                ;;
+            centos)
+                codename=`cat /etc/*-release | grep -i 'centos.*(' | \
+                          sed 's/.*(\(.*\)).*/\1/' | head -1 | \
+                          tr '[:upper:]' '[:lower:]'`
+                # For CentOS grab release
+                release=`cat /etc/*-release | grep -i 'centos.*[0-9]' | \
+                         sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
+                ;;
+            rhel|ol)
+                codename=`cat /etc/*-release | grep -i 'red hat.*(' | \
+                          sed 's/.*(\(.*\)).*/\1/' | head -1 | \
+                          tr '[:upper:]' '[:lower:]'`
+                # For Red Hat also grab release
+                release=`cat /etc/*-release | grep -i 'red hat.*[0-9]' | \
+                         sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
 
-		os="amzn"
-		centos_flavor="amazon linux"
-		;;		
-	    *)
-		codename=""
-		release=""
-		;;
-	esac
+                if [ -z "$release" ]; then
+                    release=`cat /etc/*-release | grep -i '^VERSION_ID=' | \
+                             sed 's/^[^0-9]*\([0-9][0-9]*\).*$/\1/' | head -1`
+                fi
+
+                os="centos"
+                centos_flavor="red hat linux"
+                ;;
+            amzn)
+                codename="amazon-linux-ami"
+                release_amzn=`cat /etc/*-release | grep -i 'amazon.*[0-9]' | \
+                              sed 's/^[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/' | \
+                              head -1`
+                release="latest"
+
+                os="amzn"
+                centos_flavor="amazon linux"
+                ;;
+            *)
+                codename=""
+                release=""
+                ;;
+        esac
     fi
 }
 
 # Check what downloader is available
 check_downloader() {
     if command -V curl > /dev/null 2>&1; then
-	downloader="curl"
-	downloader_opts="-fs"
+        downloader="curl"
+        downloader_opts="-fs"
     else
-	if command -V wget > /dev/null 2>&1; then
-	    downloader="wget"
-	    downloader_opts="-q -O -"
-	else
-	    printf "\033[31m no curl or wget found, exiting.\033[0m\n\n"
-	    exit 1
-	fi
+        if command -V wget > /dev/null 2>&1; then
+            downloader="wget"
+            downloader_opts="-q -O -"
+        else
+            printf "\033[31m no curl or wget found, exiting.\033[0m\n\n"
+            exit 1
+        fi
     fi
 }
 
@@ -137,12 +137,12 @@ add_public_key_deb() {
     check_downloader && \
     ${downloader} ${downloader_opts} ${public_key_url} | \
     ${sudo_cmd} apt-key add - > /dev/null 2>&1
-    
+
     if [ $? -ne 0 ]; then
-	printf "\033[31m failed.\033[0m\n\n"
-	exit 1
+        printf "\033[31m failed.\033[0m\n\n"
+        exit 1
     else
-	printf "\033[32m done.\033[0m\n"
+        printf "\033[32m done.\033[0m\n"
     fi
 }
 
@@ -151,11 +151,11 @@ add_public_key_rpm() {
     printf "\033[32m ${step}. Adding public key ...\033[0m"
 
     if command -V rpmkeys > /dev/null 2>&1; then
-	rpm_key_cmd="rpmkeys"
+        rpm_key_cmd="rpmkeys"
     else
-	rpm_key_cmd="rpm"
+        rpm_key_cmd="rpm"
     fi
-    
+
     check_downloader && \
     ${sudo_cmd} rm -f /tmp/nginx_signing.key.$$ && \
     ${downloader} ${downloader_opts} ${public_key_url} | \
@@ -164,10 +164,10 @@ add_public_key_rpm() {
     rm -f /tmp/nginx_signing.key.$$
 
     if [ $? -ne 0 ]; then
-	printf "\033[31m failed.\033[0m\n\n"
-	exit 1
+        printf "\033[31m failed.\033[0m\n\n"
+        exit 1
     else
-	printf "\033[32m done.\033[0m\n"
+        printf "\033[32m done.\033[0m\n"
     fi
 }
 
@@ -184,10 +184,10 @@ add_repo_deb () {
     ${sudo_cmd} chmod 644 /etc/apt/sources.list.d/nginx-amplify.list > /dev/null 2>&1
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m added.\033[0m\n"
+        printf "\033[32m added.\033[0m\n"
     else
-	printf "\033[31m failed.\033[0m\n\n"
-	exit 1
+        printf "\033[31m failed.\033[0m\n\n"
+        exit 1
     fi
 }
 
@@ -203,10 +203,10 @@ add_repo_rpm () {
     ${sudo_cmd} chmod 644 /etc/yum.repos.d/nginx-amplify.repo > /dev/null 2>&1
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m added.\033[0m\n"
+        printf "\033[32m added.\033[0m\n"
     else
-	printf "\033[31m failed.\033[0m\n\n"
-	exit 1
+        printf "\033[31m failed.\033[0m\n\n"
+        exit 1
     fi
 }
 
@@ -214,16 +214,16 @@ add_repo_rpm () {
 install_deb_or_rpm() {
     # Update repo
     printf "\033[32m ${step}. Updating repository ...\n\n\033[0m"
-    
+
     test -n "$update_cmd" && \
     ${sudo_cmd} ${update_cmd}
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m\n ${step}. Updating repository ... done.\033[0m\n"
+        printf "\033[32m\n ${step}. Updating repository ... done.\033[0m\n"
     else
-	printf "\033[31m\n ${step}. Updating repository ... failed.\033[0m\n\n"
-	printf "\033[32m Please check the list of the supported systems here https://git.io/vKkev\033[0m\n\n"
-	exit 1
+        printf "\033[31m\n ${step}. Updating repository ... failed.\033[0m\n\n"
+        printf "\033[32m Please check the list of the supported systems here https://git.io/vKkev\033[0m\n\n"
+        exit 1
     fi
 
     incr_step
@@ -236,33 +236,33 @@ install_deb_or_rpm() {
     ${sudo_cmd} ${install_cmd} ${package_name}
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m\n ${step}. Installing nginx-amplify-agent package ... done.\033[0m\n"
+        printf "\033[32m\n ${step}. Installing nginx-amplify-agent package ... done.\033[0m\n"
     else
-	printf "\033[31m\n ${step}. Installing nginx-amplify-agent package ... failed.\033[0m\n\n"
-	printf "\033[32m Please check the list of the supported systems here https://git.io/vKkev\033[0m\n\n"
-	exit 1
+        printf "\033[31m\n ${step}. Installing nginx-amplify-agent package ... failed.\033[0m\n\n"
+        printf "\033[32m Please check the list of the supported systems here https://git.io/vKkev\033[0m\n\n"
+        exit 1
     fi
 }
 
 # Detect the user for the agent to use
 detect_amplify_user() {
     if [ -f "${agent_conf_file}" ]; then
-	amplify_user=`grep -v '#' ${agent_conf_file} | \
-		      grep -A 5 -i '\[.*nginx.*\]' | \
-		      grep -i 'user.*=' | \
-		      awk -F= '{print $2}' | \
-		      sed 's/ //g' | \
-		      head -1`
+        amplify_user=`grep -v '#' ${agent_conf_file} | \
+                      grep -A 5 -i '\[.*nginx.*\]' | \
+                      grep -i 'user.*=' | \
+                      awk -F= '{print $2}' | \
+                      sed 's/ //g' | \
+                      head -1`
 
-	nginx_conf_file=`grep -A 5 -i '\[.*nginx.*\]' ${agent_conf_file} | \
-			 grep -i 'configfile.*=' | \
-			 awk -F= '{print $2}' | \
-			 sed 's/ //g' | \
-			 head -1`
+        nginx_conf_file=`grep -A 5 -i '\[.*nginx.*\]' ${agent_conf_file} | \
+                         grep -i 'configfile.*=' | \
+                         awk -F= '{print $2}' | \
+                         sed 's/ //g' | \
+                         head -1`
     fi
 
     if [ -f "${nginx_conf_file}" ]; then
-	nginx_user=`grep 'user[[:space:]]' ${nginx_conf_file} | \
+        nginx_user=`grep 'user[[:space:]]' ${nginx_conf_file} | \
                     grep -v '[#].*user.*;' | \
                     grep -v '_user' | \
                     sed -n -e 's/.*\(user[[:space:]][[:space:]]*[^;]*\);.*/\1/p' | \
@@ -270,9 +270,9 @@ detect_amplify_user() {
     fi
 
     if [ -z "${amplify_user}" ]; then
-	test -n "${nginx_user}" && \
-	amplify_user=${nginx_user} || \
-	amplify_user="nginx"
+        test -n "${nginx_user}" && \
+        amplify_user=${nginx_user} || \
+        amplify_user="nginx"
     fi
 
     amplify_group=`id -gn ${amplify_user}`
@@ -281,7 +281,7 @@ detect_amplify_user() {
 incr_step() {
     step=`expr $step + 1`
     if [ "${step}" -lt 10 ]; then
-	step=" ${step}"
+        step=" ${step}"
     fi
 }
 
@@ -294,11 +294,11 @@ errors=0
 
 for arg in "$@"; do
     case "$arg" in
-    	-y)
-	    assume_yes="-y"
-	    ;;
-	*)
-	    ;;
+        -y)
+            assume_yes="-y"
+            ;;
+        *)
+            ;;
     esac
 done
 
@@ -322,10 +322,10 @@ if [ "`id -u`" = "0" ]; then
     sudo_cmd=""
 else
     if [ "$sudo_found" = "yes" ]; then
-	printf "\033[33m you'll need sudo rights.\033[0m\n"
+        printf "\033[33m you'll need sudo rights.\033[0m\n"
     else
-	printf "\033[31m not root, sudo not found, exiting.\033[0m\n"
-	exit 1
+        printf "\033[31m not root, sudo not found, exiting.\033[0m\n"
+        exit 1
     fi
 fi
 
@@ -352,39 +352,43 @@ get_os_name
 
 # Check for Python
 printf "\033[32m ${step}. Checking Python ...\033[0m"
-command -V python > /dev/null 2>&1 && python_exists='yes' || python_exists='no'
-command -V python2.7 > /dev/null 2>&1 && python_27='yes' || python_27='no'
-command -V python2.6 > /dev/null 2>&1 && python_26='yes' || python_26='no'
+command -V python > /dev/null 2>&1 && python_bin='python'
+command -V python2.7 > /dev/null 2>&1 && python_bin='python2.7'
+command -V python2.6 > /dev/null 2>&1 && python_bin='python2.6'
 
-if [ "${python_exists}" = "yes" ]; then
-    if [ "${python_27}" = "no" -a "${python_26}" = "no" ]; then
-	printf "\033[31m version 2.6 or 2.7 is required, older or newer versions aren't supported.\033[0m\n\n"
-	pyton_exists="no"
-    fi
-else
-    printf "\033[31m version 2.6 or 2.7 is required, but could not be found.\033[0m\n\n"
-fi
+if [ -z "${python_bin}" ]; then
+    printf "\033[31m python 2.6 or 2.7 required, could not be found.\033[0m\n\n"
 
-if [ "${python_exists}" = "no" ]; then
     case "$os" in
-	ubuntu|debian)
-	    printf "\033[32m Please check and install Python package:\033[0m\n\n"
-	    printf "     ${sudo_cmd}apt-cache pkgnames | grep python2.7\n"
-	    printf "     ${sudo_cmd}apt-get install python2.7\n\n"
-	    ;;
-	centos|amzn)
-	    printf "\033[32m Please check and install Python package:\033[0m\n\n"
-	    printf "     ${sudo_cmd}yum list python\n"
-	    printf "     ${sudo_cmd}yum install python\n\n"
-	    ;;
-	*)
-	    ;;
+        ubuntu|debian)
+            printf "\033[32m Please check and install Python package:\033[0m\n\n"
+            printf "     ${sudo_cmd}apt-cache pkgnames | grep python2.7\n"
+            printf "     ${sudo_cmd}apt-get install python2.7\n\n"
+            ;;
+        centos|amzn)
+            printf "\033[32m Please check and install Python package:\033[0m\n\n"
+            printf "     ${sudo_cmd}yum list python\n"
+            printf "     ${sudo_cmd}yum install python\n\n"
+            ;;
+        *)
+            ;;
     esac
 
     exit 1
 fi
 
-python_version=`python -c 'import sys; print("{0}.{1}".format(sys.version_info[0], sys.version_info[1]))'`
+python_version=`${python_bin} -c 'import sys; print("{0}.{1}".format(sys.version_info[0], sys.version_info[1]))'`
+
+if [ $? -eq 0 ]; then
+    if [ "${python_version}" != "2.6" -a "${python_version}" != "2.7" ]; then
+        printf "\033[31m python older than 2.6 or newer than 2.7 is not supported.\033[0m\n\n"
+        exit 1
+    fi
+else
+        printf "\033[31m failed to detect python version.\033[0m\n\n"
+        exit 1
+fi
+
 printf "\033[32m found python $python_version\033[0m\n"
 
 incr_step
@@ -395,72 +399,82 @@ printf "\033[32m ${step}. Checking OS compatibility ...\033[0m"
 # Add public key, create repo config, install package
 case "$os" in
     ubuntu|debian)
-	printf "\033[32m ${os} detected.\033[0m\n"		
+        printf "\033[32m ${os} detected.\033[0m\n"
 
-	incr_step
+        incr_step
 
-	# Add public key
-	add_public_key_deb
+        # Add public key
+        add_public_key_deb
 
-	incr_step
+        incr_step
 
-	# Add repository configuration
-	add_repo_deb
+        # Add repository configuration
+        add_repo_deb
 
-	incr_step
+        incr_step
 
-	# Install package
-	update_cmd="apt-get ${assume_yes} update"
-	install_cmd="apt-get ${assume_yes} install"
+        # Install package
+        update_cmd="apt-get ${assume_yes} update"
+        install_cmd="apt-get ${assume_yes} install"
 
-	install_deb_or_rpm
-	;;
+        # Configure package version
+        if [ -n "${VERSION}" ]; then
+            package_name="${package_name}=${VERSION}"
+        fi
+
+        install_deb_or_rpm
+        ;;
     centos|amzn)
-	printf "\033[32m ${centos_flavor} detected.\033[0m\n"
+        printf "\033[32m ${centos_flavor} detected.\033[0m\n"
 
-	incr_step
+        incr_step
 
-	# Add public key
-	add_public_key_rpm
-		
-	incr_step
+        # Add public key
+        add_public_key_rpm
 
-	# Add repository configuration
-	add_repo_rpm
+        incr_step
 
-	incr_step
+        # Add repository configuration
+        add_repo_rpm
 
-	# Install package
-	update_cmd="yum ${assume_yes} makecache"
+        incr_step
 
-	# Check if nginx packages are excluded
-	if grep 'exclude.*nginx' /etc/yum.conf | grep -v '#' >/dev/null 2>&1; then
-	    printf "\n"
-	    printf "\033[32m Packages with the 'nginx' names are excluded in /etc/yum.conf - proceed with install (y/n)? \033[0m"
+        # Install package
+        update_cmd="yum ${assume_yes} makecache"
 
-	    read answer
-	    printf "\n"
+        # Configure package version
+        if [ -n "${VERSION}" ]; then
+            package_name="${package_name}-${VERSION}"
+        fi
 
-	    if [ "${answer}" = "y" -o "${answer}" = "Y" ]; then
-		install_cmd="yum ${assume_yes} --disableexcludes=main install"
-	    else
-		printf "\033[31m exiting.\033[0m\n"
-		exit 1
-	    fi
-	else
-	    install_cmd="yum ${assume_yes} install"
-	fi
+        # Check if nginx packages are excluded
+        if grep 'exclude.*nginx' /etc/yum.conf | grep -v '#' >/dev/null 2>&1; then
+            printf "\n"
+            printf "\033[32m Packages with the 'nginx' names are excluded in /etc/yum.conf - proceed with install (y/n)? \033[0m"
 
-	install_deb_or_rpm
-	;;
+            read answer
+            printf "\n"
+
+            if [ "${answer}" = "y" -o "${answer}" = "Y" ]; then
+                install_cmd="yum ${assume_yes} --disableexcludes=main install"
+            else
+                printf "\033[31m exiting.\033[0m\n"
+                exit 1
+            fi
+        else
+            install_cmd="yum ${assume_yes} install"
+        fi
+
+        install_deb_or_rpm
+        ;;
     *)
-	if [ -n "$os" ] && [ "$os" != "linux" ]; then
-	    printf "\033[31m $os is currently unsupported, apologies!\033[0m\n\n"
-	else
-	    printf "\033[31m failed.\033[0m\n\n"
-	fi
-	
-	exit 1
+        if [ -n "$os" ] && [ "$os" != "linux" ]; then
+            printf "\033[31m $os is currently unsupported, apologies!\033[0m\n\n"
+        else
+            printf "\033[31m failed.\033[0m\n\n"
+        fi
+
+        exit 1
 esac
 
 incr_step
@@ -491,10 +505,10 @@ fi
 
 ${sudo_cmd} rm -f ${agent_conf_file} && \
 ${sudo_cmd} sh -c "sed -e 's|api_key.*$|api_key = $api_key|' \
-		       -e 's|api_url.*$|api_url = $api_receiver_url|' \
-		       -e 's|hostname.*$|hostname = $amplify_hostname|' \
-	${agent_conf_file}.default > \
-	${agent_conf_file}" && \
+                       -e 's|api_url.*$|api_url = $api_receiver_url|' \
+                       -e 's|hostname.*$|hostname = $amplify_hostname|' \
+        ${agent_conf_file}.default > \
+        ${agent_conf_file}" && \
 ${sudo_cmd} chmod 644 ${agent_conf_file} && \
 ${sudo_cmd} chown nginx ${agent_conf_file} > /dev/null 2>&1
 
@@ -518,17 +532,17 @@ if [ $? -eq 0 ]; then
     printf "\033[32m ${step}. Checking if sudo -u ${amplify_user} -g ${amplify_group} can be used for tests ...\033[0m"
 
     if [ "${sudo_found}" = "yes" ]; then
-	sudo_output=`sudo -u ${amplify_user} /bin/sh -c "id -un" 2>/dev/null`
+        sudo_output=`sudo -u ${amplify_user} /bin/sh -c "id -un" 2>/dev/null`
 
-	if [ "${sudo_output}" = "${amplify_user}" ]; then
-	    printf "\033[32m done.\033[0m\n"
-	else
-	    printf "\033[31m failed. (${sudo_output} != ${amplify_user})\033[0m\n"
-	    errors=`expr $errors + 1`
-	fi
+        if [ "${sudo_output}" = "${amplify_user}" ]; then
+            printf "\033[32m done.\033[0m\n"
+        else
+            printf "\033[31m failed. (${sudo_output} != ${amplify_user})\033[0m\n"
+            errors=`expr $errors + 1`
+        fi
     else
-	printf "\033[31m failed, sudo not found.\033[0m\n"
-	errors=`expr $errors + 1`
+        printf "\033[31m failed, sudo not found.\033[0m\n"
+        errors=`expr $errors + 1`
     fi
 
     incr_step
@@ -546,10 +560,10 @@ if [ "${errors}" -eq 0 ]; then
     sudo -u ${amplify_user} -g ${amplify_group} /bin/sh -c "ps xao user,pid,ppid,command" 2>&1 | grep "^root" >/dev/null 2>&1
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m ok.\033[0m\n"
+        printf "\033[32m ok.\033[0m\n"
     else
-	printf "\033[31m agent will fail to detect nginx, ps(1) is restricted!\033[0m\n"
-	errors=`expr $errors + 1`
+        printf "\033[31m agent will fail to detect nginx, ps(1) is restricted!\033[0m\n"
+        errors=`expr $errors + 1`
     fi
 
     incr_step
@@ -559,10 +573,10 @@ if [ "${errors}" -eq 0 ]; then
     sudo -u ${amplify_user} -g ${amplify_group} /bin/sh -c 'cat /proc/$$/io' >/dev/null 2>&1
 
     if [ $? -eq 0 ]; then
-	printf "\033[32m ok.\033[0m\n"
+        printf "\033[32m ok.\033[0m\n"
     else
-	printf "\033[31m failed, /proc/<pid>/io is restricted!\033[0m\n"
-	errors=`expr $errors + 1`
+        printf "\033[31m failed, /proc/<pid>/io is restricted!\033[0m\n"
+        errors=`expr $errors + 1`
     fi
 
     incr_step
@@ -573,16 +587,16 @@ if [ -f "${nginx_conf_file}" ]; then
     nginx_conf_dir=`echo ${nginx_conf_file} | sed 's/^\(.*\)\/[^/]*/\1/'`
 
     if [ -d "${nginx_conf_dir}" ]; then
-	printf "\033[32m ${step}. Checking if stub_status is configured ...\033[0m"
+        printf "\033[32m ${step}. Checking if stub_status is configured ...\033[0m"
 
-	if grep -R "stub_status" ${nginx_conf_dir}/* > /dev/null 2>&1; then
-	    printf "\033[32m ok.\033[0m\n"
-	else
-	    printf "\033[31m no stub_status in nginx config, please check https://git.io/vQGs4\033[0m\n"
-	    errors=`expr $errors + 1`
-	fi
+        if grep -R "stub_status" ${nginx_conf_dir}/* > /dev/null 2>&1; then
+            printf "\033[32m ok.\033[0m\n"
+        else
+            printf "\033[31m no stub_status in nginx config, please check https://git.io/vQGs4\033[0m\n"
+            errors=`expr $errors + 1`
+        fi
 
-	incr_step
+        incr_step
     fi
 fi
 
@@ -591,10 +605,10 @@ if [ -n "${downloader}" ]; then
     printf "\033[32m ${step}. Checking connectivity to the receiver ...\033[0m"
 
     if ${downloader} ${downloader_opts} ${api_ping_url} | grep 'pong' >/dev/null 2>&1; then
-	printf "\033[32m ok.\033[0m\n"
+        printf "\033[32m ok.\033[0m\n"
     else
-	printf "\033[31m failed to connect to the receiver! (check https://git.io/vKk0I)\033[0m\n"
-	errors=`expr $errors + 1`
+        printf "\033[31m failed to connect to the receiver! (check https://git.io/vKk0I)\033[0m\n"
+        errors=`expr $errors + 1`
     fi
 
     incr_step
@@ -602,29 +616,29 @@ if [ -n "${downloader}" ]; then
     # Compare server time with local time
     printf "\033[32m ${step}. Checking system time ...\033[0m"
     if [ "${downloader}" = "curl" ]; then
-	downloader_opts="-fsi"
+        downloader_opts="-fsi"
     else
-	if [ "${downloader}" = "wget" ]; then
-	    downloader_opts="-qS"
-	fi
+        if [ "${downloader}" = "wget" ]; then
+            downloader_opts="-qS"
+        fi
     fi
 
     server_date=`${downloader} ${downloader_opts} ${api_ping_url} 2>&1 | grep '^.*Date' | sed 's/.*Date:[ ][ ]*\(.*\)/\1/'`
 
     if [ $? -eq 0 ]; then
-	amplify_epoch=`date --date="${server_date}" "+%s"`
-	agent_epoch=`date -u '+%s'`
-	offset=`expr ${amplify_epoch} - ${agent_epoch} | sed 's/^-//'`
+        amplify_epoch=`date --date="${server_date}" "+%s"`
+        agent_epoch=`date -u '+%s'`
+        offset=`expr ${amplify_epoch} - ${agent_epoch} | sed 's/^-//'`
 
-	if [ "${offset}" -le 6 ]; then
-	    printf "\033[32m ok.\033[0m\n"
-	else
-	    printf "\033[31m please adjust the system clock for proper metric collection!\033[0m\n"
-	    errors=`expr $errors + 1`
-	fi
+        if [ "${offset}" -le 6 ]; then
+            printf "\033[32m ok.\033[0m\n"
+        else
+            printf "\033[31m please adjust the system clock for proper metric collection!\033[0m\n"
+            errors=`expr $errors + 1`
+        fi
     else
-	printf "\033[31m failed!\033[0m\n"
-	errors=`expr $errors + 1`
+        printf "\033[31m failed!\033[0m\n"
+        errors=`expr $errors + 1`
     fi
 fi
 
@@ -656,8 +670,8 @@ if [ -f "${amplify_pid_file}" ]; then
     amplify_pid=`cat ${amplify_pid_file}`
 
     if ps "${amplify_pid}" >/dev/null 2>&1; then
-	printf "\033[32m Stopping old amplify-agent, pid ${amplify_pid}\033[0m\n"
-	${sudo_cmd} service amplify-agent stop > /dev/null 2>&1 < /dev/null
+        printf "\033[32m Stopping old amplify-agent, pid ${amplify_pid}\033[0m\n"
+        ${sudo_cmd} service amplify-agent stop > /dev/null 2>&1 < /dev/null
     fi
 fi
 

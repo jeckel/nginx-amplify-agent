@@ -373,5 +373,39 @@ class LogParserTestCase(BaseTestCase):
         parsed = parser.parse(line)
         assert_that(parsed, equal_to(None))
 
+    def test_empty_server_name(self):
+        # log_format and lines for this test were taken from AMPDEV-1110
 
+        log_format = (
+            '$remote_addr - $remote_user [$time_local] "$request" '
+            '$status $body_bytes_sent "$http_referer" '
+            '"$http_user_agent" "$http_x_forwarded_for" '
+            '"$host" sn="$server_name" '
+            'rt=$request_time '
+            'ua="$upstream_addr" us="$upstream_status" '
+            'ut="$upstream_response_time" ul="$upstream_response_length" '
+            'cs=$upstream_cache_status'
+        )
 
+        parser = NginxAccessLogParser(log_format)
+
+        assert_that(parser.keys, contains(
+            'remote_addr', 'remote_user', 'time_local', 'request',
+            'status', 'body_bytes_sent', 'http_referer',
+            'http_user_agent', 'http_x_forwarded_for',
+            'host', 'server_name',
+            'request_time',
+            'upstream_addr', 'upstream_status',
+            'upstream_response_time', 'upstream_response_length',
+            'upstream_cache_status'
+        ))
+
+        lines = [
+            '192.168.128.23 - - [13/Jul/2017:20:04:15 +0000] "GET /api/1/nats/worker_connections HTTP/1.1" 200 522 "-" "Python-urllib/3.5" "-" "sticky-1.gnt.nginx.com" sn="" rt=0.000 ua="-" us="-" ut="-" ul="-" cs=-',
+            '192.168.128.23 - - [13/Jul/2017:20:04:15 +0000] "GET /api/1/http/upstreams HTTP/1.1" 200 2396 "-" "Python-urllib/3.5" "-" "sticky-1.gnt.nginx.com" sn="" rt=0.000 ua="-" us="-" ut="-" ul="-" cs=-'
+        ]
+
+        for line in lines:
+            parsed = parser.parse(line)
+            assert_that(parsed, not_none())
+            assert_that(parsed, has_entries(remote_addr='192.168.128.23', server_name=''))

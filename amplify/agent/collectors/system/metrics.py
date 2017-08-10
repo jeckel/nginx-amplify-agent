@@ -153,6 +153,11 @@ class SystemMetricsCollector(AbstractMetricsCollector):
             for real_dev_name in real_block_devs:
                 if disk.startswith(real_dev_name):
                     disk_is_physical = True
+
+            # check to see if it is __all__ special name
+            if disk == '__all__':
+                disk_is_physical = True
+
             if not disk_is_physical:
                 continue
 

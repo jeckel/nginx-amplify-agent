@@ -81,6 +81,12 @@ class StatsdClient(object):
 
         if value is None:
             value = 1
+        elif value < 0:
+            self.context.default_log.debug(
+                'negative delta (%s) passed for metric %s, skipping' %
+                (value, metric_name)
+            )
+            return
 
         # new metric
         if metric_name not in self.current['counter']:

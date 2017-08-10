@@ -153,7 +153,7 @@ class PHPFPMStatus(object):
         if status.startswith('200'):
             return out
         else:
-            context.log.error(
+            context.log.debug(
                 'non-success returned by fcgi (status: %s)' % status
             )
             context.log.debug(

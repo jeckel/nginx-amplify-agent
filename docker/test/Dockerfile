@@ -26,8 +26,9 @@ RUN apt-get install -y php5-fpm
 # add fastcgi_params and php-fpm.conf for nginx
 ADD fastcgi_params /etc/nginx/fastcgi_params
 ADD php-fpm.conf /etc/nginx/conf.d/php-fpm.conf
-# overwrite default www.conf for php5.0-fpm
+# overwrite default www.conf for php5.0-fpm and add second one
 ADD php-fpm-www.conf /etc/php5/fpm/pool.d/www.conf
+ADD php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
 RUN mkdir /run/php/
 # add test .php file to /var/www/php-fpm root
 ADD test.php /var/www/php-fpm/test.php

@@ -42,8 +42,11 @@ class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
 
         found_pools = pool_manager._find_all()
         assert_that(found_pools, not_none())
-        assert_that(found_pools, has_length(1))
+        assert_that(found_pools, has_length(2))
 
+        # This checks the first pool in the found_pools and makes assumptions
+        # as to which one it will be.  This may not be true on other test 
+        # systems
         found_pool = found_pools[0]
         assert_that(found_pool['parent_id'], equal_to(1))
         assert_that(found_pool['parent_local_id'], equal_to(
@@ -70,7 +73,7 @@ class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
 
         # check that a pool is found
         current_pools = context.objects.find_all(types=pool_manager.types)
-        assert_that(current_pools, has_length(1))
+        assert_that(current_pools, has_length(2))
 
     def test_remove(self):
         pool_manager = PHPFPMPoolManager()
@@ -85,7 +88,7 @@ class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
 
         # check that a pool is found
         current_pools = context.objects.find_all(types=pool_manager.types)
-        assert_that(current_pools, has_length(1))
+        assert_that(current_pools, has_length(2))
 
         # stop php-fpm
         self.stop_fpm()
