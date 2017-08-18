@@ -123,7 +123,7 @@ class NginxConfigParser(object):
     log_format_value = (non_space_value | multiline_string).setParseAction(set_line_number)
     add_header_value = Regex(r'[^{};]*"[^"]+"').setParseAction(set_line_number)
     map_value = (string | Regex(r'((\\\s|[^{};\s])*)')).setParseAction(set_line_number)
-    raw_value = Word(alphanums + '$_:%?"~<>\/-+.,*()[];|^@"' + "'").setParseAction(set_line_number)
+    raw_value = Word(alphanums + '$_:%?"~<>\/-+.,*()[];|^@"=' + "'").setParseAction(set_line_number)
 
     # modifier for location uri [ = | ~ | ~* | ^~ ]
     modifier = oneOf("= ~* ~ ^~")
@@ -201,7 +201,7 @@ class NginxConfigParser(object):
                 IF + if_value
             ) |
             Group(
-                LOCATION + Optional(modifier) + Optional(raw_value)
+                LOCATION + Optional(modifier) + Optional(multiline_string | raw_value)
             )
         ).setParseAction(set_line_number) +
         left_brace -  # <----- use '-' operator instead of '+' to get better error messages

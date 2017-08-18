@@ -1,0 +1,30 @@
+server {
+        listen 127.0.0.1:8443 ssl http2;
+        server_name online.test.com;
+        #include includes/ssl.conf;
+        #ssl_certificate /path/to/my.pem;
+        #ssl_certificate_key /path/to/privkey.pem;
+        
+        include includes/not_admin;
+        location ~ .*\/\;.* {return 444; access_log off;}
+        location ~ 7\.html {return 444; access_log off;}
+        location ~ \.php { return 444; access_log off;}
+}
+
+server {
+        listen 127.0.0.1:8000;
+        include includes/not_admin;
+        location ~ .*\/\;.* {return 444; access_log off;}
+        location ~ ^(/page/[0-9]+/\?arg=) {return 444; access_log off;}
+        location ~ "\.pagespeed\.([a-z]\.)?[a-z]{2}\.[^.]{10}\.[^.]+" {return 444; access_log off;}
+        location ~ 7\.html {return 444; access_log off;}
+        location ~ \.php { return 444; access_log off;}
+
+        location /rad {
+            rewrite ^ http://127.0.0.1:8000/rad permanent;
+        }
+
+        location /rock {
+            rewrite ^ http://127.0.0.1:8000/rock permanent;
+        }
+}

@@ -1,3 +1,9 @@
+nginx-amplify-agent (0.45-2) unstable; urgency=low
+
+  * Fixes for config parser
+
+ -- Mike Belov <dedm@nginx.com>  Thu, 17 Aug 2017 10:00:00 -0800
+
 nginx-amplify-agent (0.45-1) unstable; urgency=low
 
   * PHP-FPM bug fixes

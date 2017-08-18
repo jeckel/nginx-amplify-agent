@@ -76,13 +76,11 @@ class HTTPClient(Singleton):
             'User-Agent': 'nginx-amplify-agent/%s' % context.version
         })
 
-    def make_request(self, location, method, data=None, timeout=None, json=True, log=True, verify_ssl_cert=None):
+    def make_request(self, location, method, data=None, timeout=None, json=True, log=True):
         url = location if location.startswith('http') else '%s/%s' % (self.url, location)
         timeout = timeout if timeout is not None else self.timeout
         payload = ujson.encode(data) if data else '{}'
         payload = zlib.compress(payload, self.gzip) if self.gzip else payload
-        if verify_ssl_cert is None:
-            verify_ssl_cert = self.verify_ssl_cert
 
         start_time = time.time()
         result, http_code, amplify_id = '', 500, None
@@ -91,7 +89,7 @@ class HTTPClient(Singleton):
                 r = self.session.get(
                     url,
                     timeout=timeout,
-                    verify=verify_ssl_cert,
+                    verify=self.verify_ssl_cert,
                     proxies=self.proxies
                 )
             else:
@@ -99,7 +97,7 @@ class HTTPClient(Singleton):
                     url,
                     data=payload,
                     timeout=timeout,
-                    verify=verify_ssl_cert,
+                    verify=self.verify_ssl_cert,
                     proxies=self.proxies
                 )
             http_code = r.status_code
@@ -128,17 +126,11 @@ class HTTPClient(Singleton):
                 )
             )
 
-    def post(self, url, data=None, timeout=None, json=True, verify_ssl_cert=False):
-        return self.make_request(
-            url, 'post', data=data, timeout=timeout,
-            json=json, verify_ssl_cert=verify_ssl_cert
-        )
+    def post(self, url, data=None, timeout=None, json=True):
+        return self.make_request(url, 'post', data=data, timeout=timeout, json=json)
 
-    def get(self, url, timeout=None, json=True, log=True, verify_ssl_cert=False):
-        return self.make_request(
-            url, 'get', timeout=timeout,
-            json=json, log=log, verify_ssl_cert=verify_ssl_cert
-        )
+    def get(self, url, timeout=None, json=True, log=True):
+        return self.make_request(url, 'get', timeout=timeout, json=json, log=log)
 
 
 def resolve_uri(uri):

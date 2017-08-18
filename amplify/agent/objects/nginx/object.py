@@ -164,10 +164,7 @@ class NginxObject(AbstractObject):
             for proto in ('http://', 'https://'):
                 full_url = '%s%s' % (proto, url) if not url.startswith('http') else url
                 try:
-                    status_response = context.http_client.get(
-                        full_url, timeout=0.5, json=json, log=False,
-                        verify_ssl_cert=False   # users can use self-signed certs, we should not check them
-                    )
+                    status_response = context.http_client.get(full_url, timeout=0.5, json=json, log=False)
                     if status_response:
                         if json or 'Active connections' in status_response:
                             return full_url
