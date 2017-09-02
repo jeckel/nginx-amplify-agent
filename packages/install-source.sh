@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# --- TODO ---
+# Re-check Python version if not found initially, and then installed here
+
 pip_url="https://bootstrap.pypa.io/get-pip.py"
 agent_url="https://github.com/nginxinc/nginx-amplify-agent"
 agent_conf_path="/etc/amplify-agent"
@@ -142,7 +145,7 @@ printf " Please select your OS: \n\n"
 echo " 1. FreeBSD 10, 11"
 echo " 2. SLES 12"
 echo " 3. Alpine 3.3"
-echo " 4. Fedora 24"
+echo " 4. Fedora 24, 26"
 echo " 5. Gentoo"
 echo " 6. Other"
 echo ""
@@ -161,7 +164,7 @@ case $line in
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} pkg install python
+        test "${found_python}" = "no" && ${sudo_cmd} pkg install python && py_command='python'
         test "${found_git}" = "no" && ${sudo_cmd} pkg install git
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} dnf -y install wget
         ;;
@@ -172,7 +175,7 @@ case $line in
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} zypper install python
+        test "${found_python}" = "no" && ${sudo_cmd} zypper install python && py_command='python'
         test "${found_python_dev}" = "no" && ${sudo_cmd} zypper install python-dev
         test "${found_git}" = "no" && ${sudo_cmd} zypper install git
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} dnf -y install wget
@@ -184,7 +187,7 @@ case $line in
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} apk add --no-cache python
+        test "${found_python}" = "no" && ${sudo_cmd} apk add --no-cache python && py_command='python'
         test "${found_python_dev}" = "no" && ${sudo_cmd} apk add --no-cache python-dev
         test "${found_python}" = "no" && ${sudo_cmd} apk add --no-cache py-configobj
         test "${found_git}" = "no" && ${sudo_cmd} apk add --no-cache git
@@ -192,14 +195,14 @@ case $line in
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} dnf -y install wget
         test "${found_gcc}" = "no" && ${sudo_cmd} apk add --no-cache gcc musl-dev linux-headers
         ;;
-    # Fedora 24
+    # Fedora 24, 26
     4)
         os="fedora24"
 
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} dnf -y install python
+        test "${found_python}" = "no" && ${sudo_cmd} dnf -y install python && py_command='python'
         test "${found_python_dev}" = "no" && ${sudo_cmd} dnf -y install python-devel
         test "${found_git}" = "no" && ${sudo_cmd} dnf -y install git
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} dnf -y install wget
@@ -247,7 +250,7 @@ fi
 
 # Set up Python stuff
 ${downloader} ${pip_url}
-${py_command} get-pip.py --user
+${py_command} get-pip.py --ignore-installed --user
 ~/.local/bin/pip install setuptools --upgrade --user
 
 # Clone the Amplify Agent repo
