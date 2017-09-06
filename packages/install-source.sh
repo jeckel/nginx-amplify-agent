@@ -139,7 +139,7 @@ else
 fi
 
 printf " Please select your OS: \n\n"
-echo " 1. FreeBSD 10"
+echo " 1. FreeBSD 10, 11"
 echo " 2. SLES 12"
 echo " 3. Alpine 3.3"
 echo " 4. Fedora 24"
@@ -156,7 +156,7 @@ echo ""
 case $line in
     # FreeBSD 10
     1)
-        os="freebsd10"
+        os="freebsd"
 
         install_warn1
         check_packages
@@ -262,7 +262,19 @@ if [ "${os}" = "fedora24" -a "${arch64}" = "yes" ]; then
     echo 'install-purelib=$base/lib64/python' >> setup.cfg
 fi
 
-~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements
+if [ "${os}" = "freebsd" ]; then
+    rel=`uname -r | sed 's/^\(.[^.]*\)\..*/\1/'`
+    test "${rel}" = "11" && \
+	opt='-std=c99'
+
+    grep -v gevent packages/requirements > packages/req-nogevent
+    grep gevent packages/requirements > packages/req-gevent
+
+    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/req-nogevent
+    CFLAGS=${opt} ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/req-gevent
+else
+    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements
+fi
 
 if [ "${os}" = "fedora24" -a "${arch64}" = "yes" ]; then
     rm setup.cfg
@@ -281,7 +293,7 @@ ${sudo_cmd} chmod 644 ${agent_conf_file}
 detect_amplify_user
 
 if ! grep ${amplify_user} /etc/passwd >/dev/null 2>&1; then
-    if [ "${os}" = "freebsd10" ]; then
+    if [ "${os}" = "freebsd" ]; then
         ${sudo_cmd} pw user add ${amplify_user}
     else
         ${sudo_cmd} useradd ${amplify_user}
