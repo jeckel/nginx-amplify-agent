@@ -142,7 +142,7 @@ printf " Please select your OS: \n\n"
 echo " 1. FreeBSD 10, 11"
 echo " 2. SLES 12"
 echo " 3. Alpine 3.3"
-echo " 4. Fedora 24"
+echo " 4. Fedora 24, 26"
 echo " 5. Gentoo"
 echo " 6. Other"
 echo ""
@@ -194,12 +194,12 @@ case $line in
         ;;
     # Fedora 24
     4)
-        os="fedora24"
+        os="fedora"
 
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} dnf -y install python
+        test "${found_python}" = "no" && ${sudo_cmd} dnf -y install python && py_command="python2.7"
         test "${found_python_dev}" = "no" && ${sudo_cmd} dnf -y install python-devel
         test "${found_git}" = "no" && ${sudo_cmd} dnf -y install git
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} dnf -y install wget
@@ -212,7 +212,7 @@ case $line in
         install_warn1
         check_packages
 
-        test "${found_python}" = "no" && ${sudo_cmd} emerge dev-lang/python:2.7 && py_command='python2.7'
+        test "${found_python}" = "no" && ${sudo_cmd} emerge dev-lang/python:2.7 && py_command="python2.7"
         test "${found_git}" = "no" && ${sudo_cmd} emerge dev-cvs/git
         test "${found_wget}" = "no" -a "${found_curl}" = "no" &&  ${sudo_cmd} emerge net-misc/wget
         test "${found_gcc}" = "no" && ${sudo_cmd} emerge sys-devel/gcc
@@ -247,7 +247,7 @@ fi
 
 # Set up Python stuff
 ${downloader} ${pip_url}
-${py_command} get-pip.py --user
+${py_command} get-pip.py --ignore-installed --user
 ~/.local/bin/pip install setuptools --upgrade --user
 
 # Clone the Amplify Agent repo
@@ -257,7 +257,7 @@ git clone ${agent_url}
 # Install the Amplify Agent
 cd nginx-amplify-agent
 
-if [ "${os}" = "fedora24" -a "${arch64}" = "yes" ]; then
+if [ "${os}" = "fedora" -a "${arch64}" = "yes" ]; then
     echo '[install]' > setup.cfg
     echo 'install-purelib=$base/lib64/python' >> setup.cfg
 fi
@@ -276,7 +276,7 @@ else
     ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements
 fi
 
-if [ "${os}" = "fedora24" -a "${arch64}" = "yes" ]; then
+if [ "${os}" = "fedora" -a "${arch64}" = "yes" ]; then
     rm setup.cfg
     export PYTHONPATH=/usr/lib64/python/
 fi
