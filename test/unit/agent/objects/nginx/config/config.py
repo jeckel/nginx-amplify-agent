@@ -9,7 +9,6 @@ from test.base import BaseTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -306,19 +305,18 @@ class ConfigTestCase(BaseTestCase):
         config = NginxConfig(wildcard_directory_config)
         config.full_parse()
 
-        assert_that(
-            config.directory_map,
-            has_key(
-                '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.info/config/nginx/'
-            )
-        )
-        files = config.directory_map[
-            '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.info/config/nginx/'
-        ]['files']
-        assert_that(
-            files,
-            has_key('/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.info/config/nginx/test.conf')
-        )
+        assert_that(config.directory_map, has_entries({
+            '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.info/config/nginx/': has_entries({
+                'files': has_key(
+                    '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.info/config/nginx/test.conf'
+                )
+            }),
+            '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.other/config/nginx/': has_entries({
+                'files': has_key(
+                    '/amplify/test/fixtures/nginx/wildcard_directory/data/www/test.domain.other/config/nginx/foobar.conf'
+                )
+            })
+        }))
 
     def test_logs_definitions_with_tabs(self):
         config = NginxConfig(tabs_everywhere)

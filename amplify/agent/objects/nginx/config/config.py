@@ -13,7 +13,6 @@ from amplify.agent.objects.nginx.config.parser import NginxConfigParser
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -400,10 +399,9 @@ class NginxConfig(object):
         start_time = time.time()
 
         for cert_filename in set(self.parser_ssl_certificates):
-            if cert_filename not in self.ssl_certificates:
-                ssl_analysis_result = ssl_analysis(cert_filename)
-                if ssl_analysis_result:
-                    self.ssl_certificates[cert_filename] = ssl_analysis_result
+            ssl_analysis_result = ssl_analysis(cert_filename)
+            if ssl_analysis_result:
+                self.ssl_certificates[cert_filename] = ssl_analysis_result
 
         end_time = time.time()
         return end_time - start_time

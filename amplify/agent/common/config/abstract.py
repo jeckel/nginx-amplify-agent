@@ -3,7 +3,6 @@ import ConfigParser
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -72,7 +71,7 @@ class AbstractConfig(object):
             if k in current:
                 if isinstance(v, dict) and isinstance(current[k], dict):
                     changes += self.apply(v, current[k])
-                elif v and v != current[k] and k not in self.unchangeable:
+                elif v != current[k] and k not in self.unchangeable:
                     changes += 1
                     current[k] = v
             else:

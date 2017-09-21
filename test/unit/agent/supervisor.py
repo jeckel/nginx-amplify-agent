@@ -13,7 +13,6 @@ from test.fixtures.defaults import DEFAULT_API_URL, DEFAULT_API_KEY
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -40,7 +39,7 @@ class SupervisorTestCase(RealNginxTestCase):
         with requests_mock.mock() as m:
             m.post(
                 '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
-                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
             )
 
             supervisor.init_object_managers()
@@ -49,9 +48,12 @@ class SupervisorTestCase(RealNginxTestCase):
 
             old_object_configs = deepcopy(supervisor.object_managers['nginx'].object_configs)
 
+            old_restart_time = supervisor.last_cloud_talk_restart
             supervisor.talk_to_cloud(force=True)
             for container in supervisor.object_managers.itervalues():
                 container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, not_(equal_to(old_restart_time)))
 
             # check that agent config was changed
             assert_that(context.app_config.config, not_(equal_to(self.old_cloud_config)))
@@ -59,6 +61,195 @@ class SupervisorTestCase(RealNginxTestCase):
             # check that object configs were also changed
             nginx_container = supervisor.object_managers['nginx']
             assert_that(nginx_container.object_configs, not_(equal_to(old_object_configs)))
+
+    def test_talk_to_cloud_no_change(self):
+        """
+        Checks that we apply all changes from cloud to agent config and object configs
+        """
+        supervisor = Supervisor()
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            supervisor.init_object_managers()
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            # first talk change
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            time.sleep(1)
+
+            # second talk no change
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, equal_to(old_restart_time))
+
+    def test_talk_to_cloud_container_change(self):
+        """
+        Checks that we detect changes from container
+        """
+        supervisor = Supervisor()
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+            # TODO: containers -> nginx -> run_test must be in this order
+            #       (true/false rather than false/true) breaks this test.
+
+            supervisor.init_object_managers()
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            # first talk change
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            time.sleep(1)
+
+            # second talk no change
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, equal_to(old_restart_time))
+
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            old_object_configs = deepcopy(supervisor.object_managers['nginx'].object_configs)
+
+            time.sleep(1)
+
+            # third talk change to container only
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, not_(equal_to(old_restart_time)))
+
+            # check that object configs not changed
+            nginx_container = supervisor.object_managers['nginx']
+            assert_that(nginx_container.object_configs, equal_to(old_object_configs))
+
+    def test_talk_to_cloud_object_change(self):
+        """
+        Checks that we detect changes from objects
+        """
+        supervisor = Supervisor()
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            supervisor.init_object_managers()
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            # first talk change
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            time.sleep(1)
+
+            # second talk no change
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, equal_to(old_restart_time))
+
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":false}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            old_object_configs = deepcopy(supervisor.object_managers['nginx'].object_configs)
+
+            time.sleep(1)
+
+            # third talk change to object only
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, not_(equal_to(old_restart_time)))
+
+            # check that object configs changed
+            nginx_container = supervisor.object_managers['nginx']
+            assert_that(nginx_container.object_configs, not_(equal_to(old_object_configs)))
+
+    def test_change_overdetect(self):
+        """
+        Checks that we detect changes from container
+        """
+        supervisor = Supervisor()
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            supervisor.init_object_managers()
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            # first talk change
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            time.sleep(1)
+
+            # second talk no change
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, equal_to(old_restart_time))
+
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+            )
+
+            old_object_configs = deepcopy(supervisor.object_managers['nginx'].object_configs)
+
+            time.sleep(1)
+
+            # third talk change to container only
+            old_restart_time = deepcopy(supervisor.last_cloud_talk_restart)
+            supervisor.talk_to_cloud(force=True)
+            for container in supervisor.object_managers.itervalues():
+                container._discover_objects()
+
+            assert_that(supervisor.last_cloud_talk_restart, not_(equal_to(old_restart_time)))
+
+            # check that object configs not changed
+            nginx_container = supervisor.object_managers['nginx']
+            assert_that(nginx_container.object_configs, equal_to(old_object_configs))
 
     def test_backpressure(self):
         """
@@ -94,7 +285,7 @@ class SupervisorTestCase(RealNginxTestCase):
         with requests_mock.mock() as m:
             m.post(
                 '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
-                text='{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 15.0}, "containers": {"nginx": {"max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+                text='{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 15.0}, "containers": {"nginx": {"parse_delay": 0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
             )
 
             supervisor.init_object_managers()
@@ -142,6 +333,7 @@ class SupervisorTestCase(RealNginxTestCase):
             assert_that(nginx_container.object_configs, equal_to(old_nginx_configs))
 
             # check that we still use previously created objects
+            print supervisor.object_managers['nginx'].objects.objects
             assert_that(
                 supervisor.object_managers['nginx'].objects.objects[5].init_time,
                 equal_to(nginx_object_init_time)
@@ -149,12 +341,12 @@ class SupervisorTestCase(RealNginxTestCase):
 
     @nginx_plus_test
     def test_filters_applying_plus(self):
-        self.mock_request_data = '{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+        self.mock_request_data = '{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
         self.run_filters_applying_test()
 
     @nginx_oss_test
     def test_filters_applying_oss(self):
-        self.mock_request_data = '{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"max_test_duration": 30.0, "run_test": false, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "151d8728e792f42e129337573a21bb30ab3065d59102f075efc2ded28e713ff8"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+        self.mock_request_data = '{"config": {"cloud": {"push_interval": 60.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "root_uuid": "6789abcde", "local_id": "151d8728e792f42e129337573a21bb30ab3065d59102f075efc2ded28e713ff8"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
         self.run_filters_applying_test()
 
     def run_filters_applying_test(self):

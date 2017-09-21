@@ -19,7 +19,6 @@ except ImportError:
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -36,8 +35,8 @@ class Context(Singleton):
 
         self.set_pid()
 
-        self.version_major = 0.45
-        self.version_build = 2
+        self.version_major = 0.46
+        self.version_build = 1
         self.version = '%.2f-%s' % (self.version_major, self.version_build)
         self.environment = None
         self.imagename = None

@@ -5,8 +5,6 @@ from amplify.agent.common.context import context
 
 __author__ = "Arie van Luttikhuizen"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard",
-    "Arie van Luttikhuizen"]
 __license__ = ""
 __maintainer__ = "Arie van Luttikhuizen"
 __email__ = "arie@nginx.com"

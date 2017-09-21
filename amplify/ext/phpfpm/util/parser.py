@@ -12,13 +12,12 @@ from amplify.agent.common.util.sfile import StringFile
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = [
-    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov",
-    "Andrew Alexeev", "Grant Hulegaard", "Arie van Luttikhuizen"
-]
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
+
+
+IGNORED_CHARACTERS = ("'", '"')
 
 
 class PHPFPMConfig(object):
@@ -98,7 +97,19 @@ class PHPFPMConfig(object):
             """
             Take an INI line and parse the value out of it, removing spaces.
             """
-            return line.split('=', 1)[-1].strip()
+            raw_value = line.split('=', 1)[-1]
+
+            # replace quotes
+            for char in IGNORED_CHARACTERS:
+                raw_value = raw_value.replace(char, '')
+
+            # handle comments
+            raw_value = raw_value.split(';')[0]
+
+            # strip
+            raw_value = raw_value.strip()
+
+            return raw_value
 
         with open(path, 'r') as conf_file:
             for line in conf_file:

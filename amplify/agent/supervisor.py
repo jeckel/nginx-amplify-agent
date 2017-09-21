@@ -19,7 +19,6 @@ from amplify.agent.managers.bridge import Bridge
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -53,10 +52,12 @@ class Supervisor(object):
         # init
         self.object_managers = {}
         self.object_manager_order = ['system', 'nginx', 'plus']
+        self.external_managers = []
         self.bridge = None
         self.bridge_object = None
         self.start_time = int(time.time())
         self.last_cloud_talk_time = 0
+        self.last_cloud_talk_restart = 0
         self.cloud_talk_fails = 0
         self.cloud_talk_delay = 0
         self.is_running = True
@@ -124,6 +125,7 @@ class Supervisor(object):
                                         boolean(context.app_config.get('extensions', {}).get(obj.ext, False)):
                                     # add to object_managers
                                     self.object_managers[obj.type] = obj()
+                                    self.external_managers.append(obj.type)
                                     context.log.debug('loaded "%s" object manager from %s' % (obj.type, obj))
                                 else:
                                     context.log.debug('ignored "%s" object manager from %s' % (obj.type, obj))
@@ -314,12 +316,33 @@ class Supervisor(object):
             cloud_response.config.get('cloud', {}).pop('api_url', None)
 
         # global config changes
-        config_changed = context.app_config.apply(cloud_response.config)
+        def _recursive_dict_match_only_existing(kwargs1, kwargs2):
+            for k, v1 in kwargs1.iteritems():
+                if isinstance(v1, dict):
+                    v2 = kwargs2.get(k, {})
+
+                    if not isinstance(v2, dict):
+                        return False
+
+                    if not _recursive_dict_match_only_existing(
+                            v1, kwargs2.get(k, {})
+                    ):
+                        return False
+                else:
+                    if v1 != kwargs2.get(str(k)):
+                        return False
+            return True
+
+        config_changed = not _recursive_dict_match_only_existing(
+            cloud_response.config, context.app_config
+        )
+
+        # apply new config
+        context.app_config.apply(cloud_response.config)
 
         # perform restarts
         if config_changed or len(changed_object_managers) > 0:
             context.cloud_restart = True
-
             if self.bridge_object:
                 self.bridge_object.flush_metrics()
 
@@ -335,11 +358,22 @@ class Supervisor(object):
                     for object_manager_name in reversed(self.object_manager_order):
                         object_manager = self.object_managers[object_manager_name]
                         object_manager.stop()
+
+                    for object_manager_name in self.external_managers:
+                        object_manager = self.object_managers[object_manager_name]
+                        object_manager.stop()
             elif len(changed_object_managers) > 0:
+                context.log.debug(
+                    'obj configs changed. changed managers: %s' % list(changed_object_managers)
+                )
                 for obj_type in changed_object_managers:
                     self.object_managers[obj_type].stop()
+
             if not initial:
                 self.init_object_managers()
+                self.load_ext_managers()
+
+            self.last_cloud_talk_restart = int(time.time())
             context.cloud_restart = False
 
     def check_bridge(self):

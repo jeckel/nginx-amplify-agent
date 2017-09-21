@@ -15,7 +15,6 @@ __all__ = ["glib", "_iglib"]
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
@@ -109,7 +108,7 @@ def _glib_regex(pathname_pattern):
     pathname_pattern.replace('.', '\.')
 
     if has_magic(pathname_pattern):
-        # Replace unspecific '*' and '?' regex appropriate specifiers ('.')
+        # Replace unspecific '*' and '?' with regex appropriate specifiers ('.')
         for special_char in ('*', '?'):
             split_pattern = pathname_pattern.split(special_char)
 
@@ -119,10 +118,10 @@ def _glib_regex(pathname_pattern):
                 if bucket:
                     # If previous character is not regex closure and is not end of string, then add char...
                     if bucket[-1] != ']' and split_pattern.index(bucket) != len(split_pattern) - 1:
-                        bucket += '.'
+                        bucket += '[^/]'
                 elif split_pattern.index(bucket) == 0:
                     # If match char was beginning of string, add regex char...
-                    bucket += '.'
+                    bucket += '[^/]'
 
                 new_split_pattern.append(bucket)
 

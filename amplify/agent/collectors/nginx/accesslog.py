@@ -10,7 +10,6 @@ from amplify.agent.objects.nginx.log.access import NginxAccessLogParser
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -74,18 +73,20 @@ class NginxAccessLogsCollector(AbstractCollector):
         'updating',
     )
 
-    def __init__(self, filename=None, log_format=None, tail=None, **kwargs):
+    def __init__(self, log_format=None, tail=None, **kwargs):
         super(NginxAccessLogsCollector, self).__init__(**kwargs)
-        self.filename = filename
         self.parser = NginxAccessLogParser(log_format)
-        self.tail = tail if tail is not None else FileTail(filename)
+        self.tail = tail
+        # syslog tails names are "<type>:<name>"
+        self.name = tail.name.split(':')[-1] if isinstance(tail, Pipeline) \
+            else None
         self.filters = []
 
         # skip empty filters and filters for other log file
         for log_filter in self.object.filters:
             if log_filter.empty:
                 continue
-            if log_filter.filename and log_filter.filename != self.filename:
+            if not log_filter.matchfile(self.name):
                 continue
             self.filters.append(log_filter)
 

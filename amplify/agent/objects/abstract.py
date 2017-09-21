@@ -18,7 +18,6 @@ from amplify.agent.pipelines.abstract import Pipeline
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -153,17 +152,18 @@ class AbstractObject(object):
             self.running = True
 
     def stop(self):
-        context.log.debug('halting object "%s" %s' % (self.type, self.definition_hash))
-        # Kill raises errors with gevent.
-        # for thread in self.threads:
-        #     thread.kill()
+        if self.running:
+            context.log.debug('halting object "%s" %s' % (self.type, self.definition_hash))
+            # Kill raises errors with gevent.
+            # for thread in self.threads:
+            #     thread.kill()
 
-        # For every collector, if the collector has a .tail attribute and is a Pipeline, send a stop signal.
-        for collector in self.collectors:
-            if hasattr(collector, 'tail') and isinstance(collector.tail, Pipeline):
-                collector.tail.stop()
-        self.running = False
-        context.log.debug('stopped object "%s" %s ' % (self.type, self.definition_hash))
+            # For every collector, if the collector has a .tail attribute and is a Pipeline, send a stop signal.
+            for collector in self.collectors:
+                if hasattr(collector, 'tail') and isinstance(collector.tail, Pipeline):
+                    collector.tail.stop()
+            self.running = False
+            context.log.debug('stopped object "%s" %s ' % (self.type, self.definition_hash))
 
     def _import_collector_class(self, type, target):
         """

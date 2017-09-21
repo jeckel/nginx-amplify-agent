@@ -149,6 +149,10 @@ fi
 
 
 %changelog
+* Thu Sep 21 2017 Grant Hulegaard <grant.hulegaard@nginx.com> 0.46-1
+- 0.46-1
+- Bug fixes
+
 * Thu Aug 17 2017 Mike Belov <dedm@nginx.com> 0.45-2
 - 0.45-2
 - Fixes for config parser

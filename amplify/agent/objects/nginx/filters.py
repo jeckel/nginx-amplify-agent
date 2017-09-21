@@ -3,7 +3,6 @@ import re
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -17,6 +16,7 @@ class Filter(object):
         self.metric = metric
         self.filter_rule_id = filter_rule_id
         self.filename = None
+        self.filenamematch = None
         self.data = {}
         self._negated_conditions = {}
 
@@ -24,6 +24,7 @@ class Filter(object):
         for key, operator, value in data or []:
             if key == 'logname':
                 self.filename = value
+                self.filenamematch = bool(operator == '~')
                 continue
             elif key == '$request_method':
                 normalized_value = value.upper()
@@ -66,3 +67,19 @@ class Filter(object):
                 return False
 
         return True
+
+    def matchfile(self, filename):
+        """
+        Checks to see if filter should apply to filename.
+
+        :param filename: String filename
+        :return: Boolean
+        """
+        if self.filename is None and self.filenamematch is None:
+            return True
+        elif self.filenamematch and filename == self.filename:
+            return True
+        elif not self.filenamematch and not filename == self.filename:
+            return True
+        else:
+            return False

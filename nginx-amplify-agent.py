@@ -17,7 +17,21 @@ from amplify.agent.common.util import configreader
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
+__credits__ = [
+    "Andrew Alexeev",
+    "Mike Belov",
+    "Andrei Belov",
+    "Oleg Mamontov",
+    "Ivan Poluyanov",
+    "Grant Hulegaard",
+    "Arie van Luttikhuizen",
+    "Igor Meleshchenko",
+    "Eugene Morozov",
+    "Jason Thigpen",
+    "Alexander Shchukin",
+    "Clayton Lowell",
+    "Paul McGuire"
+]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"

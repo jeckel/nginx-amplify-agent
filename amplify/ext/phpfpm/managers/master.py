@@ -17,11 +17,6 @@ from amplify.ext.phpfpm import AMPLIFY_EXT_KEY
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = [
-    "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov",
-    "Andrew Alexeev", "Grant Hulegaard", "Arie van Luttikhuizen",
-    "Jason Thigpen"
-]
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
@@ -108,11 +103,11 @@ class PHPFPMManager(ObjectManager):
                             child_obj.stop()
                             self.objects.unregister(obj=child_obj)
 
-                        # unregister old object
-                        self.objects.unregister(current_obj)
-
                         # stop old object
                         current_obj.stop()
+
+                        # unregister old object
+                        self.objects.unregister(current_obj)
 
                         self.objects.register(
                             new_obj, parent_id=self.objects.root_id
@@ -134,22 +129,21 @@ class PHPFPMManager(ObjectManager):
                 for obj in self.objects.find_all(types=self.types):
                     if obj.definition_hash == dropped_hash:
                         dropped_obj = obj
-                        break
 
-            context.log.debug(
-                'phpfpm was stopped (pid was %s)' % dropped_obj.pid
-            )
+                        context.log.debug(
+                            'phpfpm was stopped (pid was %s)' % dropped_obj.pid
+                        )
 
-            for child_obj in self.objects.find_all(
-                obj_id=dropped_obj.id,
-                children=True,
-                include_self=False
-            ):
-                child_obj.stop()
-                self.objects.unregister(child_obj)
+                        for child_obj in self.objects.find_all(
+                            obj_id=dropped_obj.id,
+                            children=True,
+                            include_self=False
+                        ):
+                            child_obj.stop()
+                            self.objects.unregister(child_obj)
 
-            dropped_obj.stop()
-            self.objects.unregister(dropped_obj)
+                        dropped_obj.stop()
+                        self.objects.unregister(dropped_obj)
 
     @staticmethod
     def _find_all(ps=None):

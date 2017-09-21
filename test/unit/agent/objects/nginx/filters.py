@@ -8,7 +8,6 @@ from test.base import BaseTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev", "Grant Hulegaard"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -58,3 +57,38 @@ class FiltersTestCase(BaseTestCase):
             data=[]
         )
         assert_that(filtr.empty, equal_to(True))
+
+    def test_filematch(self):
+        filtr = Filter(
+            filter_rule_id='1',
+            metric='http.something',
+            data=[
+                ['logname', '~', 'foo.txt']
+            ]
+        )
+
+        assert_that(filtr.matchfile('foo.txt'), equal_to(True))
+        assert_that(filtr.matchfile('foo.log'), equal_to(False))
+
+        filtr = Filter(
+            filter_rule_id='1',
+            metric='http.something',
+            data=[
+                ['logname', '!~', 'foo.txt']
+            ]
+        )
+
+        assert_that(filtr.matchfile('foo.txt'), equal_to(False))
+        assert_that(filtr.matchfile('foo.log'), equal_to(True))
+
+        filtr = Filter(
+            filter_rule_id='1',
+            metric='http.something',
+            data=[
+                ['$request_method', '~', 'post'],
+                ['$request_uri', '~', '.*\.gif'],
+                ['$status', '!~', '200']            ]
+        )
+
+        assert_that(filtr.matchfile('foo.txt'), equal_to(True))
+        assert_that(filtr.matchfile('foo.log'), equal_to(True))

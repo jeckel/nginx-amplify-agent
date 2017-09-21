@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import fnmatch
 import glob
 import os
 import re
@@ -16,10 +17,6 @@ from amplify.agent.common.util.escape import prep_raw
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = [
-    "Paul McGuire", "Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev",
-    "Grant Hulegaard"
-]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -263,7 +260,7 @@ class NginxConfigParser(object):
         try:
             size = os.path.getsize(path)
             mtime = int(os.path.getmtime(path))
-            permissions = oct(os.stat(path).st_mode & 0777)
+            permissions = oct(os.stat(path).st_mode & 0777).zfill(4)
         except Exception, e:
             exception_name = e.__class__.__name__
             message = 'failed to stat %s due to: %s' % (path, exception_name)
@@ -295,7 +292,7 @@ class NginxConfigParser(object):
 
         :param path: path to a file
         """
-        def populate_directory(dir_path):
+        def populate_directory(dir_path, listdir=True):
             if dir_path not in self.directories:
                 try:
                     size, mtime, permissions = self.get_filesystem_info(dir_path)
@@ -306,12 +303,13 @@ class NginxConfigParser(object):
                     }
 
                     # try to list dir - maybe we can get an error on that
-                    os.listdir(dir_path)
+                    if listdir:
+                        os.listdir(dir_path)
 
                 except Exception as e:
                     exception_name = e.__class__.__name__
                     exception_message = e.strerror if hasattr(e, 'strerror') else e.message
-                    message = 'failed to read %s due to: %s' % (directory_path, exception_name)
+                    message = 'failed to read %s due to: %s' % (dir_path, exception_name)
                     context.log.debug(message, exc_info=True)
                     self.errors.append(message)
                     self.broken_directories.add(dir_path)
@@ -320,8 +318,24 @@ class NginxConfigParser(object):
         # store directory results
         directory_path = self.resolve_directory(path)
         if '*' in directory_path:
-            for path in glob.glob(directory_path):
-                populate_directory(path)
+            paths = ['/']
+            for segment in directory_path.split(os.path.sep)[1:-1]:
+                _paths = []
+                for p in filter(os.path.isdir, paths):
+                    try:
+                        names = os.listdir(p)
+                    except:
+                        # save errors and don't traverse this path any further
+                        populate_directory(p + os.path.sep)
+                    else:
+                        for name in fnmatch.filter(names, segment):
+                            matched = os.path.join(p, name)
+                            if os.path.isdir(matched):
+                                _paths.append(matched)
+                paths = _paths
+            for p in paths:
+                # os.listdir was already checked for these so use listdir=False
+                populate_directory(p + os.path.sep, listdir=False)
         else:
             populate_directory(directory_path)
 

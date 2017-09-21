@@ -4,7 +4,6 @@ from test.fixtures.defaults import *
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__credits__ = ["Mike Belov", "Andrei Belov", "Ivan Poluyanov", "Oleg Mamontov", "Andrew Alexeev"]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
@@ -22,6 +21,7 @@ class TestingConfig(Config):
         cloud=dict(
             api_url=DEFAULT_API_URL,
             verify_ssl_cert=False,
+            api_timeout=10.0
         ),
         credentials=dict(
             uuid=DEFAULT_UUID,
