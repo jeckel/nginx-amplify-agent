@@ -403,6 +403,23 @@ case "$os" in
 
         incr_step
 
+        # Install apt-transport-https if not found
+        if ! dpkg -s apt-transport-https > /dev/null 2>&1; then
+            printf "\033[32m ${step}. Installing apt-transport-https ...\033[0m"
+
+            apt-get update > /dev/null 2>&1 && \
+            apt-get -y install apt-transport-https > /dev/null 2>&1
+
+            if [ $? -eq 0 ]; then
+                printf "\033[32m done.\033[0m\n"
+            else
+                printf "\033[31m failed.\033[0m\n\n"
+                exit 1
+            fi
+
+            incr_step
+        fi
+
         # Add public key
         add_public_key_deb
 
