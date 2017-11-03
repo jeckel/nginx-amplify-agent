@@ -16,6 +16,7 @@ DAEMON=/usr/bin/nginx-amplify-agent.py
 PIDFILE=/var/run/amplify-agent/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 USER=nginx
+DEBUG_LOG="$2"
 
 if [ -f "$CONFFILE" ]; then
     CONFIG_AMPLIFY_USER=`grep -v '#' ${CONFFILE} | \
@@ -82,6 +83,12 @@ do_configtest() {
     return $RETVAL
 }
 
+do_debug() {
+    $DAEMON debug $DAEMON_ARGS --log=$DEBUG_LOG
+    RETVAL="$?"
+    return $RETVAL
+}
+
 case "$1" in
     start)
         [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
@@ -105,6 +112,9 @@ case "$1" in
     configtest)
         do_configtest
         ;;
+    debug)
+        do_debug
+        ;;
     restart|force-reload)
         log_daemon_msg "Restarting $DESC" "$NAME"
         do_stop
@@ -124,7 +134,7 @@ case "$1" in
         esac
         ;;
     *)
-        echo "Usage: $SCRIPTNAME {start|stop|status|restart|configtest}" >&2
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart|configtest|debug}" >&2
         exit 3
         ;;
 esac

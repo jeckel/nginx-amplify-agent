@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from hamcrest import (
     assert_that, not_none, equal_to, string_contains_in_order, calling, raises,
-    has_length, not_
+    has_length, not_, any_of
 )
 import os
 
@@ -144,8 +144,9 @@ class PHPFPMUtilsTestCase(PHPFPMTestCase):
         # these checks may be too specific...will definitely break on alternate
         # systems/versions
         assert_that(version, equal_to('5.5.9-1'))
-        assert_that(raw_line, equal_to(
-            'PHP 5.5.9-1ubuntu4.21 (fpm-fcgi) (built: Feb  9 2017 21:00:52)'
+        assert_that(raw_line, any_of(
+            'PHP 5.5.9-1ubuntu4.21 (fpm-fcgi) (built: Feb  9 2017 21:00:52)',
+            'PHP 5.5.9-1ubuntu4.22 (fpm-fcgi) (built: Aug  4 2017 19:44:16)'
         ))
 
 

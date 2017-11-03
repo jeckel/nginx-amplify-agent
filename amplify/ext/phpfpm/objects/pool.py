@@ -30,6 +30,7 @@ class PHPFPMPoolObject(AbstractObject):
         self._flisten = None
 
         # attributes
+        self.file = self.data['file']
         self.parent_local_id = self.data['parent_local_id']
         self.listen = self.data['listen']
         self.status_path = self.data['status_path']

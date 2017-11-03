@@ -35,7 +35,7 @@ class Context(Singleton):
 
         self.set_pid()
 
-        self.version_major = 0.46
+        self.version_major = 0.47
         self.version_build = 1
         self.version = '%.2f-%s' % (self.version_major, self.version_build)
         self.environment = None
@@ -83,7 +83,7 @@ class Context(Singleton):
 
     def setup(self, **kwargs):
         self._setup_app_config(**kwargs)
-        self._setup_app_logs()
+        self._setup_app_logs(**kwargs)
         self._setup_app_listeners()
         self._setup_tags()
         self._setup_host_details()
@@ -125,10 +125,27 @@ class Context(Singleton):
         if self.app_config['credentials']['imagename']:
             self.app_config['credentials']['uuid'] = 'container-%s' % self.app_config['credentials']['imagename']
 
-    def _setup_app_logs(self):
+    def _setup_app_logs(self, **kwargs):
+        """
+        Setup app log file
+
+        :param log_file: str override the default log file
+        :param debug: bool force debug log if True
+        """
+        log_file = kwargs.get('log_file')
+        debug_mode = kwargs.get('debug')
+
         from amplify.agent.common.util import logger
         logger.setup(self.app_config.filename)
         self.default_log = logger.get('%s-default' % self.app_name)
+
+        if log_file:
+            for handler in self.default_log.handlers:
+                self.default_log.removeHandler(handler)
+            self.default_log.addHandler(logger.get_debug_handler(log_file))
+
+        if debug_mode:
+            self.default_log.setLevel(logger.logging.DEBUG)
 
     def _setup_app_listeners(self):
         from amplify.agent.common.util import net

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from hamcrest import (
-    assert_that, not_none, is_, equal_to
+    assert_that, not_none, is_, equal_to, any_of, has_entries
 )
 
 from amplify.agent.common.context import context
@@ -60,7 +60,7 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
         phpfpm_meta_collector.collect()
 
         # check value
-        assert_that(phpfpm_meta_collector.meta, equal_to(
+        assert_that(phpfpm_meta_collector.meta, has_entries(
             {
                 'name': 'master',
                 'display_name': 'phpfpm master @ hostname.nginx',
@@ -74,8 +74,10 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
                 'root_uuid': None,
                 'bin_path': '/usr/sbin/php5-fpm',
                 'version': '5.5.9-1',
-                'version_line': 'PHP 5.5.9-1ubuntu4.21 (fpm-fcgi) (built: Feb '
-                                ' 9 2017 21:00:52)'
+                'version_line': any_of(
+                    'PHP 5.5.9-1ubuntu4.21 (fpm-fcgi) (built: Feb  9 2017 21:00:52)',
+                    'PHP 5.5.9-1ubuntu4.22 (fpm-fcgi) (built: Aug  4 2017 19:44:16)',
+                )
             }
         ))
 

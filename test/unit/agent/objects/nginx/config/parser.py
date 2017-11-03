@@ -66,7 +66,7 @@ class ParserTestCase(BaseTestCase):
         assert_that(server, has_key('location'))
         assert_that(server, has_key('server_name'))
         assert_that(
-            server['server_name'], equal_to('127.0.0.1 "~^([a-z]{2})?\.?test\.nginx\.org" "~^([a-z]{2})?\.?beta\.nginx\.org"')
+            server['server_name'], equal_to("127.0.0.1 ~^([a-z]{2})?\.?test\.nginx\.org ~^([a-z]{2})?\.?beta\.nginx\.org")
         )
         assert_that(server['location'], is_(instance_of(dict)))
 
@@ -83,7 +83,7 @@ class ParserTestCase(BaseTestCase):
 
         # add_header
         add_header = http['add_header']
-        assert_that(add_header, contains_string('"max-age=31536000; includeSubdomains; ;preload"'))
+        assert_that(add_header, contains_string("'max-age=31536000; includeSubdomains; ;preload'"))
 
         # check index tree
         worker_connections_index = indexed_tree['events'][0]['worker_connections'][1]
@@ -223,13 +223,14 @@ class ParserTestCase(BaseTestCase):
         cfg.parse()
         tree = cfg.simplify()
 
-        assert_that(tree, has_key('server'))
+        http = tree['http']
+        assert_that(http, has_key('server'))
 
         # ssl
         for directive in IGNORED_DIRECTIVES:
-            assert_that(tree['server'][1], is_not(has_item(directive)))
-        assert_that(tree['server'][1], has_item('ssl_certificate'))
-        assert_that(tree['server'][1]['ssl_certificate'], equal_to('certs.d/example.cert'))
+            assert_that(http['server'][1], is_not(has_item(directive)))
+        assert_that(http['server'][1], has_item('ssl_certificate'))
+        assert_that(http['server'][1]['ssl_certificate'], equal_to('certs.d/example.cert'))
 
     def test_parse_bad_access_and_error_log(self):
         """
@@ -240,8 +241,8 @@ class ParserTestCase(BaseTestCase):
         cfg.parse()
         tree = cfg.simplify()
 
-        assert_that(tree, not has_key('access_log'))
-        assert_that(tree, not has_key('error_log'))
+        assert_that(tree, not_(has_key('access_log')))
+        assert_that(tree, not_(has_key('error_log')))
 
     def test_lightweight_parse_includes(self):
         # simple
@@ -283,13 +284,13 @@ class ParserTestCase(BaseTestCase):
 
         assert_that(
             tree['http']['gzip_types'], equal_to(
-                'application/atom+xml\n    application/javascript\n    application/json\n    application/ld+json\n' \
-                '    application/manifest+json\n    application/rss+xml\n    application/vnd.geo+json\n    ' \
-                'application/vnd.ms-fontobject\n    application/x-font-ttf\n    application/x-web-app-manifest+json\n'\
-                '    application/xhtml+xml\n    application/xml\n    font/opentype\n    image/bmp\n    ' \
-                'image/svg+xml\n    image/x-icon\n    text/cache-manifest\n    text/css\n    text/plain\n    ' \
-                'text/vcard\n    text/vnd.rim.location.xloc\n    text/vtt\n    text/x-component\n   ' \
-                ' text/x-cross-domain-policy'
+                'application/atom+xml application/javascript application/json application/ld+json '
+                'application/manifest+json application/rss+xml application/vnd.geo+json '
+                'application/vnd.ms-fontobject application/x-font-ttf application/x-web-app-manifest+json '
+                'application/xhtml+xml application/xml font/opentype image/bmp '
+                'image/svg+xml image/x-icon text/cache-manifest text/css text/plain '
+                'text/vcard text/vnd.rim.location.xloc text/vtt text/x-component '
+                'text/x-cross-domain-policy'
             )
         )
 
@@ -377,11 +378,11 @@ class ParserTestCase(BaseTestCase):
         assert_that(
             tree['http']['sub_filter'],
             contains(
-                'foobar',
-                "'https://foo.example.com/1''https://bar.example.com/1'",
-                '"https://foo.example.com/2""https://bar.example.com/2"',
-                '"https://foo.example.com/3"\'https://bar.example.com/3\'',
-                '\'</body>\'\'<p style="position: fixed;top:\n            60px;width:100%;;background-color: #f00;background-color:\n            rgba(255,0,0,0.5);color: #000;text-align: center;font-weight:\n            bold;padding: 0.5em;z-index: 1;">Test</p></body>\''
+                'foo bar',
+                'https://foo.example.com/1 https://bar.example.com/1',
+                'https://foo.example.com/2 https://bar.example.com/2',
+                'https://foo.example.com/3 https://bar.example.com/3',
+                '</body> \'<p style="position: fixed;top:\n            60px;width:100%;;background-color: #f00;background-color:\n            rgba(255,0,0,0.5);color: #000;text-align: center;font-weight:\n            bold;padding: 0.5em;z-index: 1;">Test</p></body>\''
             )
         )
 
@@ -390,7 +391,11 @@ class ParserTestCase(BaseTestCase):
         cfg.parse()
         tree = cfg.simplify()
 
-        assert_that(tree['http']['proxy_pass'], equal_to('$scheme://${scheme}site.com_backend'))
+        http = tree['http']
+        server = http['server'][0]
+        location = server['location']['/']
+
+        assert_that(location['proxy_pass'], equal_to('$scheme://${scheme}site.com_backend'))
 
     def test_quoted_location_with_semicolon(self):
         cfg = NginxConfigParser(quoted_location_with_semicolon)
@@ -413,8 +418,8 @@ class ParserTestCase(BaseTestCase):
         add_header = tree['http']['server'][0]['add_header']
 
         assert_that(add_header, contains(
-            r'LinkOne "<https://$http_host$request_uri>; rel=\"foo\""',
-            r"LinkTwo '<https://$http_host$request_uri>; rel=\'bar\''"
+            "LinkOne '<https://$http_host$request_uri>; rel=\"foo\"'",
+            'LinkTwo "<https://$http_host$request_uri>; rel=\'bar\'"'
         ))
 
     def test_tabs_everywhere(self):

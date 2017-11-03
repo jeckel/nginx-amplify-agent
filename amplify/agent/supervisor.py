@@ -35,11 +35,18 @@ class Supervisor(object):
     MANAGER_CLASS = '%sManager'
     MANAGER_MODULE = 'amplify.agent.managers.%s.%s'
 
-    def __init__(self, foreground=False):
+    def __init__(self, foreground=False, debug=False):
+        """
+        Supervisor constructor
+
+        :param foreground: bool run in foreground if True
+        :param debug: bool run in debug mode if True
+        :param logfile: str path to the log file
+        """
         # daemon specific
         self.stdin_path = '/dev/null'
 
-        if foreground:
+        if foreground or debug:
             self.stdout_path = '/dev/stdout'
             self.stderr_path = '/dev/stderr'
         else:
@@ -61,6 +68,10 @@ class Supervisor(object):
         self.cloud_talk_fails = 0
         self.cloud_talk_delay = 0
         self.is_running = True
+
+        # debug mode parameters
+        self.debug_mode = debug
+        self.debug_mode_time = 300  # five minutes
 
     def init_object_managers(self):
         """
@@ -159,6 +170,14 @@ class Supervisor(object):
         # main cycle
         while True:
             time.sleep(5.0)
+
+            # stop if was running in debug mode for more than five minutes
+            if self.debug_mode:
+                elapsed_time = int(time.time()) - self.start_time
+                if elapsed_time > self.debug_mode_time:
+                    self.stop()
+                else:
+                    print "Agent is running in debug mode, %s seconds to go..." % (self.debug_mode_time - elapsed_time)
 
             if not self.is_running:
                 break

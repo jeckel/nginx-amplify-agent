@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import hashlib
+import json
 import os
 import re
 import time
@@ -9,7 +10,7 @@ from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
 from amplify.agent.common.util.glib import glib
 from amplify.agent.common.util.ssl import ssl_analysis
-from amplify.agent.objects.nginx.config.parser import NginxConfigParser
+from amplify.agent.objects.nginx.config.parser import NginxConfigParser, get_filesystem_info
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -82,7 +83,7 @@ class NginxConfig(object):
         except Exception as e:
             context.log.error('failed to parse config at %s (due to %s)' % (self.filename, e.__class__.__name__))
             context.log.debug('additional info:', exc_info=True)
-            self.parser = NginxConfigParser(self.filename)  # Re-init parser to discard partial data (if any)
+            self._setup_parser()  # Re-init parser to discard partial data (if any)
 
         # Post-handling
 
@@ -94,6 +95,14 @@ class NginxConfig(object):
 
         # try to read from each log file to check if it can be parsed
         self._check_logs()
+
+        # dump access log files, access log formats, and error log files to the debug log
+        context.log.debug(
+            'parsed log formats, access logs, and error logs:' + \
+            '\nlog formats: ' + json.dumps(self.log_formats, indent=4, sort_keys=True) + \
+            '\naccess logs: ' + json.dumps(self.access_logs, indent=4, sort_keys=True) + \
+            '\nerror logs: ' + json.dumps(self.error_logs, indent=4, sort_keys=True)
+        )
 
     def _handle_parse(self):
         self.tree = self.parser.tree
@@ -119,8 +128,7 @@ class NginxConfig(object):
         :return: {} - dict of files
         """
         # if self.parser is None, set it up
-        none_parser = bool(self.parser is None)
-        if none_parser:
+        if self.parser is None:
             self._setup_parser()
 
         files, directories = self.parser.get_structure(include_ssl_certs=include_ssl_certs)
@@ -429,8 +437,8 @@ class NginxConfig(object):
         for logs in (self.access_logs, self.error_logs):
             for log_name in filter(lambda name: not name.startswith('syslog'), logs):
 
-                __, __, permissions = NginxConfigParser.get_filesystem_info(log_name)
-                logs[log_name]['permissions'] = permissions
+                info = get_filesystem_info(log_name)
+                logs[log_name]['permissions'] = info['permissions']
 
                 try:
                     with open(log_name, 'r'):

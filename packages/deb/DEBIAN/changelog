@@ -1,3 +1,17 @@
+nginx-amplify-agent (0.47-1) unstable; urgency=low
+
+  * New config parser
+  * Debug mode
+  * Bug fix for error logging with PHP-FPM
+
+ -- Grant Hulegaard <grant.hulegaard@nginx.com>  Tue, 18 Oct 2017 10:00:00 -0800
+
+nginx-amplify-agent (0.46-2) unstable; urgency=low
+
+  * Fixes for Centos6
+
+ -- Mike Belov <dedm@nginx.com>  Sat, 23 Sep 2017 10:00:00 -0800
+
 nginx-amplify-agent (0.46-1) unstable; urgency=low
 
   * Bug fixes

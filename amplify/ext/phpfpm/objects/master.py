@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+import time
+
+from amplify.agent.common.context import context
+
 from amplify.ext.abstract.object import AbstractObject
 from amplify.ext.phpfpm.util.parser import PHPFPMConfig
 from amplify.ext.phpfpm.collectors.master.meta import PHPFPMMetaCollector
@@ -55,6 +59,15 @@ class PHPFPMObject(AbstractObject):
         if self.parsed and not force:
             return self.parsed_conf
 
+        context.log.debug('parsing phpfpm conf "%s"', self.conf_path)
+        start_time = time.time()
+
         self.parsed_conf = PHPFPMConfig(path=self.conf_path).parsed
         self.parsed = True
+
+        end_time = time.time()
+        context.log.debug(
+            'finished parse of "%s" in %.2f' %
+            (self.conf_path, end_time - start_time)
+        )
         return self.parsed_conf

@@ -149,6 +149,16 @@ fi
 
 
 %changelog
+* Tue Oct 18 2017 Grant Hulegaard <grant.hulegaard@nginx.com> 0.47-1
+- 0.47-1
+- New config parser
+- Debug mode
+- Bug fix for error logging with PHP-FPM
+
+* Sat Sep 23 2017 Mike Belov <dedm@nginx.com> 0.46-2
+- 0.46-2
+- Fixes for Centos6
+
 * Thu Sep 21 2017 Grant Hulegaard <grant.hulegaard@nginx.com> 0.46-1
 - 0.46-1
 - Bug fixes

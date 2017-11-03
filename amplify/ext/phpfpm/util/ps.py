@@ -29,7 +29,7 @@ def PS_PARSER(ps_line):
     return pid, ppid, cmd
 
 
-_PS_MASTER_REGEX = re.compile(r'.*\((?P<conf_path>.*)\).*')
+_PS_MASTER_REGEX = re.compile(r'.*\((?P<conf_path>\/[^\)]*)\).*')
 
 
 def MASTER_PARSER(ps_master_cmd):

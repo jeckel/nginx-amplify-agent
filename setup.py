@@ -33,7 +33,7 @@ elif is_deb():
 
 setup(
     name="nginx-amplify-agent",
-    version="0.46",
+    version="0.47",
     author="Mike Belov",
     author_email="dedm@nginx.com",
     description="NGINX Amplify Agent",

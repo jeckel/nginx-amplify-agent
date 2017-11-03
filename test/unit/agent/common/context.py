@@ -30,7 +30,7 @@ class ContextTestCase(BaseTestCase):
         assert_that(context.freeze_api_url, equal_to(True))
 
     def test_uuid(self):
-        assert_that(context.app_config['credentials'], has_entry('imagename', none()))
+        assert_that(context.app_config['credentials'], has_entry('imagename', ''))
         assert_that(context.app_config['credentials'], has_entry('hostname', DEFAULT_HOST))
         assert_that(context.app_config['credentials'], has_entry('api_key', DEFAULT_API_KEY))
         assert_that(context.app_config['credentials'], has_entry('uuid', DEFAULT_UUID))

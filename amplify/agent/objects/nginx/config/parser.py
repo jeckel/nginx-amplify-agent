@@ -1,28 +1,47 @@
 # -*- coding: utf-8 -*-
+import copy
 import fnmatch
 import glob
 import os
 import re
-from itertools import izip
+import sys
 
-from pyparsing import (
-    Regex, Keyword, Literal, Word, alphanums, CharsNotIn, Forward, Group,
-    Optional, OneOrMore, ZeroOrMore, pythonStyleComment, lineno,
-    oneOf, QuotedString, nestedExpr, ParseResults
-)
+import scandir
 
 from amplify.agent.common.context import context
-from amplify.agent.common.util.escape import prep_raw
+from amplify.agent.objects.nginx.config.amplify_parser.parse import parse_file
+from amplify.agent.objects.nginx.config.amplify_parser.errors import NgxParserDirectiveError
+from amplify.agent.objects.nginx.config.amplify_parser.lex import _iterescape
 
+__author__ = 'Arie van Luttikhuizen'
+__copyright__ = 'Copyright (C) Nginx, Inc. All rights reserved.'
+__maintainer__ = 'Arie van Luttikhuizen'
+__email__ = 'arie@nginx.com'
 
-__author__ = "Mike Belov"
-__copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
-__license__ = ""
-__maintainer__ = "Mike Belov"
-__email__ = "dedm@nginx.com"
+INCLUDE_ONLY_RE = re.compile(r'(?:^|[;{}])\s*(include)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
+INCLUDE_CERT_RE = re.compile(r'(?:^|[;{}])\s*(include|ssl_certificate)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
 
+ARGDICT_DIRECTIVES = frozenset([
+    'log_format'
+])
 
-IGNORED_DIRECTIVES = [
+ALWAYS_PACK_DIRECTIVES = frozenset([
+    'include'
+])
+
+ALWAYS_PACK_BLOCKS = frozenset([
+    'server'
+])
+
+NEVER_PACK_DIRECTIVES = frozenset()
+
+NEVER_PACK_BLOCKS = frozenset([
+    'http',
+    'events',
+    'types'
+])
+
+IGNORED_DIRECTIVES = frozenset([
     'ssl_certificate_key',
     'ssl_client_certificate',
     'ssl_password_file',
@@ -30,661 +49,392 @@ IGNORED_DIRECTIVES = [
     'ssl_trusted_certificate',
     'auth_basic_user_file',
     'secure_link_secret'
-]
+])
 
 
-def set_line_number(input_string, location, tokens):
-    # check and limit CPU usage
-    context.check_and_limit_cpu_consumption()
+def _is_always_packed(cmd, is_block=None):
+    if is_block is None:
+        return cmd in ALWAYS_PACK_BLOCKS or cmd in ALWAYS_PACK_DIRECTIVES
+    return cmd in (ALWAYS_PACK_BLOCKS if is_block else ALWAYS_PACK_DIRECTIVES)
 
-    if len(tokens) == 1:
-        line_number = lineno(location, input_string)
-        NginxConfigParser.tokens_cache[tokens[0]] = line_number
-        tokens.line_number = line_number
+
+def _is_never_packed(cmd, is_block=None):
+    if is_block is None:
+        return cmd in NEVER_PACK_BLOCKS or cmd in NEVER_PACK_DIRECTIVES
+    return cmd in (NEVER_PACK_BLOCKS if is_block else NEVER_PACK_DIRECTIVES)
+
+
+def get_filesystem_info(path):
+    size, mtime, permissions = 0, 0, '0000'
+    try:
+        info = os.stat(path)
+        size = info.st_size
+        mtime = int(info.st_mtime)
+        permissions = oct(info.st_mode & 0777).zfill(4)
+    except Exception as e:
+        exc_cls = e.__class__.__name__
+        message = 'failed to stat %s do to %s' % (path, exc_cls)
+        context.log.debug(message, exc_info=True)
+    finally:
+        return {'size': size, 'mtime': mtime, 'permissions': permissions}
+
+
+def _enquote(arg):
+    arg = str(arg.encode('utf-8'))
+    if not arg or any(char.isspace() for char in _iterescape(arg)):
+        return repr(arg).decode('string_escape')
     else:
-        for item in tokens:
-            tokens.line_number = NginxConfigParser.tokens_cache.get(item)
+        return arg
+
+
+def argstring(stmt):
+    if not stmt['args']:
+        return ''
+    elif stmt['directive'] in ARGDICT_DIRECTIVES:
+        return ''.join(x.decode('string_escape') for x in stmt['args'][1:])
+    else:
+        return ' '.join(map(_enquote, stmt['args']))
+
+
+def store_directive(block, stmt, value):
+    cmd = stmt['directive']
+    if cmd in ARGDICT_DIRECTIVES:
+        key = stmt['args'][0]
+        block.setdefault(cmd, {})[key] = value
+    elif 'block' in stmt and stmt['args']:
+        key = argstring(stmt)
+        block.setdefault(cmd, {})[key] = value
+    elif _is_always_packed(cmd, is_block='block' in stmt):
+        block.setdefault(cmd, []).append(value)
+    elif _is_never_packed(cmd, is_block='block' in stmt) or cmd not in block:
+        block[cmd] = value
+    elif isinstance(block[cmd], list):
+        block[cmd].append(value)
+    else:
+        block[cmd] = [block[cmd], value]
+
+
+def merge_blocks(a, b):
+    for cmd, value in b.iteritems():
+        if cmd in ARGDICT_DIRECTIVES:
+            a.setdefault(cmd, {}).update(value)
+        elif _is_always_packed(cmd):
+            a.setdefault(cmd, []).extend(value)
+        elif _is_never_packed(cmd) or cmd not in a:
+            a[cmd] = value
+        elif isinstance(a[cmd], dict) and isinstance(value, dict):
+            a[cmd].update(value)
+        elif isinstance(a[cmd], list) and isinstance(value, list):
+            a[cmd].extend(value)
+        elif isinstance(a[cmd], list):
+            a[cmd].append(value)
+        elif isinstance(value, list):
+            a[cmd] = [a[cmd]] + value
+        else:
+            a[cmd] = [a[cmd], value]
+
+
+def _fnmatch_pattern(names, pttn):
+    if glob.has_magic(pttn):
+        return fnmatch.filter(names, pttn)
+    else:
+        return [pttn] if pttn in names else []
+
+
+def _iglob_pattern(pattern):
+    if glob.has_magic(pattern):
+        for path in glob.iglob(pattern):
+            yield path
+    else:
+        yield pattern
+
+
+def _getline(filename, lineno):
+    with open(filename) as fp:
+        for i, line in enumerate(fp, start=1):
+            if i == lineno:
+                return line.rstrip('\r\n')
 
 
 class NginxConfigParser(object):
-    """
-    Nginx config parser originally based on https://github.com/fatiherikli/nginxparser
-
-    Heavily customized and extended by Amplify team.
-
-    Optimized by Paul McGuire author of the pyparsing library (https://www.linkedin.com/in/ptmcg).  Paul's
-    optimizations (with minor compatibility tweaks during incorporation by Amplify team) resulted in over a 50%
-    performance improvement (~59%).
-
-    Parses single file into json structure
-    """
-    tokens_cache = {}
-
-    max_size = 20*1024*1024  # 20 mb
-
-    # constants
-    left_brace = Literal("{").suppress()
-    right_brace = Literal("}").suppress()
-    semicolon = Literal(";").suppress()
-
-    # keywords
-    IF, SET, REWRITE, PERL_SET, LOG_FORMAT, ALIAS, RETURN, ERROR_PAGE, MAP, \
-        SERVER_NAME, SUB_FILTER, ADD_HEADER, LOCATION = (
-            map(
-                lambda x: x.setParseAction(set_line_number),
-                map(
-                    Keyword,
-                    "if set rewrite perl_set log_format alias return "
-                    "error_page map server_name sub_filter add_header "
-                    "location".split()
-                )
-            )
-        )
-
-    # string helpers
-    string = (
-        QuotedString("'", escChar='\\') |
-        QuotedString('"', escChar='\\')
-    ).setParseAction(set_line_number)
-
-    multiline_string = (
-        QuotedString("'", escChar='\\', multiline=True) |
-        QuotedString('"', escChar='\\', multiline=True)
-    ).setParseAction(set_line_number)
-
-    multiline_string_keep_quotes = (
-        QuotedString("'", escChar='\\', multiline=True, unquoteResults=False) |
-        QuotedString('"', escChar='\\', multiline=True, unquoteResults=False)
-    ).setParseAction(set_line_number)
-
-    # lua keys
-    start_with_lua_key = Regex(r'lua_\S+').setParseAction(set_line_number)
-    contains_by_lua_key = Regex(r'\S+_by_lua\S*').setParseAction(set_line_number)
-
-    key = (
-        ~MAP & ~ALIAS & ~PERL_SET & ~IF & ~SET & ~REWRITE & ~SERVER_NAME & ~SUB_FILTER & ~ADD_HEADER & ~LOCATION
-    ) + Word(alphanums + '$_:%?"~<>\/-+.,*()[]"' + "'").setParseAction(set_line_number)
-
-    # values
-    value_one = Regex(r'[^{};]*"[^\";]+"[^{};]*')
-    value_two = Regex(r'[^{};]*\'[^\';]+\'')
-    value_three = Regex(r'[^{};]+((\${[\d|\w]+(?=})})|[^{};])+')
-    value_four = Regex(r'[^{};]+(?!${.+})')
-    value = (string | value_one | value_two | value_three | value_four).setParseAction(set_line_number)
-    rewrite_value = CharsNotIn(";").setParseAction(set_line_number)
-    any_value = CharsNotIn(";").setParseAction(set_line_number)
-    non_space_value = Regex(r'[^\'\";\s]+').setParseAction(set_line_number)
-    if_value = nestedExpr().setParseAction(set_line_number)  # Regex(r'\(.*\)')
-    strict_value = CharsNotIn("{};").setParseAction(set_line_number)
-    sub_filter_value = (non_space_value | multiline_string_keep_quotes).setParseAction(set_line_number)
-    log_format_value = (non_space_value | multiline_string).setParseAction(set_line_number)
-    add_header_value = Regex(r'[^{};]*"[^"]+"').setParseAction(set_line_number)
-    map_value = (string | Regex(r'((\\\s|[^{};\s])*)')).setParseAction(set_line_number)
-    raw_value = Word(alphanums + '$_:%?"~<>\/-+.,*()[];|^@"=' + "'").setParseAction(set_line_number)
-
-    # modifier for location uri [ = | ~ | ~* | ^~ ]
-    modifier = oneOf("= ~* ~ ^~")
-
-    assignment = (
-        key + Optional(OneOrMore(value + Optional(value))) + semicolon
-    ).setParseAction(set_line_number)
-
-    set = (
-        SET + any_value + semicolon
-    ).setParseAction(set_line_number)
-
-    rewrite = (
-        REWRITE + rewrite_value + semicolon
-    ).setParseAction(set_line_number)
-
-    perl_set = (
-        PERL_SET + key + multiline_string + semicolon
-    ).setParseAction(set_line_number)
-
-    lua_content = (
-        (start_with_lua_key | contains_by_lua_key) + multiline_string + semicolon
-    ).setParseAction(set_line_number)
-
-    alias = (
-        ALIAS + any_value + semicolon
-    ).setParseAction(set_line_number)
-
-    return_ = (
-        (RETURN | ERROR_PAGE) + value + Optional(any_value) + semicolon
-    ).setParseAction(set_line_number)
-
-    log_format = (
-        LOG_FORMAT + log_format_value + OneOrMore(log_format_value) + semicolon
-    ).setParseAction(set_line_number)
-
-    server_name = (
-        SERVER_NAME + any_value + semicolon
-    ).setParseAction(set_line_number)
-
-    sub_filter = (
-        SUB_FILTER + sub_filter_value + sub_filter_value + semicolon
-    ).setParseAction(set_line_number)
-
-    add_header = (
-        ADD_HEADER + (non_space_value | string) +
-        Optional(multiline_string_keep_quotes | add_header_value | non_space_value) +
-        Optional(value) +
-        semicolon
-    ).setParseAction(set_line_number)
-
-    # script
-    map_block = Forward()
-    map_block << Group(
-        Group(
-            MAP + map_value + map_value
-        ).setParseAction(set_line_number) +
-        left_brace +
-        Group(
-            ZeroOrMore(
-                Group(map_value + Optional(map_value) + semicolon)
-            ).setParseAction(set_line_number)
-        ) +
-        right_brace
-    )
-
-    block = Forward()
-    block << Group(
-        (
-            Group(
-                key + Optional(modifier) +
-                Optional(value + Optional(value))
-            ) |
-            Group(
-                IF + if_value
-            ) |
-            Group(
-                LOCATION + Optional(modifier) + Optional(multiline_string | raw_value)
-            )
-        ).setParseAction(set_line_number) +
-        left_brace -  # <----- use '-' operator instead of '+' to get better error messages
-        Group(
-            ZeroOrMore(
-                Group(add_header) | Group(log_format) | Group(lua_content) | Group(perl_set) |
-                Group(set) | Group(rewrite) | Group(alias) | Group(return_) |
-                Group(assignment) | Group(server_name) | Group(sub_filter) |
-                map_block | block
-            ).setParseAction(set_line_number)
-        ).setParseAction(set_line_number) +
-        right_brace
-    )
-
-    script = OneOrMore(
-        Group(add_header) | Group(server_name) |
-        Group(log_format) | Group(perl_set) | Group(lua_content) | Group(alias) | Group(return_) |
-        Group(assignment) | Group(set) | Group(rewrite) | Group(sub_filter) |
-        map_block | block
-    ).ignore(pythonStyleComment)
-
-    INCLUDE_RE = re.compile(r'[^#]*include\s+(?P<include_file>.*);')
-    SSL_CERTIFICATE_RE = re.compile(r'[^#]*ssl_certificate\s+(?P<cert_file>.*);')
-
     def __init__(self, filename='/etc/nginx/nginx.conf'):
         self.filename = filename
-        self.folder = os.path.dirname(self.filename)  # stores path to folder with main config
-        self.files = {}  # to prevent cycle files and line indexing
+        self.directory = self._dirname(filename)
+
+        self.files = {}
         self.directories = {}
-        self.parsed_cache = {}  # to cache multiple includes
-        self.broken_files = set()  # to prevent reloading broken files
-        self.broken_directories = set()  # to prevent reloading broken directories
-        self.index = []  # stores index for all sections (points to file number and line number)
-        self.ssl_certificates = []
-        self.errors = []
-        self.tree = {}
         self.directory_map = {}
 
-        self.file_errors = []  # For broken files
-        self.directory_errors = []  # for broken directories
+        self.errors = []
+        self.broken_files = {}
+        self.broken_directories = {}
 
-    def parse(self):
-        NginxConfigParser.tokens_cache = {}
-        self.directories, self.files, self.parsed_cache = {}, {}, {}  # drop results from the previous run
-        self.tree = self.__logic_parse(self.__pyparse(self.filename))  # parse
-        self.construct_directory_map()  # construct a tree of structure
-        self.parsed_cache = {}  # drop cached, as it is no longer needed
+        self.index = []  # list of directive locations (file, lineno)
+        self.tree = {}
 
-    @staticmethod
-    def get_filesystem_info(path):
+        self.includes = []
+        self.ssl_certificates = []
+
+        self._converted_cache = {}
+        self._parsed_cache = {}
+
+    def _abspath(self, path):
+        if not os.path.isabs(path):
+            path = os.path.join(self.directory, path)
+        return os.path.normpath(path)
+
+    def _dirname(self, path):
+        return os.path.dirname(path) + '/'
+
+    def _handle_error(self, path, e, is_dir=False, exc_info=True, what='read'):
         """
-        Returns file/folder size, mtime and permissions
-
-        :param path: str path to file/folder
-        :return: int, int, str - size, mtime, permissions
+        Stores and logs errors raised by reading and parsing the nginx config
+        
+        :param path: str - the absolute path of the file or directory
+        :param e: Exception - the exception that was raised
+        :param is_dir: bool - whether the path is for a directory
+        :param exc_info: True or (exc_type, exc_value, exc_traceback)
+        :param what: str - what action caused the error (used for logging)
         """
-        size, mtime, permissions = 0, 0, '0000'
-
-        try:
-            size = os.path.getsize(path)
-            mtime = int(os.path.getmtime(path))
-            permissions = oct(os.stat(path).st_mode & 0777).zfill(4)
-        except Exception, e:
-            exception_name = e.__class__.__name__
-            message = 'failed to stat %s due to: %s' % (path, exception_name)
-            context.log.debug(message, exc_info=True)
-
-        return size, mtime, permissions
-
-    def resolve_local_path(self, path):
-        """
-        Resolves local path
-        :param path: str path
-        :return: absolute path
-        """
-        result = path.replace('"', '')
-        if not result.startswith('/'):
-            result = '%s/%s' % (self.folder, result)
-        return result
-
-    @staticmethod
-    def resolve_directory(path):
-        """
-        Returns the dirname of a path.
-        """
-        return os.path.dirname(path) + os.path.sep
-
-    def populate_directories(self, path):
-        """
-        Populates self.directories with a directory for a path
-
-        :param path: path to a file
-        """
-        def populate_directory(dir_path, listdir=True):
-            if dir_path not in self.directories:
-                try:
-                    size, mtime, permissions = self.get_filesystem_info(dir_path)
-                    self.directories[dir_path] = {
-                        'size': size,
-                        'mtime': mtime,
-                        'permissions': permissions
-                    }
-
-                    # try to list dir - maybe we can get an error on that
-                    if listdir:
-                        os.listdir(dir_path)
-
-                except Exception as e:
-                    exception_name = e.__class__.__name__
-                    exception_message = e.strerror if hasattr(e, 'strerror') else e.message
-                    message = 'failed to read %s due to: %s' % (dir_path, exception_name)
-                    context.log.debug(message, exc_info=True)
-                    self.errors.append(message)
-                    self.broken_directories.add(dir_path)
-                    self.directory_errors.append((exception_name, exception_message))
-
-        # store directory results
-        directory_path = self.resolve_directory(path)
-        if '*' in directory_path:
-            paths = ['/']
-            for segment in directory_path.split(os.path.sep)[1:-1]:
-                _paths = []
-                for p in filter(os.path.isdir, paths):
-                    try:
-                        names = os.listdir(p)
-                    except:
-                        # save errors and don't traverse this path any further
-                        populate_directory(p + os.path.sep)
-                    else:
-                        for name in fnmatch.filter(names, segment):
-                            matched = os.path.join(p, name)
-                            if os.path.isdir(matched):
-                                _paths.append(matched)
-                paths = _paths
-            for p in paths:
-                # os.listdir was already checked for these so use listdir=False
-                populate_directory(p + os.path.sep, listdir=False)
+        exc_cls = e.__class__.__name__
+        exc_msg = e.strerror if hasattr(e, 'strerror') else e.message
+        message = 'failed to %s %s due to: %s' % (what, path, exc_cls)
+        self.errors.append(message)
+        if is_dir:
+            self.broken_directories[path] = '%s: %s' % (exc_cls, exc_msg)
+            context.log.debug(message, exc_info=exc_info)
         else:
-            populate_directory(directory_path)
+            self.broken_files[path] = '%s: %s' % (exc_cls, exc_msg)
+            context.log.error(message)
 
-    def resolve_includes(self, path):
-        """
-        Takes include path and returns all included files
-        Also populates directories
+            if isinstance(e, NgxParserDirectiveError):
+                line = _getline(e.filename, e.lineno)
+                context.log.debug('line where error was raised: %r' % line)
 
-        :param path: str path
-        :return: [] of str file names
-        """
-        # resolve local paths
-        path = self.resolve_local_path(path)
+            context.log.debug('additional info:', exc_info=exc_info)
 
-        # load all files
-        result = []
-        if '*' in path:
-            for filename in glob.glob(path):
-                result.append(filename)
-        else:
-            result.append(path)
-
-        self.populate_directories(path)
-        return result
-
-    def get_structure(self, include_ssl_certs=False):
-        """
-        Tries to collect all included files, folders and ssl certs and return
-        them as dict with mtimes, sizes and permissions.
-        Later this dict will be used to determine if a config was changed or not.
-
-        We don't use md5 or other hashes, because it takes time and we should be able
-        to run these checks every 20 seconds or so
-
-        :param include_ssl_certs: bool - include ssl certs  or not
-        :return: {}, {} - files, directories
-        """
-        files_result = {}
-
-        # collect all files
-        def lightweight_include_search(include_files):
-            for file_path in include_files:
-                if file_path in files_result:
-                    continue
-                files_result[file_path] = None
+    def _add_directory(self, dirname, check=False):
+        if dirname not in self.directories:
+            self.directories[dirname] = get_filesystem_info(dirname)
+            if check:
                 try:
-                    for line in open(file_path):
-                        if 'include' in line:
-                            gre = self.INCLUDE_RE.match(line)
-                            if gre:
-                                new_includes = self.resolve_includes(gre.group('include_file'))
-                                lightweight_include_search(new_includes)
-                        elif include_ssl_certs and 'ssl_certificate' in line:
-                            gre = self.SSL_CERTIFICATE_RE.match(line)
-                            if gre:
-                                cert_file_path = self.resolve_local_path(gre.group('cert_file'))
-                                files_result[cert_file_path] = None
-                                self.populate_directories(cert_file_path)
+                    scandir.scandir(dirname)
                 except Exception as e:
-                    exception_name = e.__class__.__name__
-                    message = 'failed to read %s due to: %s' % (file_path, exception_name)
-                    context.log.debug(message, exc_info=True)
+                    self._handle_error(dirname, e, is_dir=True)
 
-        lightweight_include_search(self.resolve_includes(self.filename))
+    def _add_file(self, filename):
+        if filename not in self.files:
+            dirname = self._dirname(filename)
+            self._add_directory(dirname, check=True)
+            try:
+                info = get_filesystem_info(filename)
+                info['index'] = len(self.files)
+                info['lines'] = open(filename).read().count('\n')
+                self.files[filename] = info
+            except Exception as e:
+                self._handle_error(filename, e, is_dir=False)
 
-        # get mtimes, sizes and permissions
-        for file_path in files_result.iterkeys():
-            size, mtime, permissions = self.get_filesystem_info(file_path)
-            files_result[file_path] = {
-                'size': size,
-                'mtime': mtime,
-                'permissions': permissions
-            }
+        if filename in self.files:
+            return self.files[filename]['index']
 
-        return files_result, self.directories
+    def _add_index(self, filename, lineno):
+        file_index = self._add_file(filename)
+        self.index.append((file_index, lineno))
+        return len(self.index) - 1
 
-    def __pyparse(self, path):
+    def _scan_path_pattern(self, pattern):
+        """Similar to glob.iglob, except it saves directory errors"""
+
+        # just yield the file if it's a regular boring path with no magic
+        magic = glob.magic_check.search(pattern)
+        if magic is None:
+            yield pattern
+            return
+
+        # find the deepest path before the first magic part
+        anchor, after = glob.magic_check.split(pattern, 1)
+        anchor, start = anchor.rsplit('/', 1)
+
+        offset = anchor.count('/') + 1
+        anchor = anchor or '/'
+
+        # get all of the following path parts (>=1 will have magic)
+        after = start + magic.group(0) + after
+        parts = after.split('/')
+
+        # used to handle directory errors when walking filesystem
+        def onerror(e):
+            dirname = e.filename + '/'
+            if dirname not in self.directories:
+                self.directories[dirname] = get_filesystem_info(dirname)
+                self._handle_error(dirname, e, is_dir=True)
+
+        # walk the filesystem to collect file paths (and directory errors)
+        it = scandir.walk(anchor, followlinks=True, onerror=onerror)
+        for root, dirs, files in it:
+            # get the index of the current path part to use
+            index = (root != '/') + root.count('/') - offset
+
+            if index > len(parts) - 1:
+                # must've followed a recursive link so go no deeper
+                dirs[:] = []
+            elif index < len(parts) - 1:
+                # determine which directories to walk into next
+                dirs[:] = _fnmatch_pattern(dirs, parts[index])
+            else:
+                # this is the last part, so yield from matching files
+                for f in _fnmatch_pattern(files, parts[index]):
+                    yield os.path.join(root, f)
+
+                # yield from matching directories too
+                for d in _fnmatch_pattern(dirs, parts[index]):
+                    yield os.path.join(root, d) + '/'
+
+    def _convert(self, filename, ngx_ctx=None):
         """
-        Loads and parses all files
-
-        :param path: file path (can contain *)
+        Convert a new style payload to the old 'dense' style payload
+        
+        :param filename: str - name of the file
+        :param ngx_ctx: dict - block from block directive to convert
+        :return: dict - the converted block payload
         """
-        result = {}
+        # pause for a bit if this is taking up too much cpu
+        context.check_and_limit_cpu_consumption()
 
-        for file_path in self.resolve_includes(path):
-            # skip files we couldn't read, etc
-            if file_path in self.broken_files:
+        if ngx_ctx is not None:
+            skip_cache = True  # because we're parsing a block context
+        elif filename in self._converted_cache:
+            cached = self._converted_cache[filename]
+            return copy.deepcopy(cached)
+        elif filename in self._parsed_cache:
+            ngx_ctx = self._parsed_cache[filename]
+            skip_cache = False  # because this is the top context for a file
+        else:
+            return {}  # this file must've been empty
+
+        block = {}
+
+        for stmt in ngx_ctx:
+            # ignore certain directives for security reasons
+            if stmt['directive'] in IGNORED_DIRECTIVES:
                 continue
 
-            if file_path not in self.files:
-                # read file contents
-                try:
-                    size, mtime, permissions = self.get_filesystem_info(file_path)
-                    if size > self.max_size:
-                        self.errors.append('failed to read %s due to: too large, %s bytes' % (file_path, size))
-                        self.broken_files.add(file_path)
-                        self.file_errors.append(('NaasException', 'too large, %s bytes' % size))
-                        continue
-
-                    source = open(file_path).read()
-                    lines_count = source.count('\n')
-                except Exception as e:
-                    exception_name = e.__class__.__name__
-                    exception_message = e.strerror if hasattr(e, 'strerror') else e.message
-                    message = 'failed to read %s due to: %s' % (file_path, exception_name)
-                    self.errors.append(message)
-                    self.broken_files.add(file_path)
-                    self.file_errors.append((exception_name, exception_message))
-                    context.log.error(message)
-                    context.log.debug('additional info:', exc_info=True)
-                    continue
-                else:
-                    # store the results
-                    file_index = len(self.files)
-
-                    self.files[file_path] = {
-                        'index': file_index,
-                        'lines': lines_count,
-                        'size': size,
-                        'mtime': mtime,
-                        'permissions': permissions
-                    }
-
-                # Replace windows line endings with unix ones
-                source = source.replace('\r\n', '\n')
-
-                # check that file contains some information (not commented)
-                all_lines_commented = True
-                for line in source.split('\n'):
-                    line = line.replace(' ', '')
-                    if line and not line.startswith('#'):
-                        all_lines_commented = False
-                        break
-
-                if all_lines_commented:
-                    continue
-
-                try:
-                    parsed = list(self.script.parseString(source, parseAll=True))
-                except Exception as e:
-                    exception_name = e.__class__.__name__
-                    message = 'failed to parse %s due to %s' % (file_path, exception_name)
-                    self.broken_files.add(file_path)
-                    self.errors.append(message)
-                    context.log.error(message)
-                    context.log.debug('additional info:', exc_info=True)
-                    continue
-
-                self.parsed_cache[file_index] = parsed[:]
-                result[file_index] = parsed
+            # get the directive's value
+            if 'block' in stmt:
+                value = self._convert(filename, stmt['block'])
             else:
-                # if we already have the file parsed
-                file_index = self.files[file_path]['index']
-                result[file_index] = self.parsed_cache.get(file_index, [])
+                value = argstring(stmt)
 
-        return result
+            # ignore access/error log directives if they use nginx variables
+            if stmt['directive'] in ('access_log', 'error_log'):
+                if not value or ('$' in value and ' if=$' not in value):
+                    continue
 
-    def __logic_parse(self, files, result=None):
-        """
-        Parses input files and updates result dict
+            # add the (file name, line number) tuple to self.index
+            index = self._add_index(filename, stmt['line'])
 
-        :param files: dict of files from pyparsing
-        :return: dict of config tree
-        """
-        if result is None:
-            result = {}
+            # add the (directive value, index index) tuple to the block
+            store_directive(block, stmt, (value, index))
 
-        for file_index, rowsp in files.iteritems():
-            rows = rowsp[:]
-            while len(rows):
-                row = rows.pop(0)
-                row_as_list = row.asList()
+            if stmt['directive'] == 'include':
+                value = self._abspath(value)
+                if value not in self.includes:
+                    self.includes.append(value)
 
-                if isinstance(row_as_list[0], list):
-                    # this is a new key
-                    key_bucket, value_bucket = row
-                    key = key_bucket[0]
+                # add the included directives to the current block
+                for fname in stmt['includes']:
+                    merge_blocks(block, self._convert(fname))
 
-                    if len(key_bucket) == 1:
-                        # simple key, with one param
-                        subtree_indexed = self.__idx_save(
-                            self.__logic_parse({file_index: row[1]}),
-                            file_index, row.line_number
-                        )
-                        if key == 'server':
-                            # work with servers
-                            if key in result:
-                                result[key].append(subtree_indexed)
-                            else:
-                                result[key] = [subtree_indexed]
-                        else:
-                            result[key] = subtree_indexed
-                    else:
-                        # compound key (for locations and upstreams for example)
+            elif stmt['directive'] == 'ssl_certificate' and value:
+                # skip if value uses nginx variables other than if
+                if value and ('$' not in value or ' if=$' in value):
+                    value = self._abspath(value)
+                    if value not in self.ssl_certificates:
+                        self.ssl_certificates.append(value)
 
-                        def flatten(l):
-                            """Helper function that flattens a list of lists into a single list"""
-                            flattened = []
-                            for element in l:
-                                if not isinstance(element, list):
-                                    flattened.append(element)
-                                elif isinstance(element, ParseResults):
-                                    flattened += flatten(element.asList())
-                                else:
-                                    flattened += flatten(element)
-                            return flattened
+        # we cache converted junk by file, so skip if we just parsed a block
+        if not skip_cache:
+            self._converted_cache[filename] = copy.deepcopy(block)
 
-                        # with some changes to how we use pyparse we now might get "ParseResults" back...handle it here
-                        # typically occurs on "if" statements/blocks
-                        if not isinstance(key_bucket[1], (str, unicode)):
-                            key_bucket = key_bucket.asList() if isinstance(key_bucket, ParseResults) else key_bucket
-                            parse_results = key_bucket.pop()
-                            key_bucket += flatten(parse_results)
+        return block
 
-                        # remove all redundant spaces
-                        parts = filter(len, ' '.join(key_bucket[1:]).split(' '))
-                        sub_key = ' '.join(parts)
+    def parse(self):
+        # clear results from the previous run
+        self.files = {}
+        self.directories = {}
 
-                        subtree_indexed = self.__idx_save(
-                            self.__logic_parse({file_index: row[1]}),
-                            file_index, row.line_number
-                        )
+        # clear some bits and pieces from previous run
+        self.broken_files = {}
+        self.broken_directories = {}
+        self.includes = []
+        self.ssl_certificates = []
+        try:
+            # use the new parser to parse the nginx config
+            get_exc_info = lambda e: sys.exc_info()
+            payload = parse_file(self.filename, onerror=get_exc_info, catch_errors=True)
 
-                        if key in result:
-                            result[key][sub_key] = subtree_indexed
-                        else:
-                            result[key] = {sub_key: subtree_indexed}
-                else:
-                    # can be just an assigment, without value
-                    if len(row) >= 2:
-                        key, value = row[0], '/s/'.join(row[1:])  # add special "spacer" character combination
-                        # this special spacer only is appears in complex "add_header" directives at the moment
-                    else:
-                        key, value = row[0], ''
+            for error in payload['errors']:
+                path = error['file']
+                exc_info = error['callback']
+                try:
+                    # these error types are handled by this script already
+                    if not isinstance(exc_info[1], (OSError, IOError)):
+                        self._handle_error(path, exc_info[1], exc_info=exc_info, what='parse')
+                        self._add_file(path)
+                finally:
+                    # this speeds things up by deleting traceback, see python docs
+                    del exc_info
 
-                    # transform multiline values to single one
-                    if """\'""" in value or """\n""" in value:
-                        value = re.sub(r"\'\s*\n\s*\'", '', value)
-                        value = re.sub(r"\'", "'", value)
+            for config in payload['config']:
+                path = config['file']
+                if config['parsed']:
+                    self._parsed_cache[path] = config['parsed']
+                    self._add_file(path)
 
-                    # remove spaces
-                    value = value.strip()
+            # convert the parsed payload into our dense payload structure
+            self._add_file(self.filename)
+            self.tree = self._convert(self.filename)
 
-                    if key in IGNORED_DIRECTIVES:
-                        continue  # Pass ignored directives.
-                    elif key == 'log_format':
-                        value = value.replace('/s/', " '", 1) + "'"
-                        value = value.replace('/s/', '')
+            # use found include patterns to check for os errors
+            for pattern in self.includes:
+                for filename in self._scan_path_pattern(pattern):
+                    self._add_file(filename)
 
-                        # work with log formats
-                        gwe = re.match("([\w\d_-]+)\s+'(.+)'", value)
-                        if gwe:
-                            format_name, format_value = gwe.group(1), gwe.group(2)
+            # add directories that only contain ssl cert files
+            for cert in self.ssl_certificates:
+                dirname = self._dirname(cert)
+                self._add_directory(dirname, check=True)
 
-                            indexed_value = self.__idx_save(format_value, file_index, row.line_number)
-                            # Handle odd Python auto-escaping of raw strings when packing/unpacking.
-                            indexed_value = (prep_raw(indexed_value[0]), indexed_value[1])
+            # construct self.directory_map
+            dirmap = self.directory_map
 
-                            if key in result:
-                                result[key][format_name] = indexed_value
-                            else:
-                                result[key] = {format_name: indexed_value}
-                    elif key == 'include':
-                        indexed_value = self.__idx_save(value, file_index, row.line_number)
+            # start with directories
+            for dirname, info in self.directories.iteritems():
+                dirmap[dirname] = {'info': info, 'files': {}}
 
-                        if key in result:
-                            result[key].append(indexed_value)
-                        else:
-                            result[key] = [indexed_value]
+            for dirname, error in self.broken_directories.iteritems():
+                dirmap.setdefault(dirname, {'info': {}, 'files': {}})
+                dirmap[dirname]['error'] = error
 
-                        included_files = self.__pyparse(value)
-                        self.__logic_parse(included_files, result=result)
-                    elif key in ('access_log', 'error_log'):
-                        value = value.replace('/s/', ' ')
+            # then do files
+            for filename, info in self.files.iteritems():
+                dirname = self._dirname(filename)
+                dirmap[dirname]['files'][filename] = {'info': info}
 
-                        # Handle access_log and error_log edge cases
-                        if value == '':
-                            continue  # skip log directives that are empty
-
-                        if '$' in value and ' if=$' not in value:
-                            continue  # skip directives that are use nginx variables and it's not if
-
-                        # Otherwise handle normally (see ending else below).
-                        indexed_value = self.__idx_save(value, file_index, row.line_number)
-                        self.__simple_save(result, key, indexed_value)
-                    elif key == 'ssl_certificate':
-                        if value == '':
-                            continue  # skip empty values
-
-                        if '$' in value and ' if=$' not in value:
-                            continue  # skip directives that are use nginx variables and it's not if
-
-                        cert_path = self.resolve_local_path(value)
-                        self.ssl_certificates.append(cert_path)  # Add value to ssl_certificates
-                        self.populate_directories(cert_path)
-
-                        # save config value
-                        indexed_value = self.__idx_save(value, file_index, row.line_number)
-                        self.__simple_save(result, key, indexed_value)
-                    elif key == 'add_header':
-                        indexed_value = self.__idx_save(value.replace('/s/', ' '), file_index, row.line_number)
-                        self.__simple_save(result, key, indexed_value)
-                    else:
-                        indexed_value = self.__idx_save(value, file_index, row.line_number)
-                        self.__simple_save(result, key, indexed_value)
-
-        return result
-
-    def __idx_save(self, value, file_index, line):
-        new_index = len(self.index)
-
-        # For performance, we should handle extra spaces in business logic instead of in pyparsing
-        if isinstance(value, (str, unicode)):
-            value = value.strip()
-            value = value.replace('/s/', '')  # replace special spacers from __logic_parse() if they are still here
-
-        self.index.append((file_index, line))
-        return value, new_index
-
-    def __simple_save(self, result, key, indexed_value):
-        """
-        We ended up having duplicate code when adding key-value pairs to our parsing dictionary (
-        when handling access_log and error_log directives).
-
-        This prompted us to refactor this process out to a separate function.  Because dictionaries are passed by
-        reference in Python, we can alter the value dictionary in this local __func__ scope and have it affect the dict
-        in the parent.
-
-        :param result: dict Passed and altered by reference from the parent __func__ scope
-        :param key:
-        :param indexed_value:
-        (No return since we are altering a pass-by-reference dict)
-        """
-        # simple key-value
-        if key in result:
-            stored_value = result[key]
-            if isinstance(stored_value, list):
-                result[key].append(indexed_value)
-            else:
-                result[key] = [stored_value, indexed_value]
-        else:
-            result[key] = indexed_value
+            for filename, error in self.broken_files.iteritems():
+                dirname = self._dirname(filename)
+                dirmap[dirname]['files'].setdefault(filename, {'info': {}})
+                dirmap[dirname]['files'][filename]['error'] = error
+        finally:
+            # clear the converted and parsed caches
+            self._converted_cache = {}
+            self._parsed_cache = {}
 
     def simplify(self):
         """
-        returns tree without index references
-        can be used for debug/pretty output
+        Returns self.tree without the "self.index index" tuples
 
-        :return: dict of self.tree without index positions
+        :return: dict - self.tree without index positions
         """
         def _simplify(tree):
             if isinstance(tree, dict):
@@ -697,21 +447,63 @@ class NginxConfigParser(object):
 
         return _simplify(self.tree)
 
-    def construct_directory_map(self):
-        # start with directories
-        for directory, info in self.directories.iteritems():
-            self.directory_map[directory] = {'info': info, 'files': {}}
+    def get_structure(self, include_ssl_certs=False):
+        """
+        Collects included files, ssl cert files, and their directories and
+        then returns them as dicts with mtimes, sizes, and permissions
 
-        for directory, error in izip(self.broken_directories, self.directory_errors):
-            self.directory_map.setdefault(directory, {'info': {}, 'files': {}})
-            self.directory_map[directory]['error'] = '%s: %s' % error
+        :param include_ssl_certs: bool - include ssl certs  or not
+        :return: (dict, dict) - files, directories
+        """
+        files = {}
 
-        # now files
-        for filename, info in self.files.iteritems():
-            directory = self.resolve_directory(filename)
-            self.directory_map[directory]['files'][filename] = {'info': info}
+        if include_ssl_certs:
+            regex = INCLUDE_CERT_RE
+            has_directive = lambda line: 'include' in line or 'ssl_certificate' in line
+        else:
+            regex = INCLUDE_ONLY_RE
+            has_directive = lambda line: 'include' in line
 
-        for filename, error in izip(self.broken_files, self.file_errors):
-            directory = self.resolve_directory(filename)
-            self.directory_map[directory]['files'].setdefault(filename, {'info': {}})
-            self.directory_map[directory]['files'][filename]['error'] = '%s: %s' % error
+        def _skim_file(filename):
+            """
+            Recursively skims nginx configs for include and ssl_certificate
+            directives, yielding paths of the files they reference on the way
+            """
+            if filename in files:
+                return
+
+            yield filename
+            try:
+                # search each line for include or ssl_certificate directives
+                with open(filename) as lines:
+                    for line in lines:
+                        if not has_directive(line):
+                            continue
+
+                        for match in regex.finditer(line):
+                            if not match:
+                                continue
+
+                            file_pattern = self._abspath(match.group(3))
+
+                            # add directory but don't use self._scan_path_pattern
+                            # because we don't need to collect directory errors
+                            dir_pattern = self._dirname(file_pattern)
+                            for path in _iglob_pattern(dir_pattern):
+                                self._add_directory(path, check=True)
+
+                            # yield from matching files using _iglob_pattern
+                            for path in _iglob_pattern(file_pattern):
+                                if match.group(1) == 'include':
+                                    for p in _skim_file(path):
+                                        yield p
+                                else:
+                                    yield path
+            except Exception as e:
+                self._handle_error(filename, e, is_dir=False)
+
+        # collect file names and get mtimes, sizes, and permissions for them
+        for fname in _skim_file(self.filename):
+            files[fname] = get_filesystem_info(fname)
+
+        return files, self.directories

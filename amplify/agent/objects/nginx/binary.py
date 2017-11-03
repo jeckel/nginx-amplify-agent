@@ -111,7 +111,14 @@ def get_prefix_and_conf_path(cmd, configure=None):
     if not prefix:
         prefix = configure.get('prefix', DEFAULT_PREFIX)
     if not conf_path:
-        conf_path = configure.get('conf-path', DEFAULT_CONFPATH)
+        # if there is a conf_path get it from the config file
+        if context.app_config.get('nginx', {}).get('configfile'):
+            conf_path = context.app_config['nginx']['configfile']
+            if not conf_path.startswith('/'):
+                conf_path = '/' + conf_path
+        # else get it from the parsed information/DEFAULT
+        else:
+            conf_path = configure.get('conf-path', DEFAULT_CONFPATH)
 
     # remove trailing slashes from prefix
     prefix = prefix.rstrip('/')

@@ -51,3 +51,15 @@ def get(log_name):
         logger = logging.getLogger(log_name)
         LOGGERS_CACHE[log_name] = logger
     return LOGGERS_CACHE[log_name]
+
+
+def get_debug_handler(log_file):
+    """
+    returns a file handler for debug log file
+    :param log_file: str log file
+    :return: FileHandler obj
+    """
+    handler = logging.FileHandler(log_file, 'a')
+    formatter = logging.Formatter('%(asctime)s [%(process)d] %(action_id)s %(threadName)s %(message)s')
+    handler.setFormatter(formatter)
+    return handler

@@ -28,6 +28,7 @@ binary=/usr/bin/nginx-amplify-agent.py
 pidfile=/var/run/amplify-agent/amplify-agent.pid
 conffile=/etc/amplify-agent/agent.conf
 user=nginx
+debug_log="$2"
 
 if [ -f "$conffile" ]; then
     config_amplify_user=`grep -v '#' ${conffile} | \
@@ -91,18 +92,30 @@ stop() {
         return $RETVAL
 }
 
-restart(){
+restart() {
 	stop
 	start
 }
 
-configtest(){
+configtest() {
         [ -x $binary ] || exit 5
         if [ $UID -ne 0 ]; then
                 RETVAL=1
                 failure
         else
                 $binary configtest --config=$conffile --pid=$pidfile
+                RETVAL=$?
+        fi;
+        return $RETVAL
+}
+
+debug() {
+        [ -x $binary ] || exit 5
+        if [ $UID -ne 0 ]; then
+                RETVAL=1
+                failure
+        else
+                $binary debug --config=$conffile --pid=$pidfile --log=$debug_log
                 RETVAL=$?
         fi;
         return $RETVAL
@@ -122,15 +135,19 @@ case "$1" in
 	RETVAL=$?
     ;;
   status)
-        status -p $pidfile amplify-agent
+    status -p $pidfile amplify-agent
 	RETVAL=$?
-        ;;
+    ;;
   configtest)
 	configtest
 	RETVAL=$?
 	;;
+  debug)
+    debug
+    RETVAL=$?
+    ;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|configtest}"
+	echo $"Usage: $0 {start|stop|status|restart|configtest|debug}"
 	RETVAL=2
 esac
 

@@ -9,8 +9,9 @@ FROM ubuntu:14.04
 # File Author / Maintainer
 MAINTAINER Mike Belov
 
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-RUN apt-get update && apt-get install -y -q wget apt-transport-https
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
+ && apt-get update \
+ && apt-get install -y -q wget apt-transport-https
 
 # Download certificate and key from the customer portal (https://cs.nginx.com)
 # and copy to the build context
@@ -18,44 +19,66 @@ ADD nginx-repo.crt /etc/ssl/nginx/
 ADD nginx-repo.key /etc/ssl/nginx/
 
 # Get other files required for installation
-RUN wget -q -O /etc/ssl/nginx/CA.crt https://cs.nginx.com/static/files/CA.crt
-RUN wget -q -O - http://nginx.org/keys/nginx_signing.key | apt-key add -
-RUN wget -q -O /etc/apt/apt.conf.d/90nginx https://cs.nginx.com/static/files/90nginx
+RUN wget -q -O /etc/ssl/nginx/CA.crt https://cs.nginx.com/static/files/CA.crt \
+ && wget -q -O - http://nginx.org/keys/nginx_signing.key | apt-key add - \
+ && wget -q -O /etc/apt/apt.conf.d/90nginx https://cs.nginx.com/static/files/90nginx
 
-RUN printf "deb https://plus-pkgs.nginx.com/ubuntu `lsb_release -cs` nginx-plus\n" >/etc/apt/sources.list.d/nginx-plus.list
-
-# Install NGINX Plus
-RUN apt-get update && apt-get install -y nginx-plus
-
-# Install basic applications
-RUN apt-get install -y --fix-missing tar curl nano wget dialog net-tools build-essential
+# Install NGINX Plus and  basic applications
+RUN printf "deb https://plus-pkgs.nginx.com/ubuntu `lsb_release -cs` nginx-plus\n" >/etc/apt/sources.list.d/nginx-plus.list \
+ && apt-get update \
+ && apt-get install -y nginx-plus \
+ && apt-get install -y --fix-missing tar curl nano wget dialog net-tools build-essential \
+ && cp /usr/sbin/nginx /usr/sbin/nginx2
 
 # Install php-fpm and configure
-RUN apt-get update
-RUN apt-get install -y php5-fpm
+RUN rm -rf /run \
+ && mkdir /run \
+ && apt-get update \
+ && apt-get install -y php5-fpm \
+ && mkdir /run/php/
+
 # add fastcgi_params and php-fpm.conf for nginx
 ADD fastcgi_params /etc/nginx/fastcgi_params
 ADD php-fpm.conf /etc/nginx/conf.d/php-fpm.conf
 # overwrite default www.conf for php5.0-fpm and add second one
 ADD php-fpm-www.conf /etc/php5/fpm/pool.d/www.conf
 ADD php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
-RUN mkdir /run/php/
 # add test .php file to /var/www/php-fpm root
 ADD test.php /var/www/php-fpm/test.php
 
 # Install Python and Basic Python Tools
-RUN apt-get install -y python python-dev python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
-
-# Install Supervisor
-RUN easy_install supervisor
+RUN apt-get update \
+ && apt-get install -y python python-dev python-distribute \
+ && wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python \
+ && easy_install pip \
+ && easy_install supervisor
 
 # Copy the application folder inside the container
 ADD . /amplify
 
-# Get pip to download and install requirements:
-RUN pip install pytest pytest-xdist pyhamcrest requests_mock rstr==2.2.3 greenlet==0.4.9 gevent==1.0.2 lockfile==0.11.0 netaddr==0.7.18 netifaces==0.10.4 psutil==4.0.0 requests==2.12.4 ujson==1.33 python-daemon==2.0.6 pyparsing==2.2.0 setproctitle==1.1.10 flup==1.0.2
+# Install agent requirements:
+RUN pip install \
+    flup==1.0.2 \
+    gevent==1.0.2 \
+    greenlet==0.4.9 \
+    lockfile==0.11.0 \
+    netaddr==0.7.18 \
+    netifaces==0.10.4 \
+    psutil==4.0.0 \
+    pyparsing==2.2.0 \
+    python-daemon==2.0.6 \
+    requests==2.12.4 \
+    rstr==2.2.3 \
+    scandir==1.5 \
+    setproctitle==1.1.10 \
+    ujson==1.33
+
+# Install test requirements
+RUN pip install \
+    pytest \
+    pytest-xdist \
+    pyhamcrest \
+    requests_mock
 
 ENV AMPLIFY_ENVIRONMENT testing
 ENV PYTHONPATH /amplify
@@ -73,8 +96,5 @@ ADD supervisord.conf /etc/supervisord.conf
 # add ssl
 ADD amplify-agent-test.crt /etc/nginx/certs.d/amplify-agent-test.crt
 ADD amplify-agent-test.key /etc/nginx/certs.d/amplify-agent-test.key
-
-# cp nginx
-RUN cp /usr/sbin/nginx /usr/sbin/nginx2
 
 CMD bash

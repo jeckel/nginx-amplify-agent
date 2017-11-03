@@ -49,7 +49,7 @@ option_list = (
         action='store',
         dest='config',
         type='string',
-        help='path to config file',
+        help='path to the config file',
         default=None,
     ),
     Option(
@@ -57,7 +57,7 @@ option_list = (
         action='store',
         dest='pid',
         type='string',
-        help='path to pid file',
+        help='path to the pid file',
         default=None,
     ),
     Option(
@@ -66,6 +66,14 @@ option_list = (
         dest='foreground',
         help='do not daemonize, run in foreground',
         default=False,
+    ),
+    Option(
+        '--log',
+        action='store',
+        dest='log',
+        type='string',
+        help='path to the log file',
+        default=None,
     ),
 )
 
@@ -82,7 +90,7 @@ if __name__ == '__main__':
 
     try:
         action = sys.argv[1]
-        if action not in ('start', 'stop', 'configtest'):
+        if action not in ('start', 'stop', 'configtest', 'debug'):
             raise IndexError
     except IndexError:
         print("Invalid action or no action supplied\n")
@@ -90,34 +98,42 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # check config before start
-    if action in ('configtest', 'start'):
+    if action in ('configtest', 'start', 'debug'):
         rc = test_config(options.config, options.pid)
         print("")
 
         if action == 'configtest' or rc:
             sys.exit(rc)
 
+    # setup the context
+    debug_mode = action == 'debug'
     try:
         from amplify.agent.common.context import context
         context.setup(
             app='agent',
             config_file=options.config,
-            pid_file=options.pid
+            pid_file=options.pid,
+            log_file=options.log,
+            debug=debug_mode
         )
     except:
         import traceback
         print(traceback.format_exc(sys.exc_traceback))
 
+    # run the agent
     try:
         from amplify.agent.supervisor import Supervisor
-        supervisor = Supervisor(foreground=options.foreground)
+        supervisor = Supervisor(
+            foreground=options.foreground,
+            debug=debug_mode
+        )
 
-        if not options.foreground:
+        if options.foreground or (debug_mode and options.log):
+            supervisor.run()
+        else:
             from amplify.agent.common.runner import Runner
             daemon_runner = Runner(supervisor)
             daemon_runner.do_action()
-        else:
-            supervisor.run()
     except:
         context.default_log.error('uncaught exception during run time', exc_info=True)
         print(traceback.format_exc(sys.exc_traceback))

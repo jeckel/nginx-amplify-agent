@@ -82,6 +82,9 @@ def install_pip(python='python'):
     shell_call('~/.local/bin/pip install setuptools --user')
     shell_call('~/.local/bin/pip install setuptools --upgrade --user')
 
+    # this line is to be able to build a package for centos6
+    shell_call('~/.local/bin/pip install wheel==0.29.0 --user')
+
 
 def install_pip_deps():
     shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements')
