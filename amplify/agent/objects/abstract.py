@@ -3,7 +3,8 @@ import abc
 import hashlib
 import time
 
-from gevent import queue, GreenletExit
+from gevent import queue
+from gevent.hub import BlockingSwitchOutError
 
 from amplify.agent.data.eventd import EventdClient
 from amplify.agent.data.metad import MetadClient
@@ -153,15 +154,25 @@ class AbstractObject(object):
 
     def stop(self):
         if self.running:
-            context.log.debug('halting object "%s" %s' % (self.type, self.definition_hash))
-            # Kill raises errors with gevent.
-            # for thread in self.threads:
-            #     thread.kill()
+            context.log.debug('stopping object "%s" %s' % (self.type, self.definition_hash))
+            for thread in self.threads:
+                try:
+                    thread.kill()
+                except BlockingSwitchOutError:
+                    pass
+                except Exception as e:
+                    context.log.debug('exception during object stop', exc_info=True)
 
             # For every collector, if the collector has a .tail attribute and is a Pipeline, send a stop signal.
             for collector in self.collectors:
-                if hasattr(collector, 'tail') and isinstance(collector.tail, Pipeline):
-                    collector.tail.stop()
+                try:
+                    if hasattr(collector, 'tail') and isinstance(collector.tail, Pipeline):
+                        collector.tail.stop()
+                except BlockingSwitchOutError:
+                    pass
+                except Exception as e:
+                    context.log.debug('exception during pipeline stop', exc_info=True)
+
             self.running = False
             context.log.debug('stopped object "%s" %s ' % (self.type, self.definition_hash))
 

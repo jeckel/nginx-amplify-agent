@@ -9,7 +9,7 @@ amplify_path = '/'.join(amplify.__file__.split('/')[:-1])
 sys.path.insert(0, amplify_path)
 
 from gevent import monkey
-monkey.patch_all(socket=False, ssl=False, select=False)
+monkey.patch_all()
 
 from optparse import OptionParser, Option
 

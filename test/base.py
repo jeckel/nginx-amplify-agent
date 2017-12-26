@@ -123,34 +123,67 @@ class RealNginxTestCase(BaseTestCase):
     """
     Special class for tests on real nginx
     Launches nginx on setup and stops it on teardown
+
+    All shell commands are called without check for 0 return code,
+    since with nginx+ command service nginx start will return 1
+    if nginx is already running
     """
     def setup_method(self, method):
         super(RealNginxTestCase, self).setup_method(method)
+        self.running = False
         self.second_started = False
-        subp.call('service nginx start')
+        self.start_first_nginx()
         self.running = True
 
     def teardown_method(self, method):
         if self.running:
-            subp.call('pgrep nginx |sudo xargs kill -SIGKILL')
+            subp.call('pgrep nginx |sudo xargs kill -9')
             self.running = False
         super(RealNginxTestCase, self).teardown_method(method)
 
     def reload_nginx(self):
-        subp.call('service nginx reload')
+        subp.call('service nginx reload', check=False)
+
+    def start_second_nginx(self, conf='nginx2.conf'):
+        subp.call('/usr/sbin/nginx2 -c /etc/nginx/%s' % conf, check=False)
+        self.second_started = True
+
+    def stop_first_nginx(self):
+        subp.call('service nginx stop', check=False)
+
+    def start_first_nginx(self):
+        subp.call('service nginx start', check=False)
+
+    def restart_nginx(self):
+        subp.call('service nginx restart', check=False)
+
+
+class RealNginxSupervisordTestCase(RealNginxTestCase):
+
+    @classmethod
+    def setup_class(cls):
+        subp.call('supervisorctl -c /etc/supervisord.conf shutdown', check=False)
+        subp.call('supervisord -c /etc/supervisord.conf')
+
+    @classmethod
+    def teardown_class(cls):
+        subp.call('supervisorctl -c /etc/supervisord.conf shutdown')
+
+    def reload_nginx(self):
+        subp.call('supervisorctl -c /etc/supervisord.conf signal HUP nginx')
 
     def start_second_nginx(self, conf='nginx2.conf'):
         subp.call('/usr/sbin/nginx2 -c /etc/nginx/%s' % conf)
         self.second_started = True
 
     def stop_first_nginx(self):
-        subp.call('service nginx stop')
+        subp.call('supervisorctl -c /etc/supervisord.conf stop nginx')
 
     def start_first_nginx(self):
-        subp.call('service nginx start')
+        subp.call('supervisorctl -c /etc/supervisord.conf start nginx')
 
     def restart_nginx(self):
-        subp.call('service nginx restart')
+        subp.call('supervisorctl -c /etc/supervisord.conf restart nginx')
 
 
 class TestWithFakeSubpCall(BaseTestCase):

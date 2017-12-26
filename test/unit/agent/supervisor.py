@@ -276,6 +276,31 @@ class SupervisorTestCase(RealNginxTestCase):
             assert_that(context.backpressure_time, not_(equal_to(self.old_backpressure_time)))
             assert_that(context.backpressure_time, greater_than_or_equal_to(int(now + 60.0)))
 
+    def test_backpressure_ordinal_503(self):
+        """
+        Checks that the agent doesn't crash on non-formalized 503
+        """
+        supervisor = Supervisor()
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                status_code=503,
+                text='foo'
+            )
+
+            now = time.time()
+
+            # talk to get delay
+            try:
+                supervisor.talk_to_cloud(force=True)
+            except AmplifyCriticalException:
+                pass
+
+            # check that context.backpressure_time was changed to default 60
+            assert_that(context.backpressure_time, not_(equal_to(self.old_backpressure_time)))
+            assert_that(context.backpressure_time, greater_than_or_equal_to(int(now + 60.0)))
+
     def test_filters_unchanged(self):
         """
         Checks that agent is able to determine filters changes

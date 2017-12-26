@@ -8,7 +8,20 @@
 # -- check if sudo exists
 #
 
-cat <<-EOM >&2
+agent_conf_path="/etc/amplify-agent"
+agent_conf_file="${agent_conf_path}/agent.conf"
+agent_log_file="/var/log/amplify-agent/agent.log"
+api_url="https://receiver.amplify.nginx.com:443/ping/"
+
+found_nginx_master=""
+found_nginx_user=""
+found_agent_conf=""
+found_lsb_release=""
+
+if [ "$1" != "-q" ]; then
+    quiet="yes"
+
+    cat <<-EOM >&2
 	#
 	# HEADS UP:
 	#
@@ -16,7 +29,7 @@ cat <<-EOM >&2
 	# the OS, the nginx, and the Amplify Agent environments.
 	#
 	# It is intended to be used only while DEBUGGING a failed installation,
-	# or while examining any obscure problems with the metric collection.
+	# or while examining an obscure problem with the metric collection.
 	#
 	# This script is NOT part of the Amplify Agent runtime.
 	# It DOES NOT send anything anywhere on its own.
@@ -24,7 +37,7 @@ cat <<-EOM >&2
 	# being invoked automatically.
 	#
 	# The script will use standard OS utilities to gather an
-	# understanding of the OS, package and user environment.
+	# understanding of the OS, the package and the user environment.
 	#
 	# The script DOES NOT change any system parameters or
 	# configuration. All output is simply to STDOUT.
@@ -41,15 +54,16 @@ cat <<-EOM >&2
 	#
 EOM
 
-agent_conf_path="/etc/amplify-agent"
-agent_conf_file="${agent_conf_path}/agent.conf"
-agent_log_file="/var/log/amplify-agent/agent.log"
-api_url="https://receiver.amplify.nginx.com:443/ping/"
+    echo "" >&2
+    /bin/echo -n "Continue (y/n)? " >&2
 
-found_nginx_master=""
-found_nginx_user=""
-found_agent_conf=""
-found_lsb_release=""
+    read answer && \
+    test "${answer}" = "y" -o \
+         "${answer}" = "Y" -o \
+         "${answer}" = "yes" -o \
+         "${answer}" = "Yes" || \
+    exit 1
+fi
 
 if [ "`id -u`" != "0" ]; then
     echo ""
@@ -59,17 +73,7 @@ if [ "`id -u`" != "0" ]; then
     exit 1
 fi
 
-echo "" >&2
-/bin/echo -n "Continue (y/n)? " >&2
-
-read answer && \
-test "${answer}" = "y" -o \
-     "${answer}" = "Y" -o \
-     "${answer}" = "yes" -o \
-     "${answer}" = "Yes" || \
-exit 1
-
-echo "Collecting data.." >&2
+echo "Collecting data ..." >&2
 
 nginx_master=`ps axu | grep -i '[:] master.*nginx'`
 
@@ -323,7 +327,7 @@ else
 
 	    os="amzn"
 	    centos_flavor="amazon linux"
-	    ;;		
+	    ;;
 	*)
 	    codename=""
 	    release=""
@@ -379,7 +383,7 @@ if [ -n "${pkg_cmd1}" -a -n "${pkg_cmd2}" ]; then
     ${pkg_cmd2} nginx-amplify-agent 2>&1 | grep 'agent\(.py\)*$' 2>&1
     echo ""
 
-    for pkg in nginx nginx-core; do
+    for pkg in nginx nginx-core nginx-plus; do
 	echo " ---> ${pkg_cmd1} ${pkg}" && \
 	${pkg_cmd1} ${pkg} 2>&1 && \
 	echo "" && \
@@ -410,7 +414,7 @@ if mount | egrep 'proc|sysfs' > /dev/null 2>&1; then
     if [ -n "${nginx_workers}" ]
     then
 	echo ' ---> /proc/${pid}/io and /proc/${pid}/limits:'
-	
+
 	for i in ${nginx_workers}; do
 	    ls -la /proc/${i}/io
 	    ls -la /proc/${i}/limits
@@ -435,7 +439,7 @@ if mount | egrep 'proc|sysfs' > /dev/null 2>&1; then
     else
 	echo " ---> can't find any nginx workers."
     fi
-    
+
     if test -e /proc/user_beancounters -o \
 	    -e /proc/bc; then
 	echo ""

@@ -24,3 +24,4 @@ naas_agent.yaml
 .cache
 *~
 .DS_Store
+tools/validate.sh

@@ -165,11 +165,10 @@ def uuid():
     result = python_uuid.uuid5(python_uuid.NAMESPACE_DNS, platform.node() + str(python_uuid.getnode())).hex
 
     if config_uuid and config_uuid != result:
-        context.log.warn('Real UUID != UUID from %s, maybe you changed hosts?' % context.app_config.filename)
+        context.log.warn('generated UUID != UUID from %s, but we will use one from the config file' % context.app_config.filename)
         return config_uuid
     elif not config_uuid:
-        context.app_config.save(section='credentials', key='uuid', value=result)
-        context.log.debug('saved uuid %s' % result)
+        context.log.debug('using generated uuid %s' % result)
         return result
 
     return config_uuid
@@ -193,6 +192,7 @@ def block_devices():
         result = [device for device in devices if '/virtual/' not in os.readlink('/sys/block/%s' % device)]
 
     return result
+
 
 def alive_interfaces():
     """

@@ -27,16 +27,16 @@ def call(command, check=True):
 
     process = subprocess.Popen(command, **subprocess_params)
     try:
-        process.wait()
+        raw_out, raw_err = process.communicate()
         if process.returncode != 0 and check:
             raise AmplifySubprocessError(message=command, payload=dict(returncode=process.returncode))
         else:
-            raw_out, raw_err = process.communicate()
             out = raw_out.split('\n')
             err = raw_err.split('\n')
             return out, err
     except:
         raise
     finally:
+        process.stdin.close()
         process.stdout.close()
         process.stderr.close()

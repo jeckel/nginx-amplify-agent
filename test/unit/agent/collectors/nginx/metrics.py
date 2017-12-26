@@ -114,3 +114,32 @@ class NginxMetricsTestCase(RealNginxTestCase):
         gauges = metrics['gauge']
         assert_that(gauges, not_(has_item('nginx.http.request.writing')))
         assert_that(gauges, not_(has_item('nginx.http.request.reading')))
+
+    @nginx_plus_test
+    def test_plus_ssl_metrics(self):
+        """
+        Checks that we collect ssl metrics
+        """
+        time.sleep(1)  # Give N+ some time to start
+        container = NginxManager()
+        container._discover_objects()
+        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+
+        # get nginx object
+        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+
+        # get metrics collector - the third in the list
+        metrics_collector = nginx_obj.collectors[2]
+
+        # run status twice
+        metrics_collector.status()
+        time.sleep(1)
+        metrics_collector.status()
+
+        # check ssl counters
+        metrics = nginx_obj.statsd.current
+        assert_that(metrics, has_item('counter'))
+        counters = metrics['counter']
+        assert_that(counters, has_item('plus.http.ssl.handshakes'))
+        assert_that(counters, has_item('plus.http.ssl.failed'))
+        assert_that(counters, has_item('plus.http.ssl.reuses'))

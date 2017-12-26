@@ -1,18 +1,26 @@
 # -*- coding: utf-8 -*-
 import re
 import time
-
 import psutil
-
-from amplify.agent.collectors.plus.util.cache import CACHE_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.upstream import UPSTREAM_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.status_zone import STATUS_ZONE_COLLECT_INDEX
 
 from amplify.agent.common.context import context
 from amplify.agent.common.errors import AmplifyParseException
 from amplify.agent.common.util.ps import Process
 from amplify.agent.data.eventd import WARNING
 from amplify.agent.collectors.abstract import AbstractMetricsCollector
+from amplify.agent.collectors.plus.util.cache import CACHE_COLLECT_INDEX
+from amplify.agent.collectors.plus.util.upstream import (
+    UPSTREAM_PEER_COLLECT_INDEX,
+    UPSTREAM_COLLECT_INDEX
+)
+from amplify.agent.collectors.plus.util.status_zone import STATUS_ZONE_COLLECT_INDEX
+from amplify.agent.collectors.plus.util.slab import SLAB_COLLECT_INDEX
+from amplify.agent.collectors.plus.util.stream import STREAM_COLLECT_INDEX
+from amplify.agent.collectors.plus.util.stream_upstream import (
+    STREAM_UPSTREAM_PEER_COLLECT_INDEX,
+    STREAM_UPSTREAM_COLLECT_INDEX
+)
+
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -228,12 +236,23 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         nginx.http.conn.idle = connections.idle
         nginx.http.request.count = requests.total  ## counter
         nginx.http.request.current = requests.current
+
+        plus.http.ssl.handshakes = ssl.handshakes
+        plus.http.ssl.failed = ssl.handshakes_failed
+        plus.http.ssl.reuses = ssl.session_reuses
+
+        also here we run plus metrics collection
         """
         stamp = int(time.time())
 
         # get plus status body
         try:
             status = context.http_client.get(self.object.plus_status_internal_url, timeout=1, log=False)
+
+            # modify status to move stream data up a level
+            if 'stream' in status:
+                status['streams'] = status['stream'].get('server_zones', {})
+                status['stream_upstreams'] = status['stream'].get('upstreams', {})
 
             # Add the status payload to plus_cache so it can be parsed by other collectors (plus objects)
             context.plus_cache.put(self.object.plus_status_internal_url, (status, stamp))
@@ -247,9 +266,9 @@ class NginxMetricsCollector(AbstractMetricsCollector):
 
         connections = status.get('connections', {})
         requests = status.get('requests', {})
+        ssl = status.get('ssl', {})
 
         # gauges
-
         self.object.statsd.gauge('nginx.http.conn.active', connections.get('active'))
         self.object.statsd.gauge('nginx.http.conn.idle', connections.get('idle'))
         self.object.statsd.gauge('nginx.http.conn.current', connections.get('active') + connections.get('idle'))
@@ -260,33 +279,58 @@ class NginxMetricsCollector(AbstractMetricsCollector):
             'nginx.http.request.count': requests.get('total'),
             'nginx.http.conn.accepted': connections.get('accepted'),
             'nginx.http.conn.dropped': connections.get('dropped'),
+            'plus.http.ssl.handshakes': ssl.get('handshakes'),
+            'plus.http.ssl.failed': ssl.get('handshakes_failed'),
+            'plus.http.ssl.reuses': ssl.get('session_reuses')
         }
         self.aggregate_counters(counted_vars, stamp=stamp)
 
-        # Aggregate plus metrics
-
-        # Caches
+        # aggregate plus metrics
+        # caches
         caches = status.get('caches', {})
         for cache in caches.values():
             for method in CACHE_COLLECT_INDEX:
                 method(self, cache, stamp)
 
-        # Status Zones
+        # status zones
         zones = status.get('server_zones', {})
         for zone in zones.values():
             for method in STATUS_ZONE_COLLECT_INDEX:
                 method(self, zone, stamp)
 
-        # Upstreams
+        # upstreams
         upstreams = status.get('upstreams', {})
         for upstream in upstreams.values():
             # workaround for supporting old N+ format
             # http://nginx.org/en/docs/http/ngx_http_status_module.html#compatibility
             peers = upstream['peers'] if 'peers' in upstream else upstream
-
             for peer in peers:
-                for method in UPSTREAM_COLLECT_INDEX:
+                for method in UPSTREAM_PEER_COLLECT_INDEX:
                     method(self, peer, stamp)
+            for method in UPSTREAM_COLLECT_INDEX:
+                method(self, upstream, stamp)
+
+        # slabs
+        slabs = status.get('slabs', {})
+        for slab in slabs.values():
+            for method in SLAB_COLLECT_INDEX:
+                method(self, slab, stamp)
+
+        # streams - server_zones of stream
+        streams = status.get('streams', {})
+        for stream in streams.values():
+            for method in STREAM_COLLECT_INDEX:
+                method(self, stream, stamp)
+
+        # stream upstreams - upstreams of stream
+        stream_upstreams = status.get('stream_upstreams', {})
+        for stream_upstream in stream_upstreams.values():
+            peers = stream_upstream['peers'] if 'peers' in stream_upstream else stream_upstream
+            for peer in peers:
+                for method in STREAM_UPSTREAM_PEER_COLLECT_INDEX:
+                    method(self, peer, stamp)
+            for method in STREAM_UPSTREAM_COLLECT_INDEX:
+                method(self, stream_upstream, stamp)
 
         self.increment_counters()
         self.finalize_latest()

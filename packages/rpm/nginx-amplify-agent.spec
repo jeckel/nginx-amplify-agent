@@ -6,6 +6,7 @@
 %define nginx_home %{_localstatedir}/cache/nginx
 %define nginx_user nginx
 %define nginx_group nginx
+%define _python_bytecompile_errors_terminate_build 0
 
 Summary: NGINX Amplify Agent
 Name: nginx-amplify-agent
@@ -149,7 +150,16 @@ fi
 
 
 %changelog
-* Tue Oct 18 2017 Grant Hulegaard <grant.hulegaard@nginx.com> 0.47-1
+* Tue Dec 26 2017 Mike Belov <dedm@nginx.com> 1.0.0-1
+- 1.0.0-1
+- Support for additional NGINX+ objects (streams and slabs)
+- NGINX Crossplane is the new config parser
+- Updgraded gevent
+- Special troubleshooter script
+- No longer storing UUID in the config by default
+- Various bug fixes
+
+* Wed Oct 18 2017 Grant Hulegaard <grant.hulegaard@nginx.com> 0.47-1
 - 0.47-1
 - New config parser
 - Debug mode

@@ -6,12 +6,13 @@ from threading import current_thread
 
 from amplify.agent.common.context import context
 
-
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
 __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
+
+LAUNCHERS = ['supervisord', 'supervisorctl', 'runsv', 'supervise']
 
 
 class AbstractManager(object):

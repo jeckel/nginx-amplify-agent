@@ -35,9 +35,9 @@ class Context(Singleton):
 
         self.set_pid()
 
-        self.version_major = 0.47
+        self.version_semver = (1, 0, 0)
         self.version_build = 1
-        self.version = '%.2f-%s' % (self.version_major, self.version_build)
+        self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
         self.environment = None
         self.imagename = None
         self.container_type = None

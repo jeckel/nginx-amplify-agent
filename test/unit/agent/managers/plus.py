@@ -46,7 +46,7 @@ class PlusManagerTestCase(RealNginxTestCase):
 
         plus_manager = PlusManager()
         plus_manager._discover_objects()
-        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(3))
+        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(10))
 
     @nginx_plus_test
     def test_rejuvenation(self):
@@ -67,7 +67,7 @@ class PlusManagerTestCase(RealNginxTestCase):
 
         plus_manager = PlusManager()
         plus_manager._discover_objects()
-        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(3))
+        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(10))
 
         self.stop_first_nginx()
 
@@ -98,4 +98,4 @@ class PlusManagerTestCase(RealNginxTestCase):
 
         plus_manager = PlusManager()
         plus_manager._discover_objects()
-        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(3))
+        assert_that(plus_manager.objects.find_all(types=plus_manager.types), has_length(10))

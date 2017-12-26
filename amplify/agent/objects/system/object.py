@@ -56,6 +56,7 @@ class SystemObject(AbstractObject):
                 'agent started, version=%s pid=%s uuid=%s %s=%s' %
                 (context.version, context.pid, self.uuid, self.hosttype, getattr(self, self.hosttype))
             )
+
         super(SystemObject, self).start()
 
     def stop(self):
@@ -66,11 +67,7 @@ class SystemObject(AbstractObject):
                     level=INFO,
                     message='agent stopped, version: %s, pid: %s' % (context.version, context.pid)
                 )
-            # log agent stopped event
-            context.log.info(
-                'agent stopped, version=%s pid=%s uuid=%s %s=%s' %
-                (context.version, context.pid, self.uuid, self.hosttype, getattr(self, self.hosttype))
-            )
+
         super(SystemObject, self).stop()
 
 

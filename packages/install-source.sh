@@ -227,6 +227,8 @@ case $line in
         echo ""
         test "${line}" = "y" -o "${line}" = "Y" || \
             exit 1
+
+        check_packages
         ;;
     *)
         echo "Unrecognized option, exiting."

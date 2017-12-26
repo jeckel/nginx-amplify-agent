@@ -2,8 +2,7 @@
 from hamcrest import *
 import time
 
-from test.unit.ext.phpfpm.base import PHPFPMTestCase
-
+from test.unit.ext.phpfpm.base import PHPFPMTestCase, PHPFPMSupervisordTestCase
 from amplify.agent.common.context import context
 
 from amplify.ext.phpfpm.managers.master import PHPFPMManager
@@ -41,15 +40,15 @@ class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
         assert_that(found_pools, has_length(2))
 
         # This checks the first pool in the found_pools and makes assumptions
-        # as to which one it will be.  This may not be true on other test 
+        # as to which one it will be.  This may not be true on other test
         # systems
         found_pool = found_pools[0]
         assert_that(found_pool['parent_id'], equal_to(1))
         assert_that(found_pool['parent_local_id'], equal_to(
-            'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe21e12b1ae35fb3b4'
+            'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c7f771c7736cc157'
         ))
         assert_that(found_pool['local_id'], equal_to(
-            'e0b5a78cc437378205afc20c5f30d904936771605266aaee39917556e994bdfe'
+            '6eea242cd7825e81d309458c302b8bd18923812eb99ae70f2e8b5c5fb18d02b3'
         ))
         assert_that(found_pool['file'], equal_to('/etc/php5/fpm/pool.d/www.conf'))
         assert_that(found_pool['name'], equal_to('www'))
@@ -97,3 +96,7 @@ class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
         # check to see pools are also removed
         current_pools = context.objects.find_all(types=pool_manager.types)
         assert_that(current_pools, has_length(0))
+
+
+class SupervisorPHPFPMPoolManagerTestCase(PHPFPMPoolManagerTestCase, PHPFPMSupervisordTestCase):
+    pass

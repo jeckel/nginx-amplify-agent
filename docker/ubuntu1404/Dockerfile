@@ -40,7 +40,7 @@ RUN easy_install pip
 ADD . /amplify
 
 # Get pip to download and install requirements:
-RUN pip install rstr==2.2.3 greenlet==0.4.9 gevent==1.0.2 lockfile==0.11.0 netaddr==0.7.18 netifaces==0.10.4 psutil==4.0.0 requests==2.12.4 ujson==1.33 python-daemon==2.0.6 pyparsing==2.0.1 setproctitle==1.1.10 flup==1.0.2 scandir==1.5
+RUN pip install rstr==2.2.3 greenlet==0.4.12 gevent==1.1.0 lockfile==0.11.0 netaddr==0.7.18 netifaces==0.10.4 psutil==4.0.0 requests==2.12.4 ujson==1.33 python-daemon==2.0.6 setproctitle==1.1.10 flup==1.0.2 scandir==1.5 crossplane==0.1.1
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/

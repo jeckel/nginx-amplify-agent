@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 from amplify.agent.common.context import context
 from amplify.agent.managers.abstract import ObjectManager
-from amplify.agent.objects.plus.object import NginxCacheObject, NginxStatusZoneObject, NginxUpstreamObject
+from amplify.agent.objects.plus.object import (
+    NginxCacheObject,
+    NginxStatusZoneObject,
+    NginxUpstreamObject,
+    NginxSlabObject,
+    NginxStreamObject,
+    NginxStreamUpstreamObject
+)
 
 
 __author__ = "Grant Hulegaard"
@@ -11,25 +18,24 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-# This will be the home of a separate manager which traverses all Nginx Plus objects and manages the child objects from
-# the Plus status.
 class PlusManager(ObjectManager):
     """
-    Manager for Plus objects (Cache, StatusZone, Upstream).  Traverses all Nginx objects and looks for Plus instances.
-    After identifying Nginx-Plus instances, it queries the plus_cache for the object in order to manage the child Plus
+    Manager for Plus objects (Cache, StatusZone, Upstream, Slab).
+    Traverses all Nginx objects and looks for Plus instances.
+    After identifying Nginx-Plus instances, it queries the plus_cache for the object
+    in order to manage the child Plus
     objects much like NginxManager does for Nginx objects.
     """
     name = 'plus_manager'
     type = 'plus'
-    types = ('cache', 'server_zone', 'upstream')
+    types = ('cache', 'server_zone', 'upstream', 'slab', 'stream', 'stream_upstream')
 
     def _discover_objects(self):
         # Find nginx_plus
         plus_nginxs = filter(lambda x: x.plus_status_enabled, context.objects.find_all(types=('nginx',)))
-
         existing_hashes = map(lambda x: x.local_id, context.objects.find_all(types=self.types))
-
         discovered_hashes = []
+
         for nginx in plus_nginxs:
             plus_status, stamp = context.plus_cache.get_last(nginx.plus_status_internal_url)
 
@@ -39,12 +45,15 @@ class PlusManager(ObjectManager):
             plus_objects = {
                 'caches': NginxCacheObject,
                 'server_zones': NginxStatusZoneObject,
-                'upstreams': NginxUpstreamObject
+                'upstreams': NginxUpstreamObject,
+                'slabs': NginxSlabObject,
+                'streams': NginxStreamObject,
+                'stream_upstreams': NginxStreamUpstreamObject
             }
+
             # for each instance of each kind of object
             for key, cls in plus_objects.iteritems():
-                for name in plus_status[key]:
-
+                for name in plus_status.get(key, []):
                     # discover the object
                     obj_hash = cls.hash_local(nginx.local_id, cls.type, name)
                     discovered_hashes.append(obj_hash)

@@ -628,9 +628,17 @@ class UpstreamCollectorTestCase(BaseTestCase):
         gauges = upstream.statsd.current['gauge']
 
         for key in (
-            'plus.upstream.conn.active', 'plus.upstream.peer.count'
+            'plus.upstream.conn.active',
+            'plus.upstream.peer.count',
         ):
             assert_that(gauges, has_key(key))
+
+        # old plus doesn't have these metrics
+        for key in (
+            'plus.upstream.zombies',
+            'plus.upstream.conn.keepalive'
+        ):
+            assert_that(gauges, not_(has_key(key)))
 
         assert_that(gauges['plus.upstream.conn.active'][0][1], equal_to(0))
         assert_that(gauges['plus.upstream.peer.count'][0][1], equal_to(2))

@@ -98,6 +98,7 @@ if __name__ == '__main__':
             for helper in (
                 "service nginx start",
                 "service php7.0-fpm start",
+                "service mysql start"
                 "python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development",
                 "python /amplify/nginx-amplify-agent.py stop --config=/amplify/etc/agent.conf.development"
             ):

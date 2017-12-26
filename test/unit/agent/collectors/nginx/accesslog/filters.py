@@ -41,6 +41,9 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
             '202 2 "-" "python-requests/2.2.1 CPython/2.7.6 Linux/3.13.0-48-generic"',
 
             '52.6.158.18 - - [18/Jun/2015:17:22:40 +0000] "GET /#/objects HTTP/2.1" 416 84 ' +
+            '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"',
+
+            '52.6.158.18 - - [18/Jun/2015:17:23:40 +0000] "GET /#/objects HTTP/2.1" 502 84 ' +
             '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"'
         ]
 
@@ -87,7 +90,7 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
             assert_that(counter, has_key(key))
 
         # values
-        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(4))
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(5))
         assert_that(counter['C|nginx.http.method.post'][0][1], equal_to(2))
         assert_that(counter['C|nginx.http.status.2xx'][0][1], equal_to(3))
 
@@ -112,7 +115,7 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
         # counters
         counter = metrics['counter']
         assert_that(counter, has_key('C|nginx.http.method.get'))
-        assert_that(counter['C|nginx.http.method.get'], contains(contains(is_(int), 4)))
+        assert_that(counter['C|nginx.http.method.get'], contains(contains(is_(int), 5)))
 
         # filter values
         assert_that(counter, has_key('C|nginx.http.method.get||1'))
@@ -120,10 +123,9 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
         assert_that(counter, has_key('C|nginx.http.method.get||3'))
         assert_that(counter, has_key('C|nginx.http.method.get||4'))
         assert_that(counter['C|nginx.http.method.get||1'], contains(contains(is_(int), 2)))
-        assert_that(counter['C|nginx.http.method.get||2'], contains(contains(is_(int), 2)))
+        assert_that(counter['C|nginx.http.method.get||2'], contains(contains(is_(int), 3)))
         assert_that(counter['C|nginx.http.method.get||3'], contains(contains(is_(int), 1)))
-        assert_that(counter['C|nginx.http.method.get||4'], contains(contains(is_(int), 3)))
-
+        assert_that(counter['C|nginx.http.method.get||4'], contains(contains(is_(int), 4)))
 
     def test_unused_filter_defaults_zero(self):
         self.fake_object.filters = [
@@ -180,7 +182,7 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
             assert_that(counter, has_key(key))
 
         # values
-        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(4))
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(5))
         assert_that(counter['C|nginx.http.method.post'][0][1], equal_to(2))
         assert_that(counter['C|nginx.http.status.2xx'][0][1], equal_to(3))
 
@@ -220,3 +222,37 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
         # check our metric
         assert_that(counter['C|nginx.http.status.2xx'][0][1], equal_to(1))
         assert_that(counter['C|nginx.http.status.2xx||2'][0][1], equal_to(1))
+
+    def test_separate_4xx_5xx_with_filters(self):
+        self.fake_object.filters = [
+            Filter(
+                filter_rule_id=1,
+                metric='nginx.http.status.502',
+                data=[
+                    ['$request_method', '~', 'GET'],
+                ]
+            )
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object, tail=self.lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+
+        # counters
+        counter = metrics['counter']
+        for key in ('C|nginx.http.method.get', 'C|nginx.http.request.body_bytes_sent', 'C|nginx.http.status.3xx',
+                    'C|nginx.http.status.2xx', 'C|nginx.http.method.post', 'C|nginx.http.v1_1',
+                    'C|nginx.http.status.4xx', 'C|nginx.http.status.5xx', 'C|nginx.http.status.502||1',
+                    'C|nginx.http.method.post'):
+            assert_that(counter, has_key(key))
+
+        # values
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(5))
+        assert_that(counter['C|nginx.http.method.post'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.http.status.5xx'][0][1], equal_to(1))
+
+        # filter values
+        assert_that(counter['C|nginx.http.status.502||1'][0][1], equal_to(1))

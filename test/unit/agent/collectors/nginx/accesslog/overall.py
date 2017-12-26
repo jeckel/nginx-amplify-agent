@@ -345,3 +345,69 @@ class LogsOverallTestCase(NginxCollectorTestCase):
         assert_that(counter['C|nginx.upstream.request.count'][0][1], equal_to(3))
         assert_that(counter['C|nginx.cache.miss'][0][1], equal_to(1))
         assert_that(counter['C|nginx.cache.hit'][0][1], equal_to(1))
+
+    def test_separate_metrics_for_4xx_5xx(self):
+        lines = [
+            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /img/docker.png HTTP/1.1" 400 0 ' +
+            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
+            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+            'Chrome/43.0.2357.124 Safari/537.36"',
+
+            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /api/inventory/objects/ HTTP/1.1" 403 1093 ' +
+            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
+            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+            'Chrome/43.0.2357.124 Safari/537.36"',
+
+            '127.0.0.1 - - [18/Jun/2015:17:22:33 +0000] "POST /1.0/589fjinijenfirjf/meta/ HTTP/1.1" ' +
+            '202 2 "-" "python-requests/2.2.1 CPython/2.7.6 Linux/3.13.0-48-generic"',
+
+            '52.6.158.18 - - [18/Jun/2015:17:24:40 +0000] "GET /#/objects HTTP/1.1" 502 84 ' +
+            '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"',
+
+            '52.6.158.18 - - [18/Jun/2015:17:22:40 +0000] "GET /#/objects HTTP/1.1" 503 84 ' +
+            '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"'
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object, tail=lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+
+        # counters
+        counter = metrics['counter']
+        for key in ('C|nginx.http.method.get', 'C|nginx.http.request.body_bytes_sent', 'C|nginx.http.status.3xx',
+                    'C|nginx.http.status.2xx','C|nginx.http.method.post', 'C|nginx.http.v1_1',
+                    'C|nginx.http.status.4xx', 'C|nginx.http.status.5xx', 'C|nginx.http.status.403',
+                    'C|nginx.http.status.502', 'C|nginx.http.status.503'):
+            assert_that(counter, has_key(key))
+
+        # values
+        assert_that(counter['C|nginx.http.status.4xx'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.http.status.5xx'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.http.status.403'][0][1], equal_to(1))
+        assert_that(counter['C|nginx.http.status.502'][0][1], equal_to(1))
+        assert_that(counter['C|nginx.http.status.503'][0][1], equal_to(1))
+
+        # check zero values for new metrics
+        for counter_name, counter_key in collector.counters.iteritems():
+            if counter_key in collector.parser.keys:
+                assert_that(counter, has_key('C|%s' % counter_name))
+                if counter_name not in (
+                    'nginx.http.method.get',
+                    'nginx.http.method.post',
+                    'nginx.http.status.2xx',
+                    'nginx.http.status.3xx',
+                    'nginx.http.status.4xx',
+                    'nginx.http.status.5xx',
+                    'nginx.http.status.403',
+                    'nginx.http.status.502',
+                    'nginx.http.status.503',
+                    'nginx.http.v1_1',
+                    'nginx.http.request.body_bytes_sent'
+                ):
+                    assert_that(counter['C|%s' % counter_name][0][1], equal_to(0))
+            elif counter_key is not None:
+                if counter_key not in collector.parser.request_variables:
+                    assert_that(counter, not_(has_key('C|%s' % counter_name)))

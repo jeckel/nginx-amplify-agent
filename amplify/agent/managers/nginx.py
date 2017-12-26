@@ -3,23 +3,19 @@ import hashlib
 import re
 
 import psutil
-from amplify.agent.data.eventd import INFO
 
+from amplify.agent.data.eventd import INFO
 from amplify.agent.common.util import subp
 from amplify.agent.common.context import context
-from amplify.agent.managers.abstract import ObjectManager
+from amplify.agent.managers.abstract import ObjectManager, LAUNCHERS
 from amplify.agent.objects.nginx.object import NginxObject, ContainerNginxObject
 from amplify.agent.objects.nginx.binary import get_prefix_and_conf_path
-
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
-
-
-LAUNCHERS = ['supervisord', 'supervisorctl', 'runsv', 'supervise']
 
 
 class NginxManager(ObjectManager):
@@ -223,7 +219,7 @@ class NginxManager(ObjectManager):
                 if not gwe:
                     continue
 
-                pid, ppid, cmd = int(gwe.group('pid')), int(gwe.group('ppid')), gwe.group('cmd')
+                pid, ppid, cmd = int(gwe.group('pid')), int(gwe.group('ppid')), gwe.group('cmd').rstrip()
 
                 # match nginx master process
                 if 'nginx: master process' in cmd:

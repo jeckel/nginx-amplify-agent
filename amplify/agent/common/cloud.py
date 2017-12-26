@@ -8,11 +8,15 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
+def _version_to_tuple(version):
+    return tuple(map(int, str(version).split('.')))
+
+
 class Versions(object):
     def __init__(self, current=None, obsolete=None, old=None):
-        self.current = current
-        self.obsolete = obsolete
-        self.old = old
+        self.current = _version_to_tuple(current)
+        self.obsolete = _version_to_tuple(obsolete)
+        self.old = _version_to_tuple(old)
 
 
 class ObjectData(object):
@@ -54,5 +58,10 @@ class HTTP503Error(object):
         :param http_error: HTTPError object from requests.exceptions
         """
         self.code = 503
-        self.text = http_error.response.text or '0'
-        self.delay = int(float(self.text))
+        self.text = http_error.response.text or '60'
+
+        try:
+            self.delay = int(float(self.text))
+        except:
+            self.delay = 60
+

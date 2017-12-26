@@ -30,7 +30,13 @@ class NginxAccessLogsCollector(AbstractCollector):
         'nginx.http.status.2xx': 'status',
         'nginx.http.status.3xx': 'status',
         'nginx.http.status.4xx': 'status',
+        'nginx.http.status.403': 'status',
+        'nginx.http.status.404': 'status',
         'nginx.http.status.5xx': 'status',
+        'nginx.http.status.500': 'status',
+        'nginx.http.status.502': 'status',
+        'nginx.http.status.503': 'status',
+        'nginx.http.status.504': 'status',
         'nginx.http.status.discarded': 'status',
         'nginx.http.v0_9': 'server_protocol',
         'nginx.http.v1_0': 'server_protocol',
@@ -175,23 +181,42 @@ class NginxAccessLogsCollector(AbstractCollector):
         nginx.http.status.2xx
         nginx.http.status.3xx
         nginx.http.status.4xx
+        nginx.http.status.403
+        nginx.http.status.404
         nginx.http.status.5xx
+        nginx.http.status.500
+        nginx.http.status.502
+        nginx.http.status.503
+        nginx.http.status.504
         nginx.http.status.discarded
 
         :param data: {} of parsed line
         :param matched_filters: [] of matched filters
         """
         if 'status' in data:
-            metric_name = 'nginx.http.status.%sxx' % data['status'][0]
-            self.object.statsd.incr(metric_name)
-            if matched_filters:
-                self.count_custom_filter(matched_filters, metric_name, 1, self.object.statsd.incr)
+            metrics_to_populate = []
+            http_status = data['status']
 
-            if data['status'] == '499':
-                metric_name = 'nginx.http.status.discarded'
+            # add separate metrics for specific 4xx and 5xx codes
+            if http_status.startswith('4'):
+                if http_status in ('403', '404'):
+                    metrics_to_populate.append('nginx.http.status.%s' % http_status)
+            elif http_status.startswith('5'):
+                if http_status in ('500', '502', '503', '504'):
+                    metrics_to_populate.append('nginx.http.status.%s' % http_status)
+
+            metrics_to_populate.append('nginx.http.status.%sxx' % http_status[0])
+
+            for metric_name in metrics_to_populate:
                 self.object.statsd.incr(metric_name)
                 if matched_filters:
                     self.count_custom_filter(matched_filters, metric_name, 1, self.object.statsd.incr)
+
+                if data['status'] == '499':
+                    metric_name = 'nginx.http.status.discarded'
+                    self.object.statsd.incr(metric_name)
+                    if matched_filters:
+                        self.count_custom_filter(matched_filters, metric_name, 1, self.object.statsd.incr)
 
     def http_version(self, data, matched_filters=None):
         """

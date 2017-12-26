@@ -54,7 +54,7 @@ class SyslogServer(asyncore.dispatcher):
         self.bind(address)  # bind afore wrapped socket to address
         self.address = self.socket.getsockname()  # use socket api to retrieve address (address we actually bound to)
         SYSLOG_ADDRESSES.add(self.address)
-        context.log.debug('Syslog server binding to %s' % str(self.address))
+        context.log.debug('syslog server binding to %s' % str(self.address))
 
     def handle_read(self):
         """Called when a read event happens on the socket"""
@@ -67,7 +67,7 @@ class SyslogServer(asyncore.dispatcher):
             context.log.debug('additional info:', exc_info=True)
 
     def close(self):
-        context.log.debug('SyslogServer closing')
+        context.log.debug('syslog server closing')
         asyncore.dispatcher.close(self)
 
 
@@ -115,7 +115,7 @@ class SyslogTail(Pipeline):
             self._setup_listener(**self.kwargs)
         except AmplifyAddresssAlreadyInUse as e:
             context.log.warning(
-                'failed to start listener during SyslogTail init due to "%s", will try later (attempts: %s)' % (
+                'failed to start listener during syslog tail init due to "%s", will try later (attempts: %s)' % (
                     e.__class__.__name__,
                     self.listener_setup_attempts
                 )
@@ -151,7 +151,7 @@ class SyslogTail(Pipeline):
                     context.log.debug('additional info:', exc_info=True)
 
         current_cache = copy.deepcopy(self.cache)
-        context.log.debug('SyslogTail returned %s lines captured from %s' % (len(current_cache), self.name))
+        context.log.debug('syslog tail returned %s lines captured from %s' % (len(current_cache), self.name))
         self.cache.clear()
         return iter(current_cache)
 
@@ -159,7 +159,7 @@ class SyslogTail(Pipeline):
         if self.address in SYSLOG_ADDRESSES:
             self.listener_setup_attempts += 1
             raise AmplifyAddresssAlreadyInUse(
-                message='Cannot initialize "%s" because address is already in use' % self.name,
+                message='cannot initialize "%s" because address is already in use' % self.name,
                 payload=dict(
                     address=self.address,
                     used=list(SYSLOG_ADDRESSES)
@@ -186,7 +186,7 @@ class SyslogTail(Pipeline):
             # For good measure clear the cache to free memory and set running variable manually to False
             self.cache.clear()
             self.running = False
-            context.log.debug('SyslogTail stopped')
+            context.log.debug('syslog tail stopped')
 
     def __del__(self):
         self.stop()

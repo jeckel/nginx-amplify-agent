@@ -45,3 +45,33 @@ class PHPFPMTestCase(BaseTestCase):
     def restart_fpm(self):
         if self.running:
             subp.call('service php5-fpm restart')
+
+
+class PHPFPMSupervisordTestCase(PHPFPMTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(PHPFPMSupervisordTestCase, self).__init__(*args, **kwargs)
+        self.running = False
+
+    @classmethod
+    def setup_class(cls):
+        subp.call('supervisorctl -c /etc/supervisord.conf shutdown', check=False)
+        subp.call('supervisord -c /etc/supervisord.conf')
+
+    @classmethod
+    def teardown_class(cls):
+        subp.call('supervisorctl -c /etc/supervisord.conf shutdown')
+
+    def start_fpm(self):
+        if not self.running:
+            subp.call('supervisorctl -c /etc/supervisord.conf start php-fpm')
+        self.running = True
+
+    def stop_fpm(self):
+        if self.running:
+            subp.call('supervisorctl -c /etc/supervisord.conf stop php-fpm')
+        self.running = False
+
+    def restart_fpm(self):
+        if self.running:
+            subp.call('supervisorctl -c /etc/supervisord.conf restart php-fpm')

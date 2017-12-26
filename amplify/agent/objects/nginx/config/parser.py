@@ -9,9 +9,9 @@ import sys
 import scandir
 
 from amplify.agent.common.context import context
-from amplify.agent.objects.nginx.config.amplify_parser.parse import parse_file
-from amplify.agent.objects.nginx.config.amplify_parser.errors import NgxParserDirectiveError
-from amplify.agent.objects.nginx.config.amplify_parser.lex import _iterescape
+from crossplane.parser import parse as parse_file
+from crossplane.errors import NgxParserDirectiveError
+from crossplane.lexer import _iterescape
 
 __author__ = 'Arie van Luttikhuizen'
 __copyright__ = 'Copyright (C) Nginx, Inc. All rights reserved.'
@@ -177,6 +177,7 @@ class NginxConfigParser(object):
 
         self._converted_cache = {}
         self._parsed_cache = {}
+        self._file_order = {}
 
     def _abspath(self, path):
         if not os.path.isabs(path):
@@ -342,7 +343,8 @@ class NginxConfigParser(object):
                     self.includes.append(value)
 
                 # add the included directives to the current block
-                for fname in stmt['includes']:
+                for index in stmt['includes']:
+                    fname = self._file_order[index]
                     merge_blocks(block, self._convert(fname))
 
             elif stmt['directive'] == 'ssl_certificate' and value:
@@ -385,8 +387,9 @@ class NginxConfigParser(object):
                     # this speeds things up by deleting traceback, see python docs
                     del exc_info
 
-            for config in payload['config']:
+            for index, config in enumerate(payload['config']):
                 path = config['file']
+                self._file_order[index] = path
                 if config['parsed']:
                     self._parsed_cache[path] = config['parsed']
                     self._add_file(path)
@@ -429,6 +432,7 @@ class NginxConfigParser(object):
             # clear the converted and parsed caches
             self._converted_cache = {}
             self._parsed_cache = {}
+            self._file_order = {}
 
     def simplify(self):
         """

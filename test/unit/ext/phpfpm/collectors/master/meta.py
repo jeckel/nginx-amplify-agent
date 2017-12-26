@@ -64,8 +64,8 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
             {
                 'name': 'master',
                 'display_name': 'phpfpm master @ hostname.nginx',
-                'local_id': 'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe2'
-                            '1e12b1ae35fb3b4',
+                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c'
+                            '7f771c7736cc157',
                 'type': 'phpfpm',
                 'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',
@@ -115,8 +115,8 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
             {
                 'name': 'master',
                 'display_name': 'phpfpm master @ hostname.nginx',
-                'local_id': 'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe2'
-                            '1e12b1ae35fb3b4',
+                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c'
+                            '7f771c7736cc157',
                 'type': 'phpfpm',
                 'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',

@@ -3,6 +3,7 @@ import copy
 import pprint
 import time
 import gevent
+import atexit
 
 from threading import current_thread
 from requests.exceptions import HTTPError
@@ -167,6 +168,10 @@ class Supervisor(object):
         self.bridge_object = Bridge()
         self.bridge = spawn(self.bridge_object.start)
 
+        # register exit handlers
+        atexit.register(self.stop_everything)
+        atexit.register(self.bridge_object.flush_metrics)
+
         # main cycle
         while True:
             time.sleep(5.0)
@@ -220,14 +225,25 @@ class Supervisor(object):
                     raise e
 
     def stop(self):
+        """
+        Dummy for python daemon
+        """
         self.is_running = False
 
-        if self.bridge_object:
-            self.bridge_object.flush_metrics()
-
+    def stop_everything(self):
+        """
+        Stops all managers, collectors, etc
+        :return:
+        """
         for object_manager_name in reversed(self.object_manager_order):
             object_manager = self.object_managers[object_manager_name]
             object_manager.stop()
+
+        # log agent stopped event
+        context.log.info(
+            'agent stopped, version=%s pid=%s uuid=%s' %
+            (context.version, context.pid, context.uuid)
+        )
 
     def talk_to_cloud(self, root_object=None, force=False, initial=False):
         """
@@ -287,13 +303,13 @@ class Supervisor(object):
             raise AmplifyCriticalException()
 
         # check agent version status
-        if context.version_major <= float(cloud_response.versions.obsolete):
+        if context.version_semver <= cloud_response.versions.obsolete:
             context.log.error(
                 'agent is obsolete - cloud will refuse updates until it is updated (version: %s, current: %s)' %
                 (context.version_major, cloud_response.versions.current)
             )
             self.stop()
-        elif context.version_major <= float(cloud_response.versions.old):
+        elif context.version_semver <= cloud_response.versions.old:
             context.log.warn(
                 'agent is old - update is recommended (version: %s, current: %s)' %
                 (context.version_major, cloud_response.versions.current)

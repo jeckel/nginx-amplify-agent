@@ -100,7 +100,15 @@ def collect_upstream_peer_count(collector, data, stamp):
         collector.aggregate_latest(latest_vars, stamp=stamp)
 
 
-UPSTREAM_COLLECT_INDEX = [
+def collect_upstream_conn_keepalive_zombies(collector, data, stamp):
+    if 'keepalive' in data:
+        collector.object.statsd.gauge('plus.upstream.conn.keepalive', data['keepalive'], stamp=stamp)
+
+    if 'zombies' in data:
+        collector.object.statsd.gauge('plus.upstream.zombies', data['zombies'], stamp=stamp)
+
+
+UPSTREAM_PEER_COLLECT_INDEX = [
     collect_active_connections,
     collect_upstream_request,
     collect_upstream_header_time,
@@ -110,5 +118,10 @@ UPSTREAM_COLLECT_INDEX = [
     collect_upstream_fails,
     collect_upstream_health_checks,
     collect_upstream_queue,
-    collect_upstream_peer_count
+    collect_upstream_peer_count,
+
+]
+
+UPSTREAM_COLLECT_INDEX = [
+    collect_upstream_conn_keepalive_zombies
 ]

@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 from amplify.agent.collectors.plus.meta import PlusObjectMetaCollector
-from amplify.agent.collectors.plus.abstract import CacheCollector, StatusZoneCollector, UpstreamCollector
+from amplify.agent.collectors.plus.abstract import (
+    CacheCollector,
+    StatusZoneCollector,
+    UpstreamCollector,
+    SlabCollector,
+    StreamCollector,
+    StreamUpstreamCollector
+)
 from amplify.agent.common.context import context
 from amplify.agent.objects.abstract import AbstractObject
 
@@ -83,3 +90,31 @@ class NginxUpstreamObject(PlusObject):
     def __init__(self, *args, **kwargs):
         super(NginxUpstreamObject, self).__init__(**kwargs)
         self.collectors.append(UpstreamCollector(object=self, interval=self.intervals['metrics']))
+
+
+class NginxStreamObject(PlusObject):
+    type = 'stream'
+
+    def __init__(self, *args, **kwargs):
+        super(NginxStreamObject, self).__init__(**kwargs)
+        self.collectors.append(StreamCollector(object=self, interval=self.intervals['metrics']))
+
+    @property
+    def definition(self):
+        return {'type': self.type_template % 'stream', 'local_id': self.local_id, 'root_uuid': self.root_uuid}
+
+
+class NginxStreamUpstreamObject(PlusObject):
+    type = 'stream_upstream'
+
+    def __init__(self, *args, **kwargs):
+        super(NginxStreamUpstreamObject, self).__init__(**kwargs)
+        self.collectors.append(StreamUpstreamCollector(object=self, interval=self.intervals['metrics']))
+
+
+class NginxSlabObject(PlusObject):
+    type = 'slab'
+
+    def __init__(self, *args, **kwargs):
+        super(NginxSlabObject, self).__init__(**kwargs)
+        self.collectors.append(SlabCollector(object=self, interval=self.intervals['metrics']))

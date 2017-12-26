@@ -44,14 +44,14 @@ ADD . /amplify
 
 # Install agent requirements:
 RUN pip install \
+    crossplane==0.1.1 \
     flup==1.0.2 \
-    gevent==1.0.2 \
-    greenlet==0.4.9 \
+    gevent==1.1.0 \
+    greenlet==0.4.12 \
     lockfile==0.11.0 \
     netaddr==0.7.18 \
     netifaces==0.10.4 \
     psutil==4.0.0 \
-    pyparsing==2.2.0 \
     python-daemon==2.0.6 \
     requests==2.12.4 \
     rstr==2.2.3 \

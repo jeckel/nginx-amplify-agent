@@ -62,7 +62,7 @@ def shell_call(cmd, terminal=False, important=True):
 def get_version_and_build():
     with open('packages/version', 'r') as f:
         version, build = f.readline().split('-')
-        return '%.2f' % float(version), int(build)
+        return version, int(build)
 
 
 def change_first_line(filename, first_line):

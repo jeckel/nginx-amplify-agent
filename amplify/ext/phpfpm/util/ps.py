@@ -25,7 +25,7 @@ def PS_PARSER(ps_line):
     if not parsed:
         return None
 
-    pid, ppid, cmd = int(parsed.group('pid')), int(parsed.group('ppid')), parsed.group('cmd')
+    pid, ppid, cmd = int(parsed.group('pid')), int(parsed.group('ppid')), parsed.group('cmd').rstrip()
     return pid, ppid, cmd
 
 

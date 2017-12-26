@@ -2,8 +2,7 @@
 from hamcrest import *
 import time
 
-from test.unit.ext.phpfpm.base import PHPFPMTestCase
-
+from test.unit.ext.phpfpm.base import PHPFPMTestCase, PHPFPMSupervisordTestCase
 from amplify.agent.common.context import context
 
 from amplify.ext.phpfpm.managers.master import PHPFPMManager
@@ -48,7 +47,7 @@ class PHPFPMManagerTestCase(PHPFPMTestCase):
         )
         assert_that(found_master['pid'], not_none())
         assert_that(found_master['local_id'], equal_to(
-            'af230c9e0343ec22e88333783e89857a0f5129b0fd8e4cfe21e12b1ae35fb3b4'
+            'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c7f771c7736cc157'
         ))
         assert_that(found_master['workers'], has_length(4))
 
@@ -174,3 +173,7 @@ class PHPFPMManagerTestCase(PHPFPMTestCase):
         ))
         assert_that(found_master['workers'], has_length(15))
         # one less worker since last one doesn't correspond to master
+
+
+class SupervisorPHPFPMManagerTestCase(PHPFPMManagerTestCase, PHPFPMSupervisordTestCase):
+    pass

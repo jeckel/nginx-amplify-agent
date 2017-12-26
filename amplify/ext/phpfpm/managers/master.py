@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
-from amplify.agent.managers.abstract import ObjectManager
+from amplify.agent.managers.abstract import ObjectManager, LAUNCHERS
 from amplify.agent.data.eventd import INFO
 
 from amplify.ext.phpfpm.util.ps import PS_CMD, MASTER_PARSER, PS_PARSER
@@ -208,11 +208,12 @@ class PHPFPMManager(ObjectManager):
                         out, err = subp.call('ps o command %d' % ppid)
                         # take the second line because the first is a header
                         parent_command = out[1]
-                        context.log.debug(
-                            'launching php-fpm with "%s" is not currently '
-                            'supported' % parent_command
-                        )
-                        continue
+                        if not any(x in parent_command for x in LAUNCHERS):
+                            context.log.debug(
+                                'launching php-fpm with "%s" is not currently'
+                                ' supported' % parent_command
+                            )
+                            continue
 
                     try:
                         conf_path = MASTER_PARSER(cmd)
