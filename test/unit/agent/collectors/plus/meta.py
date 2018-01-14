@@ -4,6 +4,7 @@ from hamcrest import *
 from amplify.agent.collectors.plus.meta import PlusObjectMetaCollector
 from amplify.agent.common.context import context
 from amplify.agent.objects.plus.object import PlusObject
+from test.fixtures.defaults import DEFAULT_UUID
 from test.base import BaseTestCase
 
 __author__ = "Grant Hulegaard"
@@ -16,7 +17,7 @@ __email__ = "grant.hulegaard@nginx.com"
 class PlusObjectMetaCollectorTestCase(BaseTestCase):
     def setup_method(self, method):
         super(PlusObjectMetaCollectorTestCase, self).setup_method(method)
-        self.plus_obj = PlusObject(local_name='test_obj', parent_local_id='nginx123', root_uuid='root123')
+        self.plus_obj = PlusObject(local_name='test_obj', parent_local_id='nginx123', root_uuid=DEFAULT_UUID)
 
     def teardown_method(self, method):
         self.plus_obj = None
@@ -32,7 +33,7 @@ class PlusObjectMetaCollectorTestCase(BaseTestCase):
                 'type': 'nginx_plus',
                 'local_name': 'test_obj',
                 'local_id': 'a9b8f9caa98ee30806a4a7c17ba393330059317600d768e4c81b2d585f7b9a6a',
-                'root_uuid': 'root123',
+                'root_uuid': DEFAULT_UUID,
                 'hostname': context.hostname,
                 'version': None  # Version will fail because this test is done in a vacuum without parent nginx
             }

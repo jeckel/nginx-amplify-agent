@@ -20,15 +20,10 @@ class AbstractObject(BaseObject):
         super(AbstractObject, self).__init__(*args, **kwargs)
 
         _interval_dict = defaultdict(lambda: 10)
-        _interval_dict['default']  # _interval_dict['default'] = 10
-        self.intervals = context.app_config['containers'].get(self.type, {}).get('poll_intervals', _interval_dict)
+        _interval_dict['default'] = 10
 
-    @property
-    def root_uuid(self):
-        """
-        General base method for returning the root_uuid.
-        """
-        return context.objects.root_object.uuid if context.objects.root_object else None
+        self.root_uuid = context.uuid
+        self.intervals = context.app_config['containers'].get(self.type, {}).get('poll_intervals', _interval_dict)
 
     @abc.abstractproperty
     def local_id_args(self):

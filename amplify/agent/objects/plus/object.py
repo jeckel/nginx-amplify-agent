@@ -31,12 +31,10 @@ class PlusObject(AbstractObject):
         # Reset intervals to standardize intervals for all Plus objects
         self.intervals = context.app_config['containers']['plus']['poll_intervals']
 
-        # TODO: Refactor root_uuid as a general property that queries root object from context. Perhaps cache like local_id.
-        self.root_uuid = self.data.get('root_uuid') or (context.objects.root_object.uuid if context.objects.root_object else None)
+        self.root_uuid = context.uuid
         self.parent_local_id = self.data['parent_local_id']
         self.local_name = self.data['local_name']
         self.name = self.local_name
-
         self.plus_status_internal_url_cache = None
 
         self.collectors = [

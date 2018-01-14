@@ -2,7 +2,7 @@
 from hamcrest import *
 
 from test.base import BaseTestCase
-
+from test.fixtures.defaults import DEFAULT_UUID
 from amplify.agent.objects.plus.object import PlusObject
 
 
@@ -16,11 +16,11 @@ __email__ = "grant.hulegaard@nginx.com"
 
 class PlusObjectTestCase(BaseTestCase):
     def test_basic(self):
-        plus_obj = PlusObject(local_name='test_obj', parent_local_id='nginx123', root_uuid='root123')
+        plus_obj = PlusObject(local_name='test_obj', parent_local_id='nginx123', root_uuid=DEFAULT_UUID)
 
         assert_that(plus_obj, not_(equal_to(None)))
         assert_that(plus_obj.definition, equal_to(
-            {'type': 'nginx_plus', 'local_id': plus_obj.local_id, 'root_uuid': 'root123'}
+            {'type': 'nginx_plus', 'local_id': plus_obj.local_id, 'root_uuid': DEFAULT_UUID}
         ))
         assert_that(plus_obj.definition_hash, has_length(64))
         assert_that(plus_obj.hash(plus_obj.definition), equal_to(plus_obj.definition_hash))

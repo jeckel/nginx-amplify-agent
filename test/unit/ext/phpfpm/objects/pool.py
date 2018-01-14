@@ -2,7 +2,7 @@
 from hamcrest import *
 
 from test.base import BaseTestCase
-
+from test.fixtures.defaults import DEFAULT_UUID
 from amplify.ext.phpfpm.objects.pool import PHPFPMPoolObject
 
 
@@ -37,9 +37,9 @@ class PHPFPMPoolObjectTestCase(BaseTestCase):
         assert_that(phpfpm_pool.local_id_args, equal_to((123, 'www')))
         assert_that(phpfpm_pool.local_id, equal_to(124))
         assert_that(phpfpm_pool.definition, equal_to(
-            {'local_id': 124, 'type': 'phpfpm_pool', 'root_uuid': None}
+            {'local_id': 124, 'type': 'phpfpm_pool', 'root_uuid': DEFAULT_UUID}
         ))
         assert_that(phpfpm_pool.definition_hash, equal_to(
-            '8c84685602a25812172c511118d0f93d705f2cd67c41d278f4ae5b8b8967a8bd'
+            'a2071ce31b031f8f163d464648a7c9cf5305a5be65ddb9ef7daf2d97c13520f6'
         ))
         assert_that(phpfpm_pool.collectors, has_length(2))

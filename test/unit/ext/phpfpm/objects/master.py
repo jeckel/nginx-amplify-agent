@@ -4,7 +4,7 @@ from hamcrest import (
 )
 
 from test.base import BaseTestCase
-
+from test.fixtures.defaults import DEFAULT_UUID
 from amplify.ext.phpfpm.objects.master import PHPFPMObject
 
 
@@ -35,10 +35,10 @@ class PHPFPMObjectTestCase(BaseTestCase):
         ))
         assert_that(phpfpm_obj.local_id, equal_to(123))
         assert_that(phpfpm_obj.definition, equal_to(
-            {'local_id': 123, 'type': 'phpfpm', 'root_uuid': None}  # root_uuid is None because there is no root obj
+            {'local_id': 123, 'type': 'phpfpm', 'root_uuid': DEFAULT_UUID}
         ))
         assert_that(phpfpm_obj.definition_hash, equal_to(
-            'c1e5fecff97b99af2ed2fccf3c168f883f3910f191a5378f8f6903b0014b6368'
+            '32e8faf1747e8fa5778388b2db268941abeba7140cd83c52712ef97eb571e6d2'
         ))
         assert_that(phpfpm_obj.collectors, has_length(2))
 
@@ -100,12 +100,11 @@ class PHPFPMObjectTestCase(BaseTestCase):
         ))
         assert_that(phpfpm_obj.definition, equal_to(
             {
-                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c'
-                            '7f771c7736cc157',
+                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c7f771c7736cc157',
                 'type': 'phpfpm',
-                'root_uuid': None
-            }  # root_uuid is None because there is no root obj
+                'root_uuid': DEFAULT_UUID
+            }
         ))
         assert_that(phpfpm_obj.definition_hash, equal_to(
-            'c2e304622d5d31cac924f6eb97564fc30605df72a9ccdbfafe2dfbb69057f08e'
+            '6ee51f6b649782e5dd04db052e7a018372645756378a7a3de3356c2ae6ff3bd7'
         ))

@@ -3,6 +3,7 @@ from hamcrest import (
     assert_that, not_none, is_, equal_to, any_of, has_entries
 )
 
+from test.fixtures.defaults import DEFAULT_UUID
 from amplify.agent.common.context import context
 
 from test.unit.ext.phpfpm.base import PHPFPMTestCase
@@ -64,14 +65,13 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
             {
                 'name': 'master',
                 'display_name': 'phpfpm master @ hostname.nginx',
-                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c'
-                            '7f771c7736cc157',
+                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c7f771c7736cc157',
                 'type': 'phpfpm',
                 'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',
                 'pid': self.phpfpm_obj.pid,
                 'conf_path': '/etc/php5/fpm/php-fpm.conf',
-                'root_uuid': None,
+                'root_uuid': DEFAULT_UUID,
                 'bin_path': '/usr/sbin/php5-fpm',
                 'version': '5.5.9-1',
                 'version_line': any_of(
@@ -115,14 +115,13 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
             {
                 'name': 'master',
                 'display_name': 'phpfpm master @ hostname.nginx',
-                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c'
-                            '7f771c7736cc157',
+                'local_id': 'e5942daaa5bf35af722bac3b9582b17c07515f0f77936fb5c7f771c7736cc157',
                 'type': 'phpfpm',
                 'workers': 4,
                 'cmd': 'php-fpm: master process (/etc/php5/fpm/php-fpm.conf)',
                 'pid': self.phpfpm_obj.pid,
                 'conf_path': '/etc/php5/fpm/php-fpm.conf',
-                'root_uuid': None,
+                'root_uuid': DEFAULT_UUID,
                 'bin_path': None,
                 'version': None,
                 'version_line': None

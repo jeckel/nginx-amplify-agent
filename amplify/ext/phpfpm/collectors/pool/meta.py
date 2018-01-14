@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from amplify.agent.common.context import context
 from amplify.agent.collectors.abstract import AbstractMetaCollector
 
 __author__ = "Grant Hulegaard"
@@ -21,7 +22,7 @@ class PHPFPMPoolMetaCollector(AbstractMetaCollector):
     def default_meta(self):
         meta = {
             'type': self.object.type,
-            'root_uuid': self.object.root_uuid,
+            'root_uuid': context.uuid,
             'local_id': self.object.local_id,
             'name': self.object.name,
             'display_name': self.object.display_name,

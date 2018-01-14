@@ -33,18 +33,15 @@ class PHPFPMPoolManager(ObjectManager):
             obj.definition_hash
             for obj in self.objects.find_all(types=self.types)
         ]
-
         discovered_pools = self._find_all()
 
         while len(discovered_pools):
             try:
                 data = discovered_pools.pop()
-                root_uuid = context.objects.root_object.uuid \
-                    if context.objects.root_object else None
                 definition = {
                     'type': 'phpfpm_pool',
                     'local_id': data['local_id'],
-                    'root_uuid': root_uuid
+                    'root_uuid': context.uuid
                 }
                 definition_hash = PHPFPMPoolObject.hash(definition)
 
@@ -63,10 +60,7 @@ class PHPFPMPoolManager(ObjectManager):
                 # We don't need restart logic since the master process should
                 # take care of child objects.
             except psutil.NoSuchProcess:
-                context.log.debug(
-                    'phpfpm is restarting/reloading, pids are changing, agent '
-                    'is waiting'
-                )
+                context.log.debug('phpfpm is restarting/reloading, pids are changing, agent is waiting')
 
         # We also don't need stop logic since the master process should take
         # care of child objects.
@@ -110,9 +104,7 @@ class PHPFPMPoolManager(ObjectManager):
 
                     # ...log debug and skip
                     context.log.debug(
-                        'found a pool "%s" with missing or commented '
-                        'directives %s %s' %
-                        (
+                        'found a pool "%s" with missing or commented directives %s %s' % (
                             pool_data['name'],
                             ', '.join(['"%s"' % key for key in none_keys]),
                             pool_data

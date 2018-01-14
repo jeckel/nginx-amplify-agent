@@ -150,6 +150,10 @@ fi
 
 
 %changelog
+* Tue Jan  9 2018 Mike Belov <dedm@nginx.com> 1.0.1-1
+- 1.0.1-1
+- UUID bug fix
+
 * Tue Dec 26 2017 Mike Belov <dedm@nginx.com> 1.0.0-1
 - 1.0.0-1
 - Support for additional NGINX+ objects (streams and slabs)

@@ -16,7 +16,6 @@ class PlusObjectMetaCollector(AbstractMetaCollector):
     def __init__(self, **kwargs):
         super(PlusObjectMetaCollector, self).__init__(**kwargs)
         self.register(
-            self.root_uuid,
             self.version
         )
 
@@ -27,14 +26,11 @@ class PlusObjectMetaCollector(AbstractMetaCollector):
             'type': self.object.type_template % zone,
             'local_name': self.object.local_name,
             'local_id': self.object.local_id,
-            'root_uuid': None,
+            'root_uuid': context.uuid,
             'hostname': context.app_config['credentials']['imagename'] or context.hostname,
             'version': None
         }
         return meta
-
-    def root_uuid(self):
-        self.meta['root_uuid'] = self.object.root_uuid or context.objects.root_object.uuid
 
     def version(self):
         parent = context.objects.find_parent(obj=self.object)

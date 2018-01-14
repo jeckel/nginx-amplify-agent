@@ -340,7 +340,7 @@ class SupervisorTestCase(RealNginxTestCase):
 
             # save some vars to check later
             old_nginx_configs = deepcopy(nginx_container.object_configs)
-            nginx_object_init_time = supervisor.object_managers['nginx'].objects.objects[5].init_time
+            nginx_object_init_time = supervisor.object_managers['nginx'].objects.objects[3].init_time
 
             time.sleep(2)
 
@@ -360,7 +360,7 @@ class SupervisorTestCase(RealNginxTestCase):
             # check that we still use previously created objects
             print supervisor.object_managers['nginx'].objects.objects
             assert_that(
-                supervisor.object_managers['nginx'].objects.objects[5].init_time,
+                supervisor.object_managers['nginx'].objects.objects[3].init_time,
                 equal_to(nginx_object_init_time)
             )
 

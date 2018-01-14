@@ -112,17 +112,17 @@ class PHPFPMManagerTestCase(PHPFPMTestCase):
         # stop php-fpm
         self.stop_fpm()
 
-        time.sleep(0.1)  # release gil
+        time.sleep(0.1)
 
         # restart php-fpm
         self.start_fpm()
 
-        time.sleep(0.1)  # release gil
+        time.sleep(0.1)
 
         # re-discover
         phpfpm_manager._discover_objects()
 
-        # check to make sure there are no masters
+        # check to make sure there are new masters
         current_masters = context.objects.find_all(types=phpfpm_manager.types)
         assert_that(current_masters, has_length(1))
 

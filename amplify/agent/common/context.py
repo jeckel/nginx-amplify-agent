@@ -29,14 +29,16 @@ sys.setrecursionlimit(2048)
 
 class Context(Singleton):
     def __init__(self):
+        # initial basics
         self.pid = None
         self.psutil_process = None
-        self.cpu_last_check = 0
-
         self.set_pid()
 
-        self.version_semver = (1, 0, 0)
+        # define vars
+        self.cpu_last_check = 0
+        self.version_semver = (1, 0, 1)
         self.version_build = 1
+        self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
         self.environment = None
         self.imagename = None
@@ -55,20 +57,17 @@ class Context(Singleton):
         self.objects = None
         self.top_object = None  # TODO: Remove top_object entirely in favor of just top_object_id.
         self.top_object_id = None  # TODO: Think about refactoring such that top_object_id unnecessary.
-
         self.plus_cache = None
-
         self.nginx_configs = None
 
         self.start_time = int(time.time())
+        self.backpressure_time = 0
 
         # ring 0 thread_id set up and protect
         self.setup_thread_id()
         self.supervisor_thread_id = self.ids.keys()[0]
 
         self.setup_environment()
-
-        self.backpressure_time = 0
 
     def set_pid(self):
         self.pid = os.getpid()
@@ -218,9 +217,7 @@ class Context(Singleton):
         self.container_type = container.container_environment()
 
     def get_file_handlers(self):
-        return [
-            self.default_log.handlers[0].stream,
-        ]
+        return [self.default_log.handlers[0].stream]
 
     def inc_action_id(self):
         thread_id = thread.get_ident()

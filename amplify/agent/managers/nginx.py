@@ -275,7 +275,7 @@ class NginxManager(ObjectManager):
                 definition = {
                     'local_id': description['local_id'],
                     'type': NginxManager.type,
-                    'root_uuid': context.objects.root_object.uuid if context.objects.root_object else None
+                    'root_uuid': context.uuid
                 }
                 results.append((definition, description))
         return results

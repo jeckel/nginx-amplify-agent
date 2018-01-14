@@ -23,7 +23,6 @@ class NginxMetaCollector(AbstractMetaCollector):
     def __init__(self, **kwargs):
         super(NginxMetaCollector, self).__init__(**kwargs)
         self.register(
-            self.root_uuid,
             self.open_ssl,
             self.find_packages
         )
@@ -37,7 +36,7 @@ class NginxMetaCollector(AbstractMetaCollector):
         meta = {
             'type': 'nginx', # Hard coded since only 1 'nginx' object in backend.
             'local_id': self.object.local_id,
-            'root_uuid': None,
+            'root_uuid': context.uuid,
             'running': True,
             'display_name': self.object.display_name,
             'stub_status_enabled': self.object.stub_status_enabled,
@@ -58,11 +57,10 @@ class NginxMetaCollector(AbstractMetaCollector):
             meta['pid'] = self.object.pid
         return meta
 
-    def root_uuid(self):
-        self.meta['root_uuid'] = self.object.root_uuid or context.objects.root_object.uuid
-
     def open_ssl(self):
-        """Old nginx uses standart openssl library - find its version"""
+        """
+        Old nginx uses standard openssl library - this method tries to find its version
+        """
         if self.meta['ssl']['built'] is None:
             openssl_out, _ = subp.call('openssl version')
             if openssl_out[0]:
@@ -73,7 +71,9 @@ class NginxMetaCollector(AbstractMetaCollector):
                 }
 
     def find_packages(self):
-        """ Find a package with running binary """
+        """
+        Tries to find a package for the running binary
+        """
         package = None
 
         # find which package contains our binary
@@ -85,7 +85,7 @@ class NginxMetaCollector(AbstractMetaCollector):
                 break
 
         if 'no_path' in dpkg_s_err[0]:
-             self.meta['built_from_source'] = True
+            self.meta['built_from_source'] = True
 
         if package:
             # get version

@@ -33,9 +33,9 @@ class NginxObjectTestCase(RealNginxTestCase):
 
         # create default logs
         with open('/usr/share/nginx/logs/access.log', 'a'):  # default access log
-            os.utime('/usr/share/nginx/logs/access.log', (1,1))
+            os.utime('/usr/share/nginx/logs/access.log', (1, 1))
         with open('/usr/share/nginx/logs/error.log', 'a'):  # default error log
-            os.utime('/usr/share/nginx/logs/error.log', (1,1))
+            os.utime('/usr/share/nginx/logs/error.log', (1, 1))
 
     def teardown_method(self, method):
         amplify.agent.common.context.context.app_config.config = copy.deepcopy(self.original_app_config)
@@ -165,7 +165,6 @@ class NginxObjectTestCase(RealNginxTestCase):
         assert_that(NginxConfig.__full_parse_calls, equal_to(2))
 
     # TODO: Fill out these tests once we move our test containers to Ubuntu 16.04
-
     @disabled_test
     def test_start_syslog_listener(self):
         pass

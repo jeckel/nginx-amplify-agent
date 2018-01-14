@@ -3,7 +3,6 @@ import time
 
 from amplify.agent.common.context import context
 from amplify.agent.collectors.abstract import AbstractMetricsCollector
-
 from amplify.ext.phpfpm.util.fpmstatus import PHPFPMStatus
 
 

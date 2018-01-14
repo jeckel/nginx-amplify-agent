@@ -2,7 +2,7 @@
 from hamcrest import *
 
 from test.base import BaseTestCase
-
+from test.fixtures.defaults import DEFAULT_UUID
 from amplify.ext.phpfpm.objects.pool import PHPFPMPoolObject
 from amplify.ext.phpfpm.collectors.pool.meta import PHPFPMPoolMetaCollector
 
@@ -60,7 +60,7 @@ class PHPFPMPoolMetaCollectorTestCase(BaseTestCase):
                 'parent_local_id': 123,
                 'status_path': '/status',
                 'type': 'phpfpm_pool',
-                'root_uuid': None,
+                'root_uuid': DEFAULT_UUID,
                 'can_have_children': False
             }
         ))
@@ -98,7 +98,7 @@ class PHPFPMPoolMetaCollectorTestCase(BaseTestCase):
                 'parent_local_id': 123,
                 'status_path': '/status',
                 'type': 'phpfpm_pool',
-                'root_uuid': None,
+                'root_uuid': DEFAULT_UUID,
                 'can_have_children': False
             }
         ))

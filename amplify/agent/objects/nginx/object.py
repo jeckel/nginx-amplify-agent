@@ -32,7 +32,7 @@ class NginxObject(AbstractObject):
         # Have to override intervals here because new container sub objects.
         self.intervals = context.app_config['containers'].get('nginx', {}).get('poll_intervals', {'default': 10})
 
-        self.root_uuid = self.data.get('root_uuid') or getattr(context.objects.root_object, 'uuid', None)
+        self.root_uuid = context.uuid
         self._local_id = self.data['local_id']  # Assigned by manager
         self.pid = self.data['pid']
         self.version = self.data['version']
@@ -88,7 +88,8 @@ class NginxObject(AbstractObject):
         """
         Tries to get alive stub_status url
         Records some events about it
-        :return:
+
+        :return: str stub_status url
         """
         urls_to_check = self.config.stub_status_urls
 

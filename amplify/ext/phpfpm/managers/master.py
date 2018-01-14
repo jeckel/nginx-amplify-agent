@@ -38,19 +38,17 @@ class PHPFPMManager(ObjectManager):
             obj.definition_hash
             for obj in self.objects.find_all(types=self.types)
         ]
+        discovered_hashes = []
 
         phpfpm_masters = self._find_all()
 
-        discovered_hashes = []
         while len(phpfpm_masters):
             try:
                 data = phpfpm_masters.pop()
-                root_uuid = context.objects.root_object.uuid \
-                    if context.objects.root_object else None
                 definition = {
                     'type': 'phpfpm',
                     'local_id': data['local_id'],
-                    'root_uuid': root_uuid
+                    'root_uuid': context.uuid
                 }
                 definition_hash = PHPFPMObject.hash(definition)
                 discovered_hashes.append(definition_hash)
@@ -62,8 +60,7 @@ class PHPFPMManager(ObjectManager):
                     # Send discover event.
                     new_obj.eventd.event(
                         level=INFO,
-                        message='php-fpm master process found, pid %s' %
-                                new_obj.pid
+                        message='php-fpm master process found, pid %s' % new_obj.pid
                     )
 
                     self.objects.register(
@@ -87,18 +84,16 @@ class PHPFPMManager(ObjectManager):
                         # send php-fpm restart event
                         new_obj.eventd.event(
                             level=INFO,
-                            message='php-fpm master process was restarted, new'
-                                    ' pid %s, old pid %s' % (
-                                        new_obj.pid,
-                                        current_obj.pid
-                                    )
+                            message='php-fpm master process was restarted, new pid %s, old pid %s' % (
+                                new_obj.pid, current_obj.pid
+                            )
                         )
 
                         # stop and unregister children
                         for child_obj in self.objects.find_all(
-                                obj_id=current_obj.id,
-                                children=True,
-                                include_self=False
+                            obj_id=current_obj.id,
+                            children=True,
+                            include_self=False
                         ):
                             child_obj.stop()
                             self.objects.unregister(obj=child_obj)
@@ -113,17 +108,10 @@ class PHPFPMManager(ObjectManager):
                             new_obj, parent_id=self.objects.root_id
                         )
             except psutil.NoSuchProcess:
-                context.log.debug(
-                    'phpfpm is restarting/reloading, pids are changing, agent '
-                    'is waiting'
-                )
+                context.log.debug('phpfpm is restarting/reloading, pids are changing, agent is waiting')
 
-        # check if we left something in objects (phpfpm could be stopped or
-        # something)
-        dropped_hashes = filter(
-            lambda x: x not in discovered_hashes,
-            existing_hashes
-        )
+        # check if we left something in objects (phpfpm could be stopped or something)
+        dropped_hashes = filter(lambda x: x not in discovered_hashes, existing_hashes)
         if len(dropped_hashes):
             for dropped_hash in dropped_hashes:
                 for obj in self.objects.find_all(types=self.types):
@@ -150,8 +138,7 @@ class PHPFPMManager(ObjectManager):
         """
         Tries to find a master process
 
-        :param ps: List of Strings...used for debugging our parsing logic...
-                        should be None most of the time
+        :param ps: List of Strings...used for debugging our parsing logic... should be None most of the time
         :return: List of Dicts phpfpm object definitions
         """
         # get ps info
@@ -164,8 +151,7 @@ class PHPFPMManager(ObjectManager):
             exception_name = e.__class__.__name__
             context.log.debug(
                 'failed to find running php-fpm via "%s" due to %s' % (
-                    PS_CMD,
-                    exception_name
+                    PS_CMD, exception_name
                 )
             )
             context.log.debug('additional info:', exc_info=True)
@@ -210,8 +196,8 @@ class PHPFPMManager(ObjectManager):
                         parent_command = out[1]
                         if not any(x in parent_command for x in LAUNCHERS):
                             context.log.debug(
-                                'launching php-fpm with "%s" is not currently'
-                                ' supported' % parent_command
+                                'launching php-fpm with "%s" is not currently supported' %
+                                parent_command
                             )
                             continue
 
@@ -224,9 +210,7 @@ class PHPFPMManager(ObjectManager):
                         context.log.debug('additional info:', exc_info=True)
                     else:
                         # calculate local_id
-                        local_id = hashlib.sha256(
-                            '%s_%s' % (cmd, conf_path)
-                        ).hexdigest()
+                        local_id = hashlib.sha256('%s_%s' % (cmd, conf_path)).hexdigest()
 
                         if pid not in masters:
                             masters[pid] = {'workers': []}

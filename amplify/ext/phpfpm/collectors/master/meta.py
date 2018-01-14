@@ -2,9 +2,8 @@
 from amplify.agent.common.context import context
 from amplify.agent.data.eventd import INFO
 from amplify.agent.collectors.abstract import AbstractMetaCollector
-from amplify.agent.common.util import subp
-
 from amplify.ext.phpfpm.util.ps import LS_CMD, LS_PARSER
+from amplify.agent.common.util import subp
 from amplify.ext.phpfpm.util.version import VERSION_PARSER
 
 
@@ -37,7 +36,7 @@ class PHPFPMMetaCollector(AbstractMetaCollector):
     def default_meta(self):
         meta = {
             'type': self.object.type,
-            'root_uuid': self.object.root_uuid,
+            'root_uuid': context.uuid,
             'local_id': self.object.local_id,
             'name': self.object.name,
             'display_name': self.object.display_name,
