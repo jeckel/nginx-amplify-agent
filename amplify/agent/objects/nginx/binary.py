@@ -93,7 +93,6 @@ def get_prefix_and_conf_path(cmd, configure=None):
     prefix = None
     conf_path = None
 
-
     # try to find config and prefix
     for param in params:
         if param == '-c':

@@ -42,7 +42,6 @@ ssl_text_regexs = (
 
 ssl_dns_regex = re.compile('DNS:[\w\s\-\.]+')
 
-
 def certificate_dates(filename):
     keys = {
         'notBefore': 'start',
@@ -79,10 +78,12 @@ def certificate_subject_old(filename):
     return results or None
 
 
-def certificate_subject(filename):
+def parse_raw_certificate_subject(openssl_out):
+    """
+    :param openssl_out: list of strings - output from subp.call()
+    :return: dict
+    """
     results = {}
-
-    openssl_out, _ = subp.call("openssl x509 -in %s -noout -subject -nameopt RFC2253" % filename, check=False)
     for line in openssl_out:
         if line:
             output = line[8:]  # trim "subject=" or "Subject:" from output
@@ -102,8 +103,19 @@ def certificate_subject(filename):
 
                     # Replace escaped \ (workaround)
                     results[ssl_subject_map[prev_factor]] = results[ssl_subject_map[prev_factor]].replace('\\', '')
-
     return results or None
+
+
+def certificate_subject(filename):
+    """
+    :param filename: string
+    :return: dict
+    """
+    # -nameopt RFC2253 escapes characters where there is no ASCII value
+    # so we turn off the sub-option responsible for that, which is esc_msb
+    openssl_out, _ = subp.call("openssl x509 -in %s -noout -subject -nameopt RFC2253 -nameopt -esc_msb" % filename, check=False)
+    results = parse_raw_certificate_subject(openssl_out)
+    return results
 
 
 def certificate_issuer(filename):

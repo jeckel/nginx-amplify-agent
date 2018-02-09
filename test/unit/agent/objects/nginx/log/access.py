@@ -12,6 +12,7 @@ __email__ = "dedm@nginx.com"
 
 
 class LogParserTestCase(BaseTestCase):
+
     def test_prepare_combined(self):
         """
         Check that we can prepare standart format:
@@ -63,7 +64,6 @@ class LogParserTestCase(BaseTestCase):
         assert_that(parsed['request_uri'], equal_to('/basic_status'))
         assert_that(parsed['server_protocol'], equal_to('HTTP/1.1'))
 
-    @disabled_test
     def test_malformed_request(self):
         """
         This test is disabled because our current new handling of $request means the entire line parse fails rather
@@ -356,8 +356,7 @@ class LogParserTestCase(BaseTestCase):
             assert_that(parser.keys, has_item(key))
 
     def test_malformed_request_doesnt_raise_exception(self):
-        log_format = 'log_format receiver-lb' + \
-                    '$remote_addr - $remote_user [$time_local] "$request" ' + \
+        log_format = '$remote_addr - $remote_user [$time_local] "$request" ' + \
                     '$status $body_bytes_sent "$http_referer" ' + \
                     '"$http_user_agent" "$http_x_forwarded_for" "$server_name" $request_id ' + \
                     '$upstream_http_x_amplify_upstream ' + \
@@ -370,7 +369,7 @@ class LogParserTestCase(BaseTestCase):
                '- "-" "-" "-" - - 42433164/1 0 "0.108"'
 
         parsed = parser.parse(line)
-        assert_that(parsed, equal_to(None))
+        assert_that(parsed['malformed'], equal_to(True))
 
     def test_empty_server_name(self):
         # log_format and lines for this test were taken from AMPDEV-1110

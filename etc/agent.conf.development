@@ -20,6 +20,14 @@ api_timeout = 5.0
 
 [extensions]
 phpfpm = True
+mysql = True
+
+[mysql]
+#host =
+#port =
+unix_socket = /var/run/mysqld/mysqld.sock
+user = root
+password = root
 
 [listeners]
 keys = syslog-default,syslog-alternate

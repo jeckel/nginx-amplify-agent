@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from hamcrest import *
 import time
+
+from hamcrest import *
 
 from test.unit.ext.phpfpm.base import PHPFPMTestCase, PHPFPMSupervisordTestCase
 from amplify.agent.common.context import context
-
 from amplify.ext.phpfpm.managers.master import PHPFPMManager
 from amplify.ext.phpfpm.managers.pool import PHPFPMPoolManager
 
@@ -17,9 +17,6 @@ __email__ = "grant.hulegaard@nginx.com"
 
 
 class PHPFPMPoolManagerTestCase(PHPFPMTestCase):
-    """
-    Test case for PHPFPMPoolManager.
-    """
 
     def setup_method(self, method):
         super(PHPFPMPoolManagerTestCase, self).setup_method(method)

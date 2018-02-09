@@ -20,6 +20,14 @@ api_timeout = 5.0
 
 [extensions]
 phpfpm = True
+mysql = False
+
+[mysql]
+#host =
+#port =
+unix_socket = /var/run/mysqld/mysqld.sock
+user = amplify-agent
+password = amplify-agent
 
 [listeners]
 keys = syslog-default

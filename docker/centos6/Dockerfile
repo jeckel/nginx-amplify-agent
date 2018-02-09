@@ -13,11 +13,6 @@ MAINTAINER Mike Belov
 RUN yum -y install tar curl wget net-tools redhat-lsb initscripts
 RUN yum -y groupinstall 'Development Tools'
 
-# Install Python and Basic Python Tools
-RUN yum -y install python python-devel python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
-
 # Install nginx
 ADD nginx.repo /etc/yum.repos.d/nginx.repo
 RUN yum -y install nginx
@@ -25,9 +20,17 @@ RUN mkdir /run
 
 # Copy the application folder inside the container
 ADD . /amplify
+ADD requirements /etc/naas/requirements
 
-# Get pip to download and install requirements:
-RUN pip install rstr==2.2.3 greenlet==0.4.12 gevent==1.1.0 lockfile==0.11.0 netaddr==0.7.18 netifaces==0.10.4 psutil==4.0.0 requests==2.12.4 ujson==1.33 python-daemon==2.0.6 setproctitle==1.1.10 flup==1.0.2 scandir==1.5 crossplane==0.1.1
+# Install Python and Basic Python Tools
+RUN yum -y install python python-devel python-distribute
+RUN wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py \
+ && python get-pip.py --user \
+ && rm -f get-pip.py \
+ && ~/.local/bin/pip install setuptools --user \
+ && ~/.local/bin/pip install setuptools --upgrade --user \
+ && ~/.local/bin/pip install wheel==0.29.0 --user \
+ && ~/.local/bin/pip install -r /etc/naas/requirements
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/

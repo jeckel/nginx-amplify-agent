@@ -13,7 +13,8 @@ __email__ = "dedm@nginx.com"
 
 def build():
     full_name = "nginx-amplify-agent"
-    rpm_sources = os.path.expanduser('~') + '/rpmbuild/SOURCES'
+    rpm_topdir = os.path.expanduser('~') + '/rpmbuild'
+    rpm_sources = rpm_topdir + '/SOURCES'
     python = '/usr/bin/python2.7'
 
     # get version and build
@@ -62,8 +63,8 @@ def build():
 
         # create rpm package
         shell_call(
-            'rpmbuild -bb packages/rpm/%s.spec --define "amplify_version %s" --define "amplify_release %s"' % (
-                full_name, version, bld
+            'rpmbuild -D "_topdir %s" -bb packages/rpm/%s.spec --define "amplify_version %s" --define "amplify_release %s"' % (
+                rpm_topdir, full_name, version, bld
             )
         )
 

@@ -7,6 +7,7 @@ import imp
 import pytest
 import random
 import shutil
+import time
 
 from unittest import TestCase
 
@@ -143,19 +144,24 @@ class RealNginxTestCase(BaseTestCase):
 
     def reload_nginx(self):
         subp.call('service nginx reload', check=False)
+        time.sleep(0.5)
 
     def start_second_nginx(self, conf='nginx2.conf'):
         subp.call('/usr/sbin/nginx2 -c /etc/nginx/%s' % conf, check=False)
         self.second_started = True
+        time.sleep(0.5)
 
     def stop_first_nginx(self):
         subp.call('service nginx stop', check=False)
+        time.sleep(0.5)
 
     def start_first_nginx(self):
         subp.call('service nginx start', check=False)
+        time.sleep(0.5)
 
     def restart_nginx(self):
         subp.call('service nginx restart', check=False)
+        time.sleep(0.5)
 
 
 class RealNginxSupervisordTestCase(RealNginxTestCase):
@@ -171,19 +177,24 @@ class RealNginxSupervisordTestCase(RealNginxTestCase):
 
     def reload_nginx(self):
         subp.call('supervisorctl -c /etc/supervisord.conf signal HUP nginx')
+        time.sleep(0.5)
 
     def start_second_nginx(self, conf='nginx2.conf'):
         subp.call('/usr/sbin/nginx2 -c /etc/nginx/%s' % conf)
         self.second_started = True
+        time.sleep(0.5)
 
     def stop_first_nginx(self):
         subp.call('supervisorctl -c /etc/supervisord.conf stop nginx')
+        time.sleep(0.5)
 
     def start_first_nginx(self):
         subp.call('supervisorctl -c /etc/supervisord.conf start nginx')
+        time.sleep(0.5)
 
     def restart_nginx(self):
         subp.call('supervisorctl -c /etc/supervisord.conf restart nginx')
+        time.sleep(0.5)
 
 
 class TestWithFakeSubpCall(BaseTestCase):

@@ -36,7 +36,7 @@ class Context(Singleton):
 
         # define vars
         self.cpu_last_check = 0
-        self.version_semver = (1, 0, 1)
+        self.version_semver = (1, 1, 0)
         self.version_build = 1
         self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
@@ -85,12 +85,15 @@ class Context(Singleton):
         self._setup_app_logs(**kwargs)
         self._setup_app_listeners()
         self._setup_tags()
-        self._setup_host_details()
         self._setup_http_client()
         self._setup_object_tank()
         self._setup_plus_cache()
         self._setup_nginx_config_tank()
         self._setup_container_details()
+
+        # we don't need to work with host details on config check for example
+        if not kwargs.get('skip_uuid', False):
+            self._setup_host_details()
 
     def _setup_app_config(self, **kwargs):
         self.app_name = kwargs.get('app')

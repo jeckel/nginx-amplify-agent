@@ -102,6 +102,10 @@ if [ $1 -eq 1 ] ; then
 elif [ $1 -eq 2 ] ; then
     %define agent_conf_file /etc/amplify-agent/agent.conf
 
+    if [ ! -f "%{agent_conf_file}" ]; then
+        exit 0
+    fi
+
     # Check for an older version of the agent running
     if command -V pgrep > /dev/null 2>&1; then
         agent_pid=`pgrep amplify-agent || true`
@@ -114,26 +118,21 @@ elif [ $1 -eq 2 ] ; then
         service amplify-agent stop > /dev/null 2>&1 < /dev/null
     fi
 
-    if [ -f "%{agent_conf_file}" ]; then
-        # Change API URL to 1.3
-	    sh -c "sed -i.old 's/api_url.*receiver.*$/api_url = https:\/\/receiver.amplify.nginx.com:443\/1.3/' \
-	    %{agent_conf_file}"
+    # Change API URL to 1.3
+    sh -c "sed -i.old 's/api_url.*receiver.*$/api_url = https:\/\/receiver.amplify.nginx.com:443\/1.3/' \
+        %{agent_conf_file}"
 
-	    # Add PHP-FPM to config file
-	    if ! grep -i phpfpm "%{agent_conf_file}" > /dev/null 2>&1 ; then
-            sh -c "echo >> %{agent_conf_file}" && \
-            sh -c "echo '[extensions]' >> %{agent_conf_file}" && \
-            sh -c "echo 'phpfpm = True' >> %{agent_conf_file}"
-        fi
-    else
-        test -f "%{agent_conf_file}.default" && \
-        cp -p "%{agent_conf_file}.default" "%{agent_conf_file}" && \
-        chmod 644 %{agent_conf_file} && \
-	    chown nginx %{agent_conf_file} > /dev/null 2>&1
+    # Add PHP-FPM to config file
+    if ! grep -i phpfpm "%{agent_conf_file}" > /dev/null 2>&1 ; then
+        sh -c "echo >> %{agent_conf_file}" && \
+        sh -c "echo '[extensions]' >> %{agent_conf_file}" && \
+        sh -c "echo 'phpfpm = True' >> %{agent_conf_file}"
     fi
 
-    # start it
-    service amplify-agent start > /dev/null 2>&1 < /dev/null
+    # restart it if it was stopped before
+    if [ -n "$agent_pid" ]; then
+        service amplify-agent start > /dev/null 2>&1 < /dev/null
+    fi
 fi
 
 %preun
@@ -150,6 +149,16 @@ fi
 
 
 %changelog
+* Wed Feb  7 2018 Mike Belov <dedm@nginx.com> 1.1.0-1
+- 1.1.0-1
+- MySQL monitoring support
+- Improved nginx logs parsing
+- Various bug fixes
+
+* Tue Jan 16 2018 Mike Belov <dedm@nginx.com> 1.0.1-2
+- 1.0.1-2
+- Postinst script fix
+
 * Tue Jan  9 2018 Mike Belov <dedm@nginx.com> 1.0.1-1
 - 1.0.1-1
 - UUID bug fix

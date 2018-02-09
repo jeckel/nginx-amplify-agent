@@ -1,3 +1,17 @@
+nginx-amplify-agent (1.1.0-1) stable; urgency=low
+
+  * MySQL monitoring support
+  * Improved nginx logs parsing
+  * Various bug fixes
+
+ -- Mike Belov <dedm@nginx.com>  Wed,  7 Feb 2018 10:00:00 -0800
+
+nginx-amplify-agent (1.0.1-2) stable; urgency=low
+
+  * Postinst script fix
+
+ -- Mike Belov <dedm@nginx.com>  Tue, 16 Jan 2018 10:00:00 -0800
+
 nginx-amplify-agent (1.0.1-1) stable; urgency=low
 
   * UUID bug fix

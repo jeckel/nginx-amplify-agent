@@ -2,8 +2,8 @@
 from amplify.agent.common.context import context
 from amplify.agent.data.eventd import INFO
 from amplify.agent.collectors.abstract import AbstractMetaCollector
-from amplify.ext.phpfpm.util.ps import LS_CMD, LS_PARSER
-from amplify.agent.common.util import subp
+from amplify.agent.common.util import subp, host
+from amplify.ext.phpfpm.util.ps import LS_CMD, LS_CMD_FREEBSD, LS_PARSER
 from amplify.ext.phpfpm.util.version import VERSION_PARSER
 
 
@@ -70,7 +70,9 @@ class PHPFPMMetaCollector(AbstractMetaCollector):
             last_exception = None
 
             for pid in all_pids:
-                ls_cmd = LS_CMD % pid
+                ls_cmd_template = LS_CMD_FREEBSD if host.linux_name() == 'freebsd' else LS_CMD
+                ls_cmd = ls_cmd_template % pid
+
                 try:
                     ls, _ = subp.call(ls_cmd)
                     context.log.debug('ls "%s" output: %s' % (ls_cmd, ls))

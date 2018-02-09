@@ -30,6 +30,11 @@ RUN printf "deb https://plus-pkgs.nginx.com/ubuntu `lsb_release -cs` nginx-plus\
  && apt-get install -y --fix-missing tar curl nano wget dialog net-tools build-essential \
  && cp /usr/sbin/nginx /usr/sbin/nginx2
 
+# Instal mysql and prepare init file
+RUN apt-get update && apt-get install -y mysql-server-5.5
+RUN echo "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root');" > /mysql.init
+RUN echo "CREATE USER 'amplify-agent'@'localhost' IDENTIFIED BY 'amplify-agent';" >> /mysql.init
+
 # Install php-fpm and configure
 RUN rm -rf /run \
  && mkdir /run \
@@ -55,23 +60,10 @@ RUN apt-get update \
 
 # Copy the application folder inside the container
 ADD . /amplify
+ADD requirements /etc/naas/requirements
 
 # Install agent requirements:
-RUN pip install \
-    crossplane==0.1.1 \
-    flup==1.0.2 \
-    gevent==1.1.0 \
-    greenlet==0.4.12 \
-    lockfile==0.11.0 \
-    netaddr==0.7.18 \
-    netifaces==0.10.4 \
-    psutil==4.0.0 \
-    python-daemon==2.0.6 \
-    requests==2.12.4 \
-    rstr==2.2.3 \
-    scandir==1.5 \
-    setproctitle==1.1.10 \
-    ujson==1.33
+RUN pip install -r /etc/naas/requirements
 
 # Install test requirements
 RUN pip install \

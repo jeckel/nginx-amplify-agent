@@ -7,7 +7,7 @@ import psutil
 from amplify.agent.data.eventd import INFO
 from amplify.agent.common.util import subp
 from amplify.agent.common.context import context
-from amplify.agent.managers.abstract import ObjectManager, LAUNCHERS
+from amplify.agent.managers.abstract import ObjectManager, launch_method_supported
 from amplify.agent.objects.nginx.object import NginxObject, ContainerNginxObject
 from amplify.agent.objects.nginx.binary import get_prefix_and_conf_path
 
@@ -223,17 +223,8 @@ class NginxManager(ObjectManager):
 
                 # match nginx master process
                 if 'nginx: master process' in cmd:
-
-                    # if ppid isn't 1 or 0, then the master process must have been started with a launcher
-                    # ppid == 0 might be in containers environments
-                    if ppid not in (0, 1):
-                        out, err = subp.call('ps o command %d' % ppid)
-                        parent_command = out[1]  # take the second line because the first is a header
-                        if not any(launcher in parent_command for launcher in LAUNCHERS):
-                            context.log.debug(
-                                'launching nginx with "%s" is not currently supported' % parent_command
-                            )
-                            continue
+                    if not launch_method_supported("nginx", ppid):
+                        continue
 
                     # get path to binary, prefix and conf_path
                     try:

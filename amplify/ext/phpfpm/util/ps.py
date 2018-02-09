@@ -45,6 +45,7 @@ def MASTER_PARSER(ps_master_cmd):
 
 
 LS_CMD = "ls -la /proc/%s/exe"
+LS_CMD_FREEBSD = "ls -la /proc/%s/file"
 
 
 _LS_REGEX = re.compile(r'.+\-\>\s*(?P<bin_path>.+)\s*')

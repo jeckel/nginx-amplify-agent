@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 import abc
 import hashlib
+import platform
 import time
 
 from gevent import queue
-from gevent.hub import BlockingSwitchOutError
+
+try:
+    from gevent.hub import BlockingSwitchOutError
+except ImportError:
+    # if using an old version of gevent (because this is running on CentOS 6) then
+    # create a BlockingSwitchOutError class just to avoid raising NameErrors
+    class BlockingSwitchOutError(Exception):
+        pass
 
 from amplify.agent.data.eventd import EventdClient
 from amplify.agent.data.metad import MetadClient
@@ -155,13 +163,17 @@ class AbstractObject(object):
     def stop(self):
         if self.running:
             context.log.debug('stopping object "%s" %s' % (self.type, self.definition_hash))
-            for thread in self.threads:
-                try:
-                    thread.kill()
-                except BlockingSwitchOutError:
-                    pass
-                except Exception as e:
-                    context.log.debug('exception during object stop', exc_info=True)
+            # Killing threads raises errors on the old version of gevent only
+            distname, distversion, __ = platform.linux_distribution(full_distribution_name=False)
+            is_centos_6 = distname == 'centos' and distversion.split('.')[0] == '6'
+            if not is_centos_6:
+                for thread in self.threads:
+                    try:
+                        thread.kill()
+                    except BlockingSwitchOutError:
+                        pass
+                    except Exception as e:
+                        context.log.debug('exception during object stop', exc_info=True)
 
             # For every collector, if the collector has a .tail attribute and is a Pipeline, send a stop signal.
             for collector in self.collectors:

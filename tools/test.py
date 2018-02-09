@@ -34,7 +34,9 @@ if __name__ == '__main__':
         yml, image, path = 'docker/test.yml', 'amplify-agent-test', 'docker/test'
 
     shell_call('find . -name "*.pyc" -type f -delete', terminal=True)
+    shell_call('cp packages/requirements %s/requirements' % path)
     shell_call('docker build -t %s %s' % (image, path), terminal=True)
+    shell_call('rm %s/requirements' % path)
 
     rows, columns = os.popen('stty size', 'r').read().split()
     color_print("\n= RUN TESTS =" + "="*(int(columns)-13))

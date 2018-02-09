@@ -4,7 +4,7 @@
 ############################################################
 
 # Set the base image to Ubuntu
-FROM tianon/gentoo-stage3
+FROM gentoo/stage3-amd64
 
 # File Author / Maintainer
 MAINTAINER Mike Belov

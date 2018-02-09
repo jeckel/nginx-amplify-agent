@@ -606,7 +606,7 @@ if [ -f "${nginx_conf_file}" ]; then
     if [ -d "${nginx_conf_dir}" ]; then
         printf "\033[32m ${step}. Checking if stub_status is configured ...\033[0m"
 
-        if grep -R "stub_status" ${nginx_conf_dir}/* > /dev/null 2>&1; then
+        if ${sudo_cmd} grep -R "stub_status" ${nginx_conf_dir}/* > /dev/null 2>&1; then
             printf "\033[32m ok.\033[0m\n"
         else
             printf "\033[31m no stub_status in nginx config, please check https://git.io/vQGs4\033[0m\n"
@@ -680,7 +680,7 @@ printf "\033[32m After the agent is launched, it takes a couple of minutes for t
 printf "\033[32m in the Amplify user interface.\033[0m\n\n"
 
 printf "\033[32m PLEASE CHECK THE DOCUMENTATION HERE:\033[0m\n"
-printf "     https://github.com/nginxinc/nginx-amplify-doc\n\n"
+printf "     https://amplify.nginx.com/docs/\n\n"
 
 # Check for an older version of the agent running
 if [ -f "${amplify_pid_file}" ]; then

@@ -20,6 +20,14 @@ api_timeout =
 
 [extensions]
 phpfpm = True
+mysql = True
+
+[mysql]
+#host =
+#port =
+unix_socket = /var/run/mysqld/mysqld.sock
+user = amplify-agent
+password = amplify-agent
 
 [tags]
 tags = foo,bar,foo:bar

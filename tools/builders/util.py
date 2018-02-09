@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import os
+import platform
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -76,7 +77,7 @@ def change_first_line(filename, first_line):
 
 def install_pip(python='python'):
     shell_call('wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py')
-    shell_call('%s get-pip.py --user' % python)
+    shell_call('%s get-pip.py --user --ignore-installed --upgrade' % python)
 
     # next lines are for "error: invalid command 'bdist_wheel'" on centos6
     shell_call('~/.local/bin/pip install setuptools --user')
@@ -87,4 +88,9 @@ def install_pip(python='python'):
 
 
 def install_pip_deps():
-    shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements')
+    distname, distversion, __ = platform.linux_distribution(full_distribution_name=False)
+    is_centos_6 = distname == 'centos' and distversion.split('.')[0] == '6'
+    if is_centos_6:
+        shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements-old-gevent')
+    else:
+        shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements')

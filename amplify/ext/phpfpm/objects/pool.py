@@ -45,7 +45,7 @@ class PHPFPMPoolObject(AbstractObject):
 
     @property
     def display_name(self):
-        # override abstrawct version for user-friendliness.
+        # override abstract version for user-friendliness.
         return "phpfpm %s @ %s" % (self.name, hostname())
 
     @property

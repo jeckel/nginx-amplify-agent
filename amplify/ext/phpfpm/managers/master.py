@@ -2,15 +2,12 @@
 import hashlib
 import psutil
 
-from collections import defaultdict
-
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
-from amplify.agent.managers.abstract import ObjectManager, LAUNCHERS
+from amplify.agent.managers.abstract import ObjectManager, launch_method_supported
 from amplify.agent.data.eventd import INFO
 
 from amplify.ext.phpfpm.util.ps import PS_CMD, MASTER_PARSER, PS_PARSER
-from amplify.ext.phpfpm.util.ps import LS_CMD, LS_PARSER
 from amplify.ext.phpfpm.objects.master import PHPFPMObject
 from amplify.ext.phpfpm import AMPLIFY_EXT_KEY
 
@@ -187,19 +184,8 @@ class PHPFPMManager(ObjectManager):
 
                 # match master process
                 if 'master process' in cmd:
-
-                    # if ppid isn't 1, then the master process must have been
-                    # started with a launcher
-                    if ppid != 1:
-                        out, err = subp.call('ps o command %d' % ppid)
-                        # take the second line because the first is a header
-                        parent_command = out[1]
-                        if not any(x in parent_command for x in LAUNCHERS):
-                            context.log.debug(
-                                'launching php-fpm with "%s" is not currently supported' %
-                                parent_command
-                            )
-                            continue
+                    if not launch_method_supported("php-fpm", ppid):
+                        continue
 
                     try:
                         conf_path = MASTER_PARSER(cmd)

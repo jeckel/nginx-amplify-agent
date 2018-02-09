@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-from hamcrest import (
-    assert_that, not_none, is_, equal_to, has_item, has_length, not_
-)
 import time
 
+from hamcrest import *
+
 from test.unit.ext.phpfpm.base import PHPFPMTestCase
-
 from amplify.agent.common.context import context
-
 from amplify.ext.phpfpm.objects.master import PHPFPMObject
 from amplify.ext.phpfpm.collectors.master.metrics import PHPFPMMetricsCollector
 

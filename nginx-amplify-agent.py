@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 import sys
 import traceback
+import platform
+
+distname, distversion, __ = platform.linux_distribution(full_distribution_name=False)
+is_centos_6 = distname.lower() == 'centos' and distversion.split('.')[0] == '6'
 
 import amplify
 
@@ -9,7 +13,11 @@ amplify_path = '/'.join(amplify.__file__.split('/')[:-1])
 sys.path.insert(0, amplify_path)
 
 from gevent import monkey
-monkey.patch_all()
+
+if is_centos_6:
+    monkey.patch_all(socket=False, ssl=False, select=False)
+else:
+    monkey.patch_all()
 
 from optparse import OptionParser, Option
 
@@ -30,15 +38,16 @@ __credits__ = [
     "Jason Thigpen",
     "Alexander Shchukin",
     "Clayton Lowell",
-    "Paul McGuire"
+    "Paul McGuire",
+    "Raymond Lau"
 ]
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
-def test_config(config, pid):
-    return configreader.test(config, pid)
+def test_configuration_and_enviroment(config, pid, wait_for_cloud):
+    return configreader.test(config, pid, wait_for_cloud)
 
 
 usage = "usage: %prog [start|stop|configtest] [options]"
@@ -98,8 +107,14 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # check config before start
-    if action in ('configtest', 'start', 'debug'):
-        rc = test_config(options.config, options.pid)
+    if action in ('configtest', 'debug', 'start'):
+        wait_for_cloud = True if action == 'start' else False
+
+        rc = test_configuration_and_enviroment(
+            options.config,
+            options.pid,
+            wait_for_cloud
+        )
         print("")
 
         if action == 'configtest' or rc:

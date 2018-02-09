@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import time
+
 from hamcrest import *
 
 from amplify.agent.common.context import context
@@ -23,10 +25,10 @@ class ConfigCollectorTestCase(RealNginxTestCase):
         super(ConfigCollectorTestCase, self).teardown_method(method)
 
     def test_collect(self):
-        container = NginxManager()
-        container._discover_objects()
+        manager = NginxManager()
+        manager._discover_objects()
 
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
         cfg_collector = nginx_obj.collectors[0]
 
         # run collect
@@ -79,10 +81,10 @@ class ConfigCollectorTestCase(RealNginxTestCase):
         assert_that(NginxConfig.__full_parse_calls, equal_to(2))
 
     def test_test_run_time(self):
-        container = NginxManager()
-        container._discover_objects()
+        manager = NginxManager()
+        manager._discover_objects()
 
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
         cfg_collector = nginx_obj.collectors[0]
         assert_that(nginx_obj.run_config_test, equal_to(True))
 
@@ -125,12 +127,12 @@ class ConfigCollectorSSLTestCase(RealNginxTestCase):
         # set upload_ssl to True
         context.app_config['containers']['nginx']['upload_ssl'] = True
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
         cfg_collector = nginx_obj.collectors[0]
         cfg_collector.collect()
 
@@ -141,12 +143,12 @@ class ConfigCollectorSSLTestCase(RealNginxTestCase):
         # set upload_ssl to True
         context.app_config['containers']['nginx']['upload_ssl'] = False
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
         cfg_collector = nginx_obj.collectors[0]
         cfg_collector.collect()
 

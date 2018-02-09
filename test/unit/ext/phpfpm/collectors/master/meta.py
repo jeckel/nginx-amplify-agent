@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
-from hamcrest import (
-    assert_that, not_none, is_, equal_to, any_of, has_entries
-)
-
-from test.fixtures.defaults import DEFAULT_UUID
-from amplify.agent.common.context import context
+from hamcrest import *
 
 from test.unit.ext.phpfpm.base import PHPFPMTestCase
+from test.fixtures.defaults import DEFAULT_UUID
+from amplify.agent.common.context import context
 from amplify.ext.phpfpm.managers.master import PHPFPMManager
-
 from amplify.ext.phpfpm.collectors.master.meta import PHPFPMMetaCollector
 
 
@@ -20,9 +16,6 @@ __email__ = "grant.hulegaard@nginx.com"
 
 
 class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
-    """
-    Test case for PHPFPMMetaCollector (master).
-    """
 
     def setup_method(self, method):
         super(PHPFPMMetaCollectorTestCase, self).setup_method(method)
@@ -35,7 +28,6 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
         self.phpfpm_obj = found_masters[0]
 
     def teardown_method(self, method):
-
         context._setup_object_tank()
         super(PHPFPMMetaCollectorTestCase, self).teardown_method(method)
 

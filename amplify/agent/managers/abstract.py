@@ -5,6 +5,7 @@ import time
 from threading import current_thread
 
 from amplify.agent.common.context import context
+from amplify.agent.common.util import subp
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -12,7 +13,37 @@ __license__ = ""
 __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
-LAUNCHERS = ['supervisord', 'supervisorctl', 'runsv', 'supervise']
+
+LAUNCHERS = ['supervisord', 'supervisorctl', 'runsv', 'supervise', 'mysqld_safe']
+
+
+def launch_method_supported(manager_type, ppid):
+    """
+    Skip handling if master process is managed by an unsupported launcher
+    and/or the launcher is in a container (master process will still show up on host machine's ps output)
+
+    :param manager_type: string - nginx, mysql, or phpfpm, etc.
+    :param ppid: int - ppid of master process
+    :param supported_launchers: list of strings
+    :return:
+    """
+    if ppid not in (0, 1):
+        out, err = subp.call('ps o "ppid,command" %d' % ppid)
+        # take the second line because the first is a header
+        launcher_ppid, parent_command = out[1].split(None, 1)
+        if not any(x in parent_command for x in LAUNCHERS):
+            context.log.debug(
+                'launching %s with "%s" is not currently supported' %
+                (manager_type, parent_command)
+            )
+            return False
+        if int(launcher_ppid) not in (0, 1):
+            context.log.debug(
+                'master process for %s is being skipped because its launcher (%s) is in a container' %
+                (manager_type, parent_command)
+            )
+            return False
+    return True
 
 
 class AbstractManager(object):

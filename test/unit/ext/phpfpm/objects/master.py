@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-from hamcrest import (
-    assert_that, equal_to, not_none, has_length
-)
+from hamcrest import *
 
 from test.base import BaseTestCase
 from test.fixtures.defaults import DEFAULT_UUID

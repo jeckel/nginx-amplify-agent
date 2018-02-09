@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
+import time
 import traceback
-
+import pwd
 import requests
 
 from amplify.agent.common.context import context
-from amplify.agent.common.errors import AmplifyCriticalException
 from amplify.agent.common.util.loader import import_class
-from amplify.agent.common.util.host import hostname as find_hostname
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -38,7 +37,15 @@ def read(config_name, config_file=None):
     return CONFIG_CACHE[config_name]
 
 
-def test(config_file, pid_file):
+def test(config_file, pid_file, wait_for_cloud=False):
+    """
+    Checks important parameters and checks connection to the cloud
+
+    :param config_file: str config file
+    :param pid_file: str pid file
+    :param wait_for_cloud: bool - if True the agent will try to connect to the Cloud once again
+    :return:
+    """
     print('')
 
     try:
@@ -52,12 +59,19 @@ def test(config_file, pid_file):
             return 1
 
         # check it can be loaded
-        from amplify.agent.common.context import context
-        context.setup(
-            app='agent',
-            config_file=config_file,
-            pid_file=pid_file
-        )
+        try:
+            from amplify.agent.common.context import context
+            context.setup(
+                app='agent',
+                config_file=config_file,
+                pid_file=pid_file,
+                skip_uuid=True
+            )
+        except IOError, e:
+            if hasattr(e, 'filename'):  # log error
+                pass
+            else:
+                raise e
 
         # check that it contain needed stuff
         if not context.app_config['cloud']['api_url']:
@@ -74,28 +88,45 @@ def test(config_file, pid_file):
         try:
             context.log.info('configtest check')
         except:
-            print("\033[31mCould not write to log\033[0m\n")
-            print("Maybe the log folder doesn't exist or rights are broken")
-            print("You should do the following actions:")
+            current_user = pwd.getpwuid(os.getuid())[0]
+            print("\033[31mCould not write to /var/log/amplify-agent/agent.log\033[0m\n")
+            print("Either wrong permissions, or the log directory doesn't exist\n")
+            print("The following may help:")
             print("  1. sudo mkdir /var/log/amplify-agent")
             print("  2. sudo touch /var/log/amplify-agent/agent.log")
-            print("  3. sudo chown nginx /var/log/amplify-agent/agent.log")
+            print("  3. sudo chown %s /var/log/amplify-agent/agent.log" % current_user)
             return 1
 
         # try to connect to the cloud
-        try:
-            context.http_client.post('agent/', {})
-        except requests.HTTPError as e:
-            api_url = context.app_config['cloud']['api_url']
-            print("\033[31mCould not connect to cloud via url %s\033[0m" % api_url)
+        tries = 0
+        while tries <= 3:
+            tries += 1
 
-            if e.response.status_code == 404:
-                api_key = context.app_config['credentials']['api_key']
-                print("\033[31mIt seems like your API key '%s' is wrong. \033[0m\n" % api_key)
-            else:
-                print("\033[31mIt seems like we have little problems at our side. \nApologies and bear with us\033[0m\n")
+            try:
+                context.http_client.post('agent/', {})
+            except (requests.HTTPError, requests.ConnectionError) as e:
+                api_url = context.app_config['cloud']['api_url']
+                print("\033[31mCould not connect to cloud via url %s\033[0m\n" % api_url)
 
-            return 1
+                if e.response and e.response.status_code == 404:
+                    api_key = context.app_config['credentials']['api_key']
+                    print("\033[31mIt seems like your API key '%s' is wrong. \033[0m\n" % api_key)
+                    return 1
+                else:
+                    if (wait_for_cloud and tries == 1) or wait_for_cloud is False:
+                        print("\033[31mIt seems like we have little problems connecting to cloud.\033[0m")
+                        print("\033[31mApologies and bear with us. \033[0m\n")
+
+                    if wait_for_cloud and tries < 3:
+                        print("\033[31mWe will try to establish a connection once again in a minute.\033[0m\n")
+
+                if wait_for_cloud and tries == 3:
+                    print("\033[31mGiving up after three attempts...\033[0m\n")
+                    return 1
+                elif wait_for_cloud is False:
+                    return 1
+                else:
+                    time.sleep(60)
     except:
         print("\033[31mSomething failed:\033[0m\n")
         print(traceback.format_exc())

@@ -31,16 +31,8 @@ class SSLAnalysisTestCase(BaseTestCase):
         assert_that(result['common_name'], equal_to("Let's Encrypt Authority X1"))
 
     def test_structured_parse(self):
-        result = {}
-        line = "subject= CN=another.domain.com,OU=Domain Control Validated"
-
-        output = line[8:]  # trim "subject=" or "Subject:" from output
-        factors = output.split(',')  # split output into distinct groups
-        for factor in factors:
-            key, value = factor.split('=', 1)  # only split on the first equal sign
-            key = key.lstrip().upper()  # remove leading spaces (if any) and capitalize (if lowercase)
-            if key in ssl.ssl_subject_map:
-                result[ssl.ssl_subject_map[key]] = value
+        lines = ["subject= CN=another.domain.com,OU=Domain Control Validated"]
+        result = ssl.parse_raw_certificate_subject(lines)
 
         assert_that(result, has_key('common_name'))
         assert_that(result['common_name'], equal_to('another.domain.com'))
@@ -48,16 +40,8 @@ class SSLAnalysisTestCase(BaseTestCase):
         assert_that(result['unit'], equal_to('Domain Control Validated'))
 
     def test_complicated_common_name(self):
-        result = {}
-        line = "Subject: C=RU, ST=SPb, L=SPb, O=Fake Org, OU=D, CN=*.fake.domain.ru/emailAddress=fake@email.cc"
-
-        output = line[8:]  # trim "subject=" or "Subject:" from output
-        factors = output.split(',')  # split output into distinct groups
-        for factor in factors:
-            key, value = factor.split('=', 1)  # only split on the first equal sign
-            key = key.lstrip().upper()  # remove leading spaces (if any) and capitalize (if lowercase)
-            if key in ssl.ssl_subject_map:
-                result[ssl.ssl_subject_map[key]] = value
+        lines = ["Subject: C=RU, ST=SPb, L=SPb, O=Fake Org, OU=D, CN=*.fake.domain.ru/emailAddress=fake@email.cc"]
+        result = ssl.parse_raw_certificate_subject(lines)
 
         assert_that(result, has_length(6))
 
@@ -67,3 +51,11 @@ class SSLAnalysisTestCase(BaseTestCase):
         assert_that(result['unit'], equal_to('D'))
         assert_that(result, has_key('organization'))
         assert_that(result['organization'], equal_to('Fake Org'))
+
+    def test_international_common_name(self):
+        results = ssl.certificate_subject("test/fixtures/nginx/ssl/idn/idn_cert.pem")
+        assert_that(results['common_name'], equal_to('АБВГҐ.あいうえお'))
+        assert_that(results['organization'], equal_to('АҐДЂ我要شث'))
+        assert_that(results['state'], equal_to('FakeState'))
+        assert_that(results['country'], equal_to('RU'))
+        assert_that(results['unit'], equal_to('IT'))

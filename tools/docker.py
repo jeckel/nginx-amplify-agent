@@ -16,9 +16,17 @@ __email__ = "dedm@nginx.com"
 
 def rm_and_build(folder, name):
     shell_call('docker rm %s' % name, terminal=True)
-    shell_call('docker build -t %s docker/%s' % (name, folder), terminal=True)
 
-supported_os = ['ubuntu1604', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7']
+    if folder == 'centos6':
+        shell_call('cp packages/requirements-old-gevent docker/%s/requirements' % folder)
+    else:
+        shell_call('cp packages/requirements docker/%s/requirements' % folder)
+
+    shell_call('docker build -t %s docker/%s' % (name, folder), terminal=True)
+    shell_call('rm docker/%s/requirements' % folder)
+
+
+supported_os = ['ubuntu1604', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
 
 usage = "usage: %prog -h"
 

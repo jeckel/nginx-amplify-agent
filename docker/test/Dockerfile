@@ -23,12 +23,19 @@ RUN rm -rf /run \
  && apt-get install -y php5-fpm \
  && mkdir /run/php/
 
+# Instal mysql and prepare init file
+RUN apt-get update && apt-get install -y mysql-server-5.5
+RUN echo "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root');" > /mysql.init
+RUN echo "CREATE USER 'amplify-agent'@'localhost' IDENTIFIED BY 'amplify-agent';" >> /mysql.init
+
 # add fastcgi_params and php-fpm.conf for nginx
 ADD fastcgi_params /etc/nginx/fastcgi_params
 ADD php-fpm.conf /etc/nginx/conf.d/php-fpm.conf
+
 # overwrite default www.conf for php5.0-fpm and add second one
 ADD php-fpm-www.conf /etc/php5/fpm/pool.d/www.conf
 ADD php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
+
 # add test .php file to /var/www/php-fpm root
 ADD test.php /var/www/php-fpm/test.php
 
@@ -41,23 +48,10 @@ RUN apt-get update \
 
 # Copy the application folder inside the container
 ADD . /amplify
+ADD requirements /etc/naas/requirements
 
 # Install agent requirements:
-RUN pip install \
-    crossplane==0.1.1 \
-    flup==1.0.2 \
-    gevent==1.1.0 \
-    greenlet==0.4.12 \
-    lockfile==0.11.0 \
-    netaddr==0.7.18 \
-    netifaces==0.10.4 \
-    psutil==4.0.0 \
-    python-daemon==2.0.6 \
-    requests==2.12.4 \
-    rstr==2.2.3 \
-    scandir==1.5 \
-    setproctitle==1.1.10 \
-    ujson==1.33
+RUN pip install -r /etc/naas/requirements
 
 # Install test requirements
 RUN pip install \

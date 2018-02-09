@@ -32,6 +32,11 @@ ADD php-fpm-www-alt.conf /etc/php/7.0/fpm/pool.d/www-alt.conf
 # add test .php file to /var/www/php-fpm root
 ADD test.php /var/www/php-fpm/test.php
 
+# Instal mysql and prepare init file
+RUN echo "mysql-server-5.7 mysql-server/root_password password root" | debconf-set-selections
+RUN echo "mysql-server-5.7 mysql-server/root_password_again password root" | debconf-set-selections
+RUN apt-get install -y mysql-server-5.7
+
 # Install Python and Basic Python Tools
 RUN apt-get install -y python python-dev python-distribute
 RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
@@ -39,9 +44,10 @@ RUN easy_install pip
 
 # Copy the application folder inside the container
 ADD . /amplify
+ADD requirements /etc/naas/requirements
 
-# Get pip to download and install requirements:
-RUN pip install rstr==2.2.3 greenlet==0.4.12 gevent==1.1.0 lockfile==0.11.0 netaddr==0.7.18 netifaces==0.10.4 psutil==4.0.0 requests==2.12.4 ujson==1.33 python-daemon==2.0.6 setproctitle==1.1.10 flup==1.0.2 scandir==1.5 crossplane==0.1.1
+# Install agent requirements:
+RUN pip install -r /etc/naas/requirements
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/
@@ -57,4 +63,4 @@ ADD nginx2.conf /etc/nginx/nginx2.conf
 ADD amplify-agent-test.crt /etc/nginx/certs.d/amplify-agent-test.crt
 ADD amplify-agent-test.key /etc/nginx/certs.d/amplify-agent-test.key
 
-CMD nginx && nginx -c /etc/nginx/nginx2.conf && service php7.0-fpm start && python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development && tail -f /amplify/log/agent.log
+CMD service mysql start && nginx && nginx -c /etc/nginx/nginx2.conf && service php7.0-fpm start && python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development && tail -f /amplify/log/agent.log

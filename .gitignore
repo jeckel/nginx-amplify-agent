@@ -25,3 +25,5 @@ naas_agent.yaml
 *~
 .DS_Store
 tools/validate.sh
+tools/qa/*
+tools/qa
