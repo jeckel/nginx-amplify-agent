@@ -71,7 +71,8 @@ class SystemMetricsCollector(AbstractMetricsCollector):
         """ virtual memory """
         virtual_memory = psutil.virtual_memory()
         self.object.statsd.gauge('system.mem.total', virtual_memory.total)
-        self.object.statsd.gauge('system.mem.used', virtual_memory.used)
+        self.object.statsd.gauge('system.mem.used', (virtual_memory.total - virtual_memory.available))
+        self.object.statsd.gauge('system.mem.used.all', virtual_memory.used)
         self.object.statsd.gauge('system.mem.cached', virtual_memory.cached)
         self.object.statsd.gauge('system.mem.buffered', virtual_memory.buffers)
         self.object.statsd.gauge('system.mem.free', virtual_memory.free)
@@ -93,8 +94,8 @@ class SystemMetricsCollector(AbstractMetricsCollector):
     def cpu(self):
         """ cpu """
         cpu_times = psutil.cpu_times_percent()
-        self.object.statsd.gauge('system.cpu.user', cpu_times.user)
-        self.object.statsd.gauge('system.cpu.system', cpu_times.system)
+        self.object.statsd.gauge('system.cpu.user', (cpu_times.user + cpu_times.nice))
+        self.object.statsd.gauge('system.cpu.system', (cpu_times.system + cpu_times.irq + cpu_times.softirq))
         self.object.statsd.gauge('system.cpu.idle', cpu_times.idle)
 
         if hasattr(cpu_times, 'iowait'):

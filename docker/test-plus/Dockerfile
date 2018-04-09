@@ -15,8 +15,8 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 
 # Download certificate and key from the customer portal (https://cs.nginx.com)
 # and copy to the build context
-ADD nginx-repo.crt /etc/ssl/nginx/
-ADD nginx-repo.key /etc/ssl/nginx/
+ADD docker/test-plus/nginx-repo.crt /etc/ssl/nginx/
+ADD docker/test-plus/nginx-repo.key /etc/ssl/nginx/
 
 # Get other files required for installation
 RUN wget -q -O /etc/ssl/nginx/CA.crt https://cs.nginx.com/static/files/CA.crt \
@@ -31,6 +31,7 @@ RUN printf "deb https://plus-pkgs.nginx.com/ubuntu `lsb_release -cs` nginx-plus\
  && cp /usr/sbin/nginx /usr/sbin/nginx2
 
 # Instal mysql and prepare init file
+RUN groupadd -r mysql && useradd -r -g mysql mysql
 RUN apt-get update && apt-get install -y mysql-server-5.5
 RUN echo "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root');" > /mysql.init
 RUN echo "CREATE USER 'amplify-agent'@'localhost' IDENTIFIED BY 'amplify-agent';" >> /mysql.init
@@ -43,13 +44,13 @@ RUN rm -rf /run \
  && mkdir /run/php/
 
 # add fastcgi_params and php-fpm.conf for nginx
-ADD fastcgi_params /etc/nginx/fastcgi_params
-ADD php-fpm.conf /etc/nginx/conf.d/php-fpm.conf
+ADD docker/test-plus/fastcgi_params /etc/nginx/fastcgi_params
+ADD docker/test-plus/php-fpm.conf /etc/nginx/conf.d/php-fpm.conf
 # overwrite default www.conf for php5.0-fpm and add second one
-ADD php-fpm-www.conf /etc/php5/fpm/pool.d/www.conf
-ADD php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
+ADD docker/test-plus/php-fpm-www.conf /etc/php5/fpm/pool.d/www.conf
+ADD docker/test-plus/php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
 # add test .php file to /var/www/php-fpm root
-ADD test.php /var/www/php-fpm/test.php
+ADD docker/test-plus/test.php /var/www/php-fpm/test.php
 
 # Install Python and Basic Python Tools
 RUN apt-get update \
@@ -59,8 +60,8 @@ RUN apt-get update \
  && easy_install supervisor
 
 # Copy the application folder inside the container
-ADD . /amplify
-ADD requirements /etc/naas/requirements
+#ADD . /amplify
+ADD docker/test-plus/requirements /etc/naas/requirements
 
 # Install agent requirements:
 RUN pip install -r /etc/naas/requirements
@@ -74,19 +75,22 @@ RUN pip install \
 
 ENV AMPLIFY_ENVIRONMENT testing
 ENV PYTHONPATH /amplify
+ENV PYTEST_ADDOPTS "--ignore=test/unit/ext/controller"
 
 # Set the default directory where CMD will execute
 WORKDIR /amplify
 
 # add config
-ADD nginx.conf /etc/nginx/nginx.conf
-ADD nginx2.conf /etc/nginx/nginx2.conf
-ADD nginx_bad_status.conf /etc/nginx/nginx_bad_status.conf
-ADD nginx_syslog.conf /etc/nginx/nginx_syslog.conf
-ADD supervisord.conf /etc/supervisord.conf
+ADD docker/test-plus/nginx.conf /etc/nginx/nginx.conf
+ADD docker/test-plus/nginx2.conf /etc/nginx/nginx2.conf
+ADD docker/test-plus/nginx_bad_status.conf /etc/nginx/nginx_bad_status.conf
+ADD docker/test-plus/nginx_syslog.conf /etc/nginx/nginx_syslog.conf
+ADD docker/test-plus/supervisord.conf /etc/supervisord.conf
 
 # add ssl
-ADD amplify-agent-test.crt /etc/nginx/certs.d/amplify-agent-test.crt
-ADD amplify-agent-test.key /etc/nginx/certs.d/amplify-agent-test.key
+ADD docker/test-plus/amplify-agent-test.crt /etc/nginx/certs.d/amplify-agent-test.crt
+ADD docker/test-plus/amplify-agent-test.key /etc/nginx/certs.d/amplify-agent-test.key
+
+RUN usermod -d /var/lib/mysql/ mysql
 
 CMD bash

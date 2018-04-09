@@ -84,6 +84,13 @@ class ConfigTestCase(BaseTestCase):
         assert_that(config.plus_status_internal_urls, has_length(1))
         assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
 
+        # api urls
+        assert_that(config.api_external_urls, has_length(1))
+        assert_that(config.api_external_urls[0], equal_to('127.0.0.1:81/api'))
+
+        assert_that(config.api_internal_urls, has_length(1))
+        assert_that(config.api_internal_urls[0], equal_to('127.0.0.1:81/api'))
+
     def test_parse_huge(self):
         config = NginxConfig(huge_config)
         config.full_parse()

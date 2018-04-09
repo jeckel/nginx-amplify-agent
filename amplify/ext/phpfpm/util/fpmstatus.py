@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import gevent
+
 from amplify.agent.common.context import context
 from amplify.agent.common.util.timeout import TimeoutException
 
@@ -126,8 +128,9 @@ class PHPFPMStatus(object):
             slow requests:        0
         """
         try:
-            fcgi = self._connect()
-            resp = fcgi(self.env, lambda x, y: None)
+            with gevent.Timeout(10, TimeoutException):
+                fcgi = self._connect()
+                resp = fcgi(self.env, lambda x, y: None)
         except TimeoutException:
             context.log.error(
                 'pool communication at "%s" timed out' %

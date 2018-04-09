@@ -3,6 +3,7 @@ from hamcrest import *
 
 from amplify.agent.common.util import host
 from test.base import WithConfigTestCase
+from amplify.agent.common.context import context
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -21,3 +22,52 @@ class HostTestCase(WithConfigTestCase):
 
         os_name = host.os_name()
         assert_that(os_name, is_not(None))
+
+    def test_store_uuid_false_with_generated_uuid(self):
+
+        context.app_config.save('credentials', 'store_uuid', False)
+        context.app_config.save('credentials', 'uuid', None)
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['store_uuid'], equal_to(False))
+        assert_that(context.app_config['credentials']['uuid'], equal_to(None))
+        context.uuid = host.uuid()
+        context._setup_host_details()
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['uuid'], equal_to(None))
+
+    def test_store_uuid_false_with_uuid_from_config(self):
+
+        context.app_config.save('credentials', 'store_uuid', False)
+        context.app_config.save('credentials', 'uuid', 'fakeuuid1')
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['store_uuid'], equal_to(False))
+        assert_that(context.app_config['credentials']['uuid'], equal_to('fakeuuid1'))
+        context.uuid = host.uuid()
+        context._setup_host_details()
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['uuid'], equal_to('fakeuuid1'))
+
+    def test_store_uuid_true_with_generated_uuid(self):
+
+        context.app_config.save('credentials', 'store_uuid', True)
+        context.app_config.save('credentials', 'uuid', '')
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['store_uuid'], equal_to(True))
+        assert_that(context.app_config['credentials']['uuid'], equal_to(''))
+        context.uuid = host.uuid()
+        context._setup_host_details()
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['uuid'], is_not(''))
+
+    def test_store_uuid_true_with_uuid_from_config(self):
+
+        context.app_config.save('credentials', 'store_uuid', True)
+        context.app_config.save('credentials', 'uuid', 'fakeuuid')
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['store_uuid'], equal_to(True))
+        assert_that(context.app_config['credentials']['uuid'], equal_to('fakeuuid'))
+        context.uuid = host.uuid()
+        context._setup_host_details()
+        context._setup_app_config(config_file=self.fake_config_file)
+        assert_that(context.app_config['credentials']['uuid'], equal_to('fakeuuid'))
+

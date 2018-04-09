@@ -28,7 +28,8 @@ class NginxManager(ObjectManager):
 
     def _init_nginx_object(self, data=None):
         """
-        Method for initializing a new NGINX object.  Checks to see if we need a Docker object or a regular one.
+        Method for initializing a new NGINX object.  Checks to see if we need a
+        Docker object or a regular one.
 
         :param data: Dict Data dict for object init
         :return: NginxObject/ContainerNginxObject
@@ -37,6 +38,61 @@ class NginxManager(ObjectManager):
             return ContainerNginxObject(data=data)
         else:
             return NginxObject(data=data)
+
+    def _restart_nginx_object(self, current_obj, data):
+        """
+        Restarts an object by initiaizing a new object with new data, stopping
+        and unregistering children of old object, replacing old object with new
+        object in the object tank, and finally stopping the old object.
+
+        There are two conditions that can trigger a restart which is why this
+        logic is moved to an encapsulated function.
+        """
+        context.log.debug(
+            'nginx object restarting (master pid was %s)' % current_obj.pid
+        )
+        # push cloud config
+        data.update(self.object_configs.get(current_obj.definition_hash, {}))
+
+        # pass on data from the last config collection to the new object
+        config_collector = current_obj.collectors[0]
+        data.update(
+            config_data=dict(
+                previous=config_collector.previous
+            )
+        )
+
+        # if there is information in the configd store, pass it from old to new
+        # object
+        if current_obj.configd.current:
+            data.update(
+                configd=current_obj.configd
+            )
+
+        new_obj = self._init_nginx_object(data=data)
+
+        # Send nginx config changed event.
+        new_obj.eventd.event(
+            level=INFO,
+            message='nginx-%s config changed, read from %s' % (
+                new_obj.version, new_obj.conf_path
+            )
+        )
+
+        new_obj.id = current_obj.id
+
+        # stop and deregister children
+        for child_obj in self.objects.find_all(
+                obj_id=current_obj.id,
+                children=True,
+                include_self=False
+        ):
+            child_obj.stop()
+            self.objects.unregister(obj=child_obj)
+
+        # Replace old object in tank.
+        self.objects.objects[current_obj.id] = new_obj
+        current_obj.stop()  # stop old object
 
     def _discover_objects(self):
         # save the current_ids
@@ -73,44 +129,14 @@ class NginxManager(ObjectManager):
 
                     if current_obj.need_restart:
                         # restart object if needed
-                        context.log.debug('nginx object restarting (master pid was %s)' % current_obj.pid)
-                        data.update(self.object_configs.get(definition_hash, {}))  # push cloud config
+                        self._restart_nginx_object(current_obj, data)
 
-                        # pass on data from the last config collection to the new object
-                        config_collector = current_obj.collectors[0]
-                        data.update(
-                            config_data=dict(
-                                previous=config_collector.previous
-                            )
+                        # this usually is triggered by bubbled errors from
+                        # coroutine errors...this should not typically happen
+                        # but is included for resilience.
+                        context.log.debug(
+                            'nginx object was restarted by "need_restart" flag'
                         )
-
-                        # if there is information in the configd store, pass it from old to new object
-                        if current_obj.configd.current:
-                            data.update(
-                                configd=current_obj.configd
-                            )
-
-                        new_obj = self._init_nginx_object(data=data)
-
-                        # Send nginx config changed event.
-                        new_obj.eventd.event(
-                            level=INFO,
-                            message='nginx-%s config changed, read from %s' % (new_obj.version, new_obj.conf_path)
-                        )
-
-                        new_obj.id = current_obj.id
-
-                        # stop and deregister children
-                        for child_obj in self.objects.find_all(
-                                obj_id=current_obj.id,
-                                children=True,
-                                include_self=False
-                        ):
-                            child_obj.stop()
-                            self.objects.unregister(obj=child_obj)
-
-                        self.objects.objects[current_obj.id] = new_obj  # Replace old object in tank.
-                        current_obj.stop()  # stop old object
                     elif current_obj.pid != data['pid']:
                         # check that the object pids didn't change
                         context.log.debug(
@@ -145,13 +171,13 @@ class NginxManager(ObjectManager):
                         self.objects.objects[current_obj.id] = new_obj
                         current_obj.stop()  # stop old object
                     elif current_obj.workers != data['workers']:
-                        # check workers on reload
+                        # if workers changed nginx was reloaded
                         context.log.debug(
                             'nginx was reloaded (workers were %s now %s)' % (
                                 current_obj.workers, data['workers']
                             )
                         )
-                        current_obj.workers = data['workers']
+                        self._restart_nginx_object(current_obj, data)
             except psutil.NoSuchProcess:
                 context.log.debug('nginx is restarting/reloading, pids are changing, agent is waiting')
 

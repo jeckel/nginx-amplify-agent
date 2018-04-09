@@ -1,22 +1,8 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from amplify.agent.common.context import context
 from amplify.agent.collectors.abstract import AbstractMetricsCollector
-
-from amplify.agent.collectors.plus.util.cache import CACHE_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.upstream import (
-    UPSTREAM_PEER_COLLECT_INDEX,
-    UPSTREAM_COLLECT_INDEX
-)
-from amplify.agent.collectors.plus.util.status_zone import STATUS_ZONE_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.slab import SLAB_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.stream import STREAM_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.stream_upstream import (
-    STREAM_UPSTREAM_PEER_COLLECT_INDEX,
-    STREAM_UPSTREAM_COLLECT_INDEX
-)
-
+from amplify.agent.common.context import context
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -93,51 +79,57 @@ class PlusStatusCollector(AbstractMetricsCollector):
         super(PlusStatusCollector, self).collect(self, data, stamp)
 
 
-class CacheCollector(PlusStatusCollector):
-    short_name = 'plus_cache'
-    collect_index = CACHE_COLLECT_INDEX
+class PlusAPICollector(AbstractMetricsCollector):
+    """
+    Common Plus API Collector.  Collects data from parent object plus api cache
+    """
+    short_name = "plus_api"
+    collect_index = []
+    api_payload_path = []
 
+    def __init__(self, *args, **kwargs):
+        super(PlusAPICollector, self).__init__(*args, **kwargs)
+        self.last_collect = None
+        self.register(*self.collect_index)
 
-class StatusZoneCollector(PlusStatusCollector):
-    short_name = 'plus_status_zone'
-    collect_index = STATUS_ZONE_COLLECT_INDEX
+    def gather_data(self):
 
+        data = []
+        stamps = []
 
-class UpstreamCollector(PlusStatusCollector):
-    short_name = 'plus_upstream'
-    collect_index = UPSTREAM_PEER_COLLECT_INDEX
-    additional_collect_index = UPSTREAM_COLLECT_INDEX
+        try:
+            for api_payload, stamp in reversed(context.plus_cache[self.object.api_internal_url]):
+                if stamp > self.last_collect:
+                    api_sub_payload = api_payload
+                    for subarea in self.api_payload_path:
+                        api_sub_payload = api_sub_payload[subarea]
+                    data.append(copy.deepcopy(api_sub_payload[self.object.local_name]))
+                    stamps.append(stamp)
+                else:
+                    break
+        except:
+            context.default_log.error('%s collector gather data failed' % self.object.definition_hash, exc_info=True)
+
+        if data and stamps:
+            self.last_collect = stamps[0]
+
+        return zip(reversed(data), reversed(stamps))
+
+    def collect(self):
+        try:
+            for data, stamp in self.gather_data():
+                self.collect_from_data(data, stamp)
+                try:
+                    self.increment_counters()
+                except Exception as e:
+                    self.handle_exception(self.increment_counters, e)
+
+        except Exception as e:
+            self.handle_exception(self.gather_data, e)
 
     def collect_from_data(self, data, stamp):
         """
-        Aggregates all peer metrics as a single "upstream" entity.
+        Defines what plus status collectors should do with each (data, stamp) tuple returned from gather_data
         """
-        # data.get('peers', data) is a workaround for supporting an old N+ format
-        # http://nginx.org/en/docs/http/ngx_http_status_module.html#compatibility
-        peers = data.get('peers', data) if isinstance(data, dict) else data
-        for peer in peers:
-            super(UpstreamCollector, self).collect_from_data(peer, stamp)
+        super(PlusAPICollector, self).collect(self, data, stamp)
 
-        for method in self.additional_collect_index:
-            method(self, data, stamp)
-
-        try:
-            self.finalize_latest()
-        except Exception as e:
-            self.handle_exception(self.finalize_latest, e)
-
-
-class SlabCollector(PlusStatusCollector):
-    short_name = 'plus_slab'
-    collect_index = SLAB_COLLECT_INDEX
-
-
-class StreamCollector(StatusZoneCollector):
-    short_name = 'plus_stream'
-    collect_index = STREAM_COLLECT_INDEX
-
-
-class StreamUpstreamCollector(UpstreamCollector):
-    short_name = 'plus_stream_upstream'
-    collect_index = STREAM_UPSTREAM_PEER_COLLECT_INDEX
-    additional_collect_index = STREAM_UPSTREAM_COLLECT_INDEX

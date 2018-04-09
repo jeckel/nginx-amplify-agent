@@ -84,7 +84,10 @@ do_configtest() {
 }
 
 do_debug() {
-    $DAEMON debug $DAEMON_ARGS --log=$DEBUG_LOG
+    mkdir -p /var/run/amplify-agent && chown $USER /var/run/amplify-agent
+    chown $USER /etc/amplify-agent/agent.conf
+    chown $USER `dirname $DEBUG_LOG`
+    start-stop-daemon --start --chuid $USER --exec $DAEMON debug -- $DAEMON_ARGS --log=$DEBUG_LOG
     RETVAL="$?"
     return $RETVAL
 }

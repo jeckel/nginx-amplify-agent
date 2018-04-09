@@ -1,26 +1,29 @@
 # -*- coding: utf-8 -*-
 import re
 import time
+
 import psutil
 
+from gevent import GreenletExit
+
+from amplify.agent.common.util.plus import traverse_plus_api
+from amplify.agent.collectors.abstract import AbstractMetricsCollector
+from amplify.agent.collectors.plus.util.api import http_cache as api_http_cache
+from amplify.agent.collectors.plus.util.api import http_server_zone as api_http_server_zone
+from amplify.agent.collectors.plus.util.api import http_upstream as api_http_upstream
+from amplify.agent.collectors.plus.util.api import slab as api_slab
+from amplify.agent.collectors.plus.util.api import stream_server_zone as api_stream_server_zone
+from amplify.agent.collectors.plus.util.api import stream_upstream as api_stream_upstream
+from amplify.agent.collectors.plus.util.status import cache as status_cache
+from amplify.agent.collectors.plus.util.status import status_zone as status_http_server_zone
+from amplify.agent.collectors.plus.util.status import upstream as status_http_upstream
+from amplify.agent.collectors.plus.util.status import slab as status_slab
+from amplify.agent.collectors.plus.util.status import stream as status_stream_server_zone
+from amplify.agent.collectors.plus.util.status import stream_upstream as status_stream_upstream
 from amplify.agent.common.context import context
 from amplify.agent.common.errors import AmplifyParseException
 from amplify.agent.common.util.ps import Process
 from amplify.agent.data.eventd import WARNING
-from amplify.agent.collectors.abstract import AbstractMetricsCollector
-from amplify.agent.collectors.plus.util.cache import CACHE_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.upstream import (
-    UPSTREAM_PEER_COLLECT_INDEX,
-    UPSTREAM_COLLECT_INDEX
-)
-from amplify.agent.collectors.plus.util.status_zone import STATUS_ZONE_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.slab import SLAB_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.stream import STREAM_COLLECT_INDEX
-from amplify.agent.collectors.plus.util.stream_upstream import (
-    STREAM_UPSTREAM_PEER_COLLECT_INDEX,
-    STREAM_UPSTREAM_COLLECT_INDEX
-)
-
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -50,7 +53,7 @@ class NginxMetricsCollector(AbstractMetricsCollector):
             self.memory_info,
             self.workers_fds_count,
             self.workers_cpu,
-            self.status
+            self.global_metrics,
         )
         if not self.in_container:
             self.register(
@@ -146,13 +149,15 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         self.object.statsd.gauge('nginx.workers.cpu.user', worker_user)
         self.object.statsd.gauge('nginx.workers.cpu.system', worker_sys)
 
-    def status(self):
+    def global_metrics(self):
         """
-        check if found extended status, collect "global" metrics from it
+        check if found api or extended status, collect "global" metrics from it
         don't look for stub_status
-        if there's no extended status easily accessible, proceed with stub_status
+        if there's no extended status or N+ API easily accessible, proceed with stub_status
         """
-        if self.object.plus_status_enabled and self.object.plus_status_internal_url:
+        if self.object.api_enabled and self.object.api_internal_url:
+            self.plus_api()
+        elif self.object.plus_status_enabled and self.object.plus_status_internal_url:
             self.plus_status()
         elif self.object.stub_status_enabled and self.object.stub_status_url:
             self.stub_status()
@@ -179,6 +184,9 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         # get stub status body
         try:
             stub_body = context.http_client.get(self.object.stub_status_url, timeout=1, json=False, log=False)
+        except GreenletExit:
+            # we caught an exit signal in the middle of processing so raise it.
+            raise
         except:
             context.log.error('failed to check stub_status url %s' % self.object.stub_status_url)
             context.log.debug('additional info', exc_info=True)
@@ -256,6 +264,8 @@ class NginxMetricsCollector(AbstractMetricsCollector):
 
             # Add the status payload to plus_cache so it can be parsed by other collectors (plus objects)
             context.plus_cache.put(self.object.plus_status_internal_url, (status, stamp))
+        except GreenletExit:
+            raise
         except:
             context.log.error('failed to check plus_status url %s' % self.object.plus_status_internal_url)
             context.log.debug('additional info', exc_info=True)
@@ -289,13 +299,13 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         # caches
         caches = status.get('caches', {})
         for cache in caches.values():
-            for method in CACHE_COLLECT_INDEX:
+            for method in status_cache.CACHE_COLLECT_INDEX:
                 method(self, cache, stamp)
 
         # status zones
         zones = status.get('server_zones', {})
         for zone in zones.values():
-            for method in STATUS_ZONE_COLLECT_INDEX:
+            for method in status_http_server_zone.STATUS_ZONE_COLLECT_INDEX:
                 method(self, zone, stamp)
 
         # upstreams
@@ -305,21 +315,21 @@ class NginxMetricsCollector(AbstractMetricsCollector):
             # http://nginx.org/en/docs/http/ngx_http_status_module.html#compatibility
             peers = upstream['peers'] if 'peers' in upstream else upstream
             for peer in peers:
-                for method in UPSTREAM_PEER_COLLECT_INDEX:
+                for method in status_http_upstream.UPSTREAM_PEER_COLLECT_INDEX:
                     method(self, peer, stamp)
-            for method in UPSTREAM_COLLECT_INDEX:
+            for method in status_http_upstream.UPSTREAM_COLLECT_INDEX:
                 method(self, upstream, stamp)
 
         # slabs
         slabs = status.get('slabs', {})
         for slab in slabs.values():
-            for method in SLAB_COLLECT_INDEX:
+            for method in status_slab.SLAB_COLLECT_INDEX:
                 method(self, slab, stamp)
 
         # streams - server_zones of stream
         streams = status.get('streams', {})
         for stream in streams.values():
-            for method in STREAM_COLLECT_INDEX:
+            for method in status_stream_server_zone.STREAM_COLLECT_INDEX:
                 method(self, stream, stamp)
 
         # stream upstreams - upstreams of stream
@@ -327,10 +337,114 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         for stream_upstream in stream_upstreams.values():
             peers = stream_upstream['peers'] if 'peers' in stream_upstream else stream_upstream
             for peer in peers:
-                for method in STREAM_UPSTREAM_PEER_COLLECT_INDEX:
+                for method in status_stream_upstream.STREAM_UPSTREAM_PEER_COLLECT_INDEX:
                     method(self, peer, stamp)
-            for method in STREAM_UPSTREAM_COLLECT_INDEX:
+            for method in status_stream_upstream.STREAM_UPSTREAM_COLLECT_INDEX:
                 method(self, stream_upstream, stamp)
+
+        self.increment_counters()
+        self.finalize_latest()
+
+    def plus_api(self):
+        """
+                plus api top-level metrics
+
+                nginx.http.conn.accepted = connections.accepted  ## counter
+                nginx.http.conn.dropped = connections.dropped  ## counter
+                nginx.http.conn.active = connections.active
+                nginx.http.conn.current = connections.active + connections.idle
+                nginx.http.conn.idle = connections.idle
+                nginx.http.request.count = requests.total  ## counter
+                nginx.http.request.current = requests.current
+
+                plus.http.ssl.handshakes = ssl.handshakes
+                plus.http.ssl.failed = ssl.handshakes_failed
+                plus.http.ssl.reuses = ssl.session_reuses
+                plus.proc.respawned = processes.respawned
+
+                also here we run plus metrics collection
+                """
+        stamp = int(time.time())
+
+        try:
+            root_endpoints_to_skip = []
+            if self.object.config is not None:
+                root_endpoints_to_skip = [directive for directive in ["http", "stream"] if
+                                      directive not in self.object.config.tree]
+            aggregated_api_payload = traverse_plus_api(self.object.api_internal_url,
+                                                       root_endpoints_to_skip=root_endpoints_to_skip)
+        except GreenletExit:
+            raise
+        except:
+            context.log.error('failed to check plus_api url %s' % self.object.api_internal_url)
+            context.log.debug('additional info', exc_info=True)
+            aggregated_api_payload = None
+
+        if not aggregated_api_payload:
+            return
+
+        context.plus_cache.put(self.object.api_internal_url, (aggregated_api_payload, stamp))
+
+        connections = aggregated_api_payload.get('connections', {})
+        http = aggregated_api_payload.get('http', {})
+        requests = http.get('requests', {})
+        ssl = aggregated_api_payload.get('ssl', {})
+        processes = aggregated_api_payload.get('processes', {})
+        stream = aggregated_api_payload.get('stream', {})
+
+        # gauges
+        self.object.statsd.gauge('nginx.http.conn.active', connections.get('active'))
+        self.object.statsd.gauge('nginx.http.conn.idle', connections.get('idle'))
+        self.object.statsd.gauge('nginx.http.conn.current', connections.get('active') + connections.get('idle'))
+        self.object.statsd.gauge('nginx.http.request.current', requests.get('current'))
+
+        # counters
+        counted_vars = {
+            'nginx.http.request.count': requests.get('total'),
+            'nginx.http.conn.accepted': connections.get('accepted'),
+            'nginx.http.conn.dropped': connections.get('dropped'),
+            'plus.http.ssl.handshakes': ssl.get('handshakes'),
+            'plus.http.ssl.failed': ssl.get('handshakes_failed'),
+            'plus.http.ssl.reuses': ssl.get('session_reuses'),
+            'plus.proc.respawned' : processes.get('respawned')
+        }
+        self.aggregate_counters(counted_vars, stamp=stamp)
+
+        caches = http.get('caches', {})
+        for cache in caches.values():
+            for method in api_http_cache.CACHE_COLLECT_INDEX:
+                method(self, cache, stamp)
+
+        http_server_zones = http.get('server_zones', {})
+        for server_zone in http_server_zones.values():
+            for method in api_http_server_zone.STATUS_ZONE_COLLECT_INDEX:
+                method(self, server_zone, stamp)
+
+        http_upstreams = http.get('upstreams', {})
+        for upstream in http_upstreams.values():
+            for peer in upstream.get('peers', []):
+                for method in api_http_upstream.UPSTREAM_PEER_COLLECT_INDEX:
+                    method(self, peer, stamp)
+            for method in api_http_upstream.UPSTREAM_COLLECT_INDEX:
+                method(self, upstream, stamp)
+
+        slabs = aggregated_api_payload.get('slabs', {})
+        for slab in slabs.values():
+            for method in api_slab.SLAB_COLLECT_INDEX:
+                method(self, slab, stamp)
+
+        stream_server_zones = stream.get('server_zones', {})
+        for server_zone in stream_server_zones.values():
+            for method in api_stream_server_zone.STREAM_COLLECT_INDEX:
+                method(self, server_zone, stamp)
+
+        stream_upstreams = stream.get('upstreams', {})
+        for upstream in stream_upstreams.values():
+            for peer in upstream.get('peers', []):
+                for method in api_stream_upstream.STREAM_UPSTREAM_PEER_COLLECT_INDEX:
+                    method(self, peer, stamp)
+            for method in api_stream_upstream.STREAM_UPSTREAM_COLLECT_INDEX:
+                method(self, upstream, stamp)
 
         self.increment_counters()
         self.finalize_latest()

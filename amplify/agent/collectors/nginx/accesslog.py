@@ -6,6 +6,7 @@ from amplify.agent.common.context import context
 from amplify.agent.pipelines.abstract import Pipeline
 from amplify.agent.pipelines.file import FileTail
 from amplify.agent.objects.nginx.log.access import NginxAccessLogParser
+import copy
 
 
 __author__ = "Mike Belov"
@@ -116,7 +117,8 @@ class NginxAccessLogsCollector(AbstractCollector):
 
         # init counters for custom filters
         for counter in set(f.metric for f in self.filters):
-            self.count_custom_filter(self.filters, counter, 0, self.object.statsd.incr)
+            if counter in self.counters:
+                self.count_custom_filter(self.filters, counter, 0, self.object.statsd.incr)
 
     def collect(self):
         self.init_counters()  # set all counters to 0
@@ -319,7 +321,9 @@ class NginxAccessLogsCollector(AbstractCollector):
             metric_name, value = 'nginx.http.request.time', sum(data['request_time'])
             self.object.statsd.timer(metric_name, value)
             if matched_filters:
-                self.count_custom_filter(matched_filters, metric_name, value, self.object.statsd.timer)
+                self.count_custom_filter(self.create_parent_filters(matched_filters, parent_metric=metric_name),
+                                         metric_name, value,
+                                         self.object.statsd.timer)
 
     def upstreams(self, data, matched_filters=None):
         """
@@ -396,7 +400,9 @@ class NginxAccessLogsCollector(AbstractCollector):
                 value = sum(values)
                 self.object.statsd.timer(metric_name, value)
                 if matched_filters:
-                    self.count_custom_filter(matched_filters, metric_name, value, self.object.statsd.timer)
+                    self.count_custom_filter(self.create_parent_filters(matched_filters, parent_metric=metric_name),
+                                             metric_name,
+                                             value, self.object.statsd.timer)
 
         # log upstream switches
         metric_name, value = 'nginx.upstream.next.count', 0 if upstream_switches is None else upstream_switches
@@ -419,6 +425,26 @@ class NginxAccessLogsCollector(AbstractCollector):
         self.object.statsd.incr(metric_name)
         if matched_filters:
             self.count_custom_filter(matched_filters, metric_name, 1, self.object.statsd.incr)
+
+    @staticmethod
+    def create_parent_filters(original_filters, parent_metric):
+        """
+        median, max, pctl95, and count are created in statsd.flush().  So if a
+        filter on nginx.upstream.response.time.median is created, the filter metric
+        should be truncated to nginx.upstream.response.time
+
+        :param original_filters:
+        :param truncated_metric:
+        :return:
+        """
+        parent_filters = []
+        for original_filter in original_filters:
+            if parent_metric not in original_filter.metric:
+                continue
+            parent_filter = copy.deepcopy(original_filter)
+            parent_filter.metric = parent_metric
+            parent_filters.append(parent_filter)
+        return parent_filters
 
     @staticmethod
     def count_custom_filter(matched_filters, metric_name, value, method):

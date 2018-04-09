@@ -59,7 +59,7 @@ class Supervisor(object):
 
         # init
         self.object_managers = {}
-        self.object_manager_order = ['system', 'nginx', 'plus']
+        self.object_manager_order = ['system', 'nginx', 'status', 'api']
         self.external_managers = []
         self.bridge = None
         self.bridge_object = None
@@ -103,8 +103,10 @@ class Supervisor(object):
         import pkgutil
         import inspect
         import amplify.ext as extensions
-        from amplify.agent.managers.abstract import ObjectManager
         from amplify.agent.common.util.configtypes import boolean
+        from amplify.agent.managers.abstract import (
+            AbstractManager, ObjectManager
+        )
 
         base_prefix = extensions.__name__ + '.'  # 'amplify.ext.'
 
@@ -130,8 +132,13 @@ class Supervisor(object):
                     for obj in mod.__dict__.itervalues():
                         # if it is a class defintion
                         if inspect.isclass(obj):
-                            # and it is a subclass of ObjectManager (but not ObjectManager itself)
-                            if issubclass(obj, ObjectManager) and obj.__name__ != ObjectManager.__name__:
+                            # and it is a subclass of ObjectManager (but not
+                            # AbstractManaager or ObjectManager itself)
+                            if issubclass(obj, AbstractManager) \
+                               and obj.__name__ not in (
+                                   AbstractManager.__name__,
+                                   ObjectManager.__name__
+                               ):
                                 # check that the extension is enabled in the config
                                 if obj.ext in context.app_config.get('extensions', {}) and \
                                         boolean(context.app_config.get('extensions', {}).get(obj.ext, False)):
@@ -235,7 +242,17 @@ class Supervisor(object):
         Stops all managers, collectors, etc
         :return:
         """
+        # stop internal managers
         for object_manager_name in reversed(self.object_manager_order):
+            object_manager = self.object_managers[object_manager_name]
+            object_manager.stop()
+
+        # stop other managers
+        ext_managers = filter(
+            lambda name: name not in self.object_manager_order,
+            self.object_managers.keys()
+        )
+        for object_manager_name in ext_managers:
             object_manager = self.object_managers[object_manager_name]
             object_manager.stop()
 

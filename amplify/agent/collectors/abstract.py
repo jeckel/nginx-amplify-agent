@@ -69,12 +69,20 @@ class AbstractCollector(object):
                 else:
                     break
 
-            context.teardown_thread_id()
             # Since kill signals won't work, we raise it ourselves.
             raise GreenletExit
         except GreenletExit:
             context.log.debug(
                 '%s collector for %s received exit signal' % (
+                    self.__class__.__name__,
+                    self.object.definition_hash
+                )
+            )
+
+            context.teardown_thread_id()
+
+            context.log.debug(
+                '%s collector for %s teardown complete' % (
                     self.__class__.__name__,
                     self.object.definition_hash
                 )

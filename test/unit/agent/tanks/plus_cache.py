@@ -93,6 +93,28 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
 
         assert_that(context.plus_cache['https://127.0.0.1:443/plus_status'], not_(has_length(0)))
 
+
+    @nginx_plus_test
+    def test_plus_api_cache(self):
+        time.sleep(1)
+        container = NginxManager()
+        container._discover_objects()
+        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+
+        # get nginx object
+        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+
+        # get metrics collector - the third in the list
+        metrics_collector = nginx_obj.collectors[2]
+
+        # run plus api - twice, because counters will appear only on the second run
+        metrics_collector.plus_api()
+        time.sleep(1)
+        metrics_collector.plus_api()
+
+        assert_that(context.plus_cache['https://127.0.0.1:443/api'], not_(has_length(0)))
+
+
     @nginx_plus_test
     def test_plus_status_cache_limit(self):
         time.sleep(1)  # Give N+ some time to start

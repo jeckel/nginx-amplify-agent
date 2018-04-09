@@ -2,6 +2,7 @@
 import copy
 import time
 
+from amplify.agent.common.util.math import median
 from collections import defaultdict
 
 __author__ = "Mike Belov"
@@ -154,10 +155,15 @@ class StatsdClient(object):
                     metric_values.sort()
                     length = len(metric_values)
                     timers['G|%s' % metric_name] = [[timestamp, sum(metric_values) / float(length)]]
-                    timers['C|%s.count' % metric_name] = [[timestamp, length]]
-                    timers['G|%s.max' % metric_name] = [[timestamp, metric_values[-1]]]
-                    timers['G|%s.median' % metric_name] = [[timestamp, metric_values[int(round(length / 2 - 1))]]]
-                    timers['G|%s.pctl95' % metric_name] = [[timestamp, metric_values[-int(round(length * .05))]]]
+                    filter_suffix = ""
+                    filter_suffix_index = metric_name.find("||")
+                    if filter_suffix_index > 0:
+                        filter_suffix = metric_name[filter_suffix_index:]
+                        metric_name = metric_name[:filter_suffix_index]
+                    timers['C|%s.count%s' % (metric_name, filter_suffix)] = [[timestamp, length]]
+                    timers['G|%s.max%s' % (metric_name, filter_suffix)] = [[timestamp, metric_values[-1]]]
+                    timers['G|%s.median%s' % (metric_name, filter_suffix)] = [[timestamp, median(metric_values, presorted=True)]]
+                    timers['G|%s.pctl95%s' % (metric_name, filter_suffix)] = [[timestamp, metric_values[-int(round(length * .05))]]]
             results['timer'] = timers
 
         # counters

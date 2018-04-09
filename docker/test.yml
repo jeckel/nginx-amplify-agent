@@ -2,3 +2,4 @@ test:
   image: amplify-agent-test
   volumes:
    - ../:/amplify
+   - /var/lib/mysql

@@ -91,7 +91,7 @@ def argstring(stmt):
     if not stmt['args']:
         return ''
     elif stmt['directive'] in ARGDICT_DIRECTIVES:
-        return ''.join(x.decode('string_escape') for x in stmt['args'][1:])
+        return ''.join(x.encode('utf-8').decode('string_escape') for x in stmt['args'][1:])
     else:
         return ' '.join(map(_enquote, stmt['args']))
 

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import glob
 import netifaces
 import re
 
@@ -9,7 +8,7 @@ import psutil
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
 from amplify.agent.common.util.ec2 import AmazonEC2
-from amplify.agent.common.util.host import os_name, alive_interfaces
+from amplify.agent.common.util.host import os_name, etc_release, alive_interfaces
 from amplify.agent.collectors.abstract import AbstractMetaCollector
 
 
@@ -73,25 +72,7 @@ class SystemMetaCollector(AbstractMetaCollector):
         ]
 
     def etc_release(self):
-        """ /etc/*-release """
-        mapper = {
-            'name': ('NAME', 'DISTRIB_ID'),
-            'version_id': ('VERSION_ID', 'DISTRIB_RELEASE'),
-            'version': ('VERSION', 'DISTRIB_DESCRIPTION')
-        }
-        for release_file in glob.glob("/etc/*-release"):
-            etc_release_out, _ = subp.call('cat %s' % release_file)
-            for line in etc_release_out:
-                kv = re.match('(\w+)=(.+)', line)
-                if kv:
-                    key, value = kv.group(1), kv.group(2)
-                    for var_name, release_vars in mapper.iteritems():
-                        if key in release_vars:
-                            if self.meta['release'][var_name] is None:
-                                self.meta['release'][var_name] = value.replace('"', '')
-
-        if self.meta['release']['name'] is None:
-            self.meta['release']['name'] = 'unix'
+        self.meta['release'].update(etc_release())
 
     def proc_cpuinfo(self):
         """ cat /proc/cpuinfo """

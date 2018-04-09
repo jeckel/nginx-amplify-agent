@@ -35,6 +35,7 @@ tabs_everywhere = os.getcwd() + '/test/fixtures/nginx/tabs/nginx.conf'
 more_clean_headers = os.getcwd() + '/test/fixtures/nginx/more_clean_headers/nginx.conf'
 location_with_semicolon_equal = os.getcwd() + '/test/fixtures/nginx/location_with_semicolon_equal/nginx.conf'
 log_format_string_concat = os.getcwd() + '/test/fixtures/nginx/custom/log_format_string_concat.conf'
+log_format_unicode_quote = os.getcwd() + '/test/fixtures/nginx/custom/log_format_unicode_quote.conf'
 
 
 class ParserTestCase(BaseTestCase):
@@ -248,30 +249,30 @@ class ParserTestCase(BaseTestCase):
         # simple
         cfg = NginxConfigParser(simple_config)
         files, directories = cfg.get_structure()
-        assert_that(files.keys(), equal_to([
+        assert_that(files.keys(), contains_inanyorder(
             '/amplify/test/fixtures/nginx/simple/conf.d/something.conf',
             '/amplify/test/fixtures/nginx/simple/mime.types',
             '/amplify/test/fixtures/nginx/simple/nginx.conf'
-        ]))
-        assert_that(directories.keys(), equal_to([
+        ))
+        assert_that(directories.keys(), contains_inanyorder(
             '/amplify/test/fixtures/nginx/simple/',
             '/amplify/test/fixtures/nginx/simple/conf.d/'
-        ]))
+        ))
 
         # includes
         cfg = NginxConfigParser(includes_config)
         files, directories = cfg.get_structure()
-        assert_that(files.keys(), equal_to([
+        assert_that(files.keys(), contains_inanyorder(
             '/amplify/test/fixtures/nginx/includes/conf.d/something.conf',
             '/amplify/test/fixtures/nginx/includes/mime.types',
             '/amplify/test/fixtures/nginx/includes/conf.d/additional.conf',
             '/amplify/test/fixtures/nginx/includes/conf.d/include.conf',
             '/amplify/test/fixtures/nginx/includes/nginx.conf'
-        ]))
-        assert_that(directories.keys(), equal_to([
+        ))
+        assert_that(directories.keys(), contains_inanyorder(
             '/amplify/test/fixtures/nginx/includes/',
             '/amplify/test/fixtures/nginx/includes/conf.d/'
-        ]))
+        ))
 
     def test_parse_windows(self):
         """
@@ -459,3 +460,10 @@ class ParserTestCase(BaseTestCase):
         assert_that(formats, has_items('with_newlines', 'without_newlines'))
         assert_that(formats['with_newlines'], equal_to(expected))
         assert_that(formats['without_newlines'], equal_to(expected))
+
+    def test_log_format_unicode_quote(self):
+        cfg = NginxConfigParser(log_format_unicode_quote)
+        cfg.parse()
+        tree = cfg.simplify()
+        format = tree['http']['log_format']['foo']
+        assert_that(format, equal_to('site="$server_name" server="$host\xe2\x80\x9d uri="uri"'))

@@ -2,7 +2,9 @@
 import re
 
 from amplify.agent.common.context import context
-from amplify.agent.common.util.escape import prep_raw
+from amplify.agent.common.util.text import (
+    decompose_format, parse_line_split
+)
 
 
 __author__ = "Mike Belov"
@@ -64,134 +66,95 @@ class NginxAccessLogParser(object):
         Takes raw format and generates regex
         :param raw_format: raw log format
         """
-        self.raw_format = self.combined_format if raw_format is None else raw_format
+        self.raw_format = self.combined_format if raw_format is None \
+            else raw_format
 
-        self.keys = []
-        self.regex_string = r''
-        self.regex = None
-        self.separators = []
-        self.start_from_separator = False
-
-        # preprocess raw format and if we have trailing spaces in format we should remove them
-        self.raw_format = prep_raw(self.raw_format).rstrip()
-
-        current_key = None
-        current_separator = None
-
-        def finalize_key():
-            """
-            Finalizes key:
-            1) removes $ and {} from it
-            2) adds a regex for the key to the regex_string
-            """
-            chars_to_remove = ['$', '{', '}']
-            plain_key = current_key.translate(None, ''.join(chars_to_remove))
-
-            self.keys.append(plain_key)
-            rxp = self.common_variables.get(plain_key, self.default_variable)[0]
-
-            # Handle formats with multiple instances of the same variable.
-            var_count = self.keys.count(plain_key)
-            if var_count > 1:  # Duplicate variables will be named starting at 2 (var, var2, var3, etc...)
-                regex_var_name = '%s_occurance_%s' % (plain_key, var_count)
-            else:
-                regex_var_name = plain_key
-            self.regex_string += '(?P<%s>%s)' % (regex_var_name, rxp)
-
-        char_index = 0
-        for char in self.raw_format:
-            if current_key:
-                if char.isalpha() or char.isdigit() or char == '_' or (char == '{' and current_key == '$'):
-                    current_key += char
-                elif char == '}':  # the end of ${key} format
-                    current_key += char
-                    finalize_key()
-                else:  # finalize key and start a new one
-                    finalize_key()
-
-                    if char == '$':  # if there's a new key - create it
-                        current_key = char
-                    else:
-                        # otherwise - add char to regex
-                        current_key = None
-
-                        safe_char = char if (char.isalpha() or char.isdigit()) else '\%s' % char
-                        self.regex_string += safe_char
-
-                        if current_separator is not None:
-                            current_separator += char
-                        else:
-                            current_separator = char
-            else:
-                # if there's no current key
-                if char == '$':
-                    current_key = char
-
-                    if current_separator is not None:
-                        self.separators.append(current_separator)
-                        current_separator = None
-                else:
-                    safe_char = char if (char.isalpha() or char.isdigit()) else '\%s' % char
-                    self.regex_string += safe_char
-
-                    if current_separator is not None:
-                        current_separator += char
-                    else:
-                        current_separator = char
-
-                    if char_index == 0:
-                        self.start_from_separator = True
-
-            char_index += 1
-
-        # key can be the last element in a string
-        if current_key:
-            finalize_key()
-
-        # separator also can be the last element in a string
-        if current_separator:
-            self.separators.append(current_separator)
-
-        self.regex = re.compile(self.regex_string)
-
-        # these two values are used for every line, so let's have them saved
-        self.keys_amount = len(self.keys)
-        self.separators_amount = len(self.separators)
+        self.keys, self.trie, self.non_key_patterns, self.first_value_is_key = \
+            decompose_format(self.raw_format, full=True)
 
     def parse(self, line):
         """
-        New parse method, that parses a line using separators
+        Parses the line and if there are some special fields - parse them too
+        For example we can get HTTP method and HTTP version from request
 
-        :param line: str line
+        The difference between this and above is that this one uses split
+        mechanic rather than trie matching direclty.
+
+        :param line: log line
         :return: dict with parsed info
         """
         result = {'malformed': False}
 
-        key_index = 0
-        remainder = line
+        # parse the line
+        parsed = parse_line_split(
+            line,
+            keys=self.keys,
+            non_key_patterns=self.non_key_patterns,
+            first_value_is_key=self.first_value_is_key
+        )
 
-        for separator_index in xrange(self.separators_amount):
-            separator = self.separators[separator_index]
-            raw_value, remainder = remainder.split(separator, 1)
+        if parsed:
+            for key in self.keys:
+                # key local vars
+                time_var = False
 
-            # if a line starts from separator - skip the part before the separator
-            if self.start_from_separator and separator_index == 0:
-                continue
+                func = self.common_variables[key][1] \
+                    if key in self.common_variables \
+                    else self.default_variable[1]
 
-            # get the key and process the value
-            key = self.keys[key_index]
-            processed_value = self._process_key_value(key, raw_value)
-            if processed_value is not None:
-                result[key] = processed_value
+                try:
+                    value = func(parsed[key])
+                # for example gzip ratio can be '-' and float
+                except ValueError:  # couldn't cast log value
+                    value = 0
+                except KeyError:  # something went wrong with line parsing
+                    context.default_log.warn(
+                        'failed to find expected log variable "%s" in access '
+                        'log line, skipping' % key
+                    )
+                    context.default_log.debug('additional info:')
+                    context.default_log.debug(
+                        'keys: %s\nformat: "%s"\nline:"%s"' % (
+                            self.keys,
+                            self.raw_format,
+                            line
+                        )
+                    )
 
-            key_index += 1
+                # time variables should be parsed to array of float
+                if key.endswith('_time'):
+                    time_var = True
+                    # skip empty vars
+                    if value != '-':
+                        array_value = []
+                        for x in value.replace(' ', '').split(','):
+                            x = float(x)
+                            # workaround for an old nginx bug with time. ask lonerr@ for details
+                            if x > 10000000:
+                                continue
+                            else:
+                                array_value.append(x)
+                        if array_value:
+                            result[key] = array_value
 
-        # there can be the last value
-        if key_index < self.keys_amount:
-            key = self.keys[key_index]
-            result[key] = self._process_key_value(key, remainder)
+                # Handle comma separated keys
+                if key in self.comma_separated_keys:
+                    if ',' in value:
+                        list_value = value.replace(' ', '').split(',')  # remove spaces and split values into list
+                        result[key] = list_value
+                    else:
+                        result[key] = [value]
 
-        # process request
+                if key not in result and not time_var:
+                    result[key] = value
+        else:
+            context.default_log.debug(
+                'could not parse line "%s" with format "%s"' % (
+                    line, self.raw_format
+                )
+            )
+            return None
+
         if 'request' in result:
             try:
                 method, uri, proto = result['request'].split(' ')
@@ -202,57 +165,7 @@ class NginxAccessLogParser(object):
                 result['malformed'] = True
                 method = ''
 
-            is_malformed = not (len(method) >= 3 and method.isupper())
-            result['malformed'] = is_malformed
+            if not result['malformed'] and len(method) < 3:
+                result['malformed'] = True
 
         return result
-
-    def _process_key_value(self, key, raw_value):
-        """
-        Performs various actions on value according to the key
-
-        :param key: str key
-        :param raw_value: str value
-        :return: str result or None
-        """
-        time_var = False
-
-        # get the function, try/except works faster for standard vars
-        try:
-            func = self.common_variables[key][1]
-        except KeyError:
-            func = self.default_variable[1]
-
-        # process the value
-        try:
-            value = func(raw_value)
-        except ValueError:
-            return 0
-
-        # time variables should be parsed to array of float
-        if key.endswith('_time'):
-            time_var = True
-            # skip empty vars
-            if value != '-':
-                array_value = []
-                for x in value.replace(' ', '').split(','):
-                    x = float(x)
-                    # workaround for an old nginx bug with time. ask lonerr@ for details
-                    if x > 10000000:
-                        continue
-                    else:
-                        array_value.append(x)
-
-                if array_value:
-                    return array_value
-
-        # handle comma-separated keys
-        if key in self.comma_separated_keys:
-            if ',' in value:
-                list_value = value.replace(' ', '').split(',')  # remove spaces and split values into list
-                return list_value
-            else:
-                return [value]
-
-        if not time_var:
-            return value

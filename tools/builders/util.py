@@ -87,10 +87,17 @@ def install_pip(python='python'):
     shell_call('~/.local/bin/pip install wheel==0.29.0 --user')
 
 
-def install_pip_deps():
+def install_pip_deps(package=None):
     distname, distversion, __ = platform.linux_distribution(full_distribution_name=False)
     is_centos_6 = distname == 'centos' and distversion.split('.')[0] == '6'
     if is_centos_6:
-        shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements-old-gevent')
+        shell_call(
+            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements-old-gevent' %
+            package
+        )
     else:
-        shell_call('~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/requirements')
+        shell_call(
+            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements' %
+            package
+        )
+

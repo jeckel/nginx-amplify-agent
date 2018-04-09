@@ -62,7 +62,27 @@ class NginxObjectTestCase(RealNginxTestCase):
         # check all plus status urls
         assert_that(nginx_obj.plus_status_enabled, equal_to(True))
         assert_that(nginx_obj.plus_status_internal_url, equal_to('https://127.0.0.1:443/plus_status'))
-        assert_that(nginx_obj.plus_status_external_url, equal_to('http://status.naas.nginx.com:443/plus_status_bad'))
+        assert_that(nginx_obj.plus_status_external_url,
+        equal_to('http://status.naas.nginx.com:443/plus_status_bad'))
+
+    @nginx_plus_test
+    def test_api_discovery(self):
+        """
+        Checks that for plus nginx we collect two status urls:
+        - one for web link (with server name)
+        - one for agent purposes (local url)
+        """
+        container = NginxManager()
+        container._discover_objects()
+        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+
+        # get nginx object
+        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+
+        # check all plus status urls
+        assert_that(nginx_obj.api_enabled, equal_to(True))
+        assert_that(nginx_obj.api_internal_url, equal_to('https://127.0.0.1:443/api'))
+        assert_that(nginx_obj.api_external_url, equal_to('http://status.naas.nginx.com:443/api_bad'))
 
     @nginx_plus_test
     def test_bad_plus_status_discovery(self):

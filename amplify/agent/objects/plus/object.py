@@ -1,15 +1,7 @@
 # -*- coding: utf-8 -*-
-from amplify.agent.collectors.plus.meta import PlusObjectMetaCollector
-from amplify.agent.collectors.plus.abstract import (
-    CacheCollector,
-    StatusZoneCollector,
-    UpstreamCollector,
-    SlabCollector,
-    StreamCollector,
-    StreamUpstreamCollector
-)
 from amplify.agent.common.context import context
 from amplify.agent.objects.abstract import AbstractObject
+
 
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -36,16 +28,17 @@ class PlusObject(AbstractObject):
         self.local_name = self.data['local_name']
         self.name = self.local_name
         self.plus_status_internal_url_cache = None
+        self.api_internal_url_cache = None
 
-        self.collectors = [
-            PlusObjectMetaCollector(object=self, interval=self.intervals['meta'])
-        ]
+        self.collectors = []
 
     @property
     def plus_status_internal_url(self):
         """
-        Property that tracks back the plus_status_internal_url from the parent nginx object and caching it.  This cache
-        works because child objects are stopped and unregistered when nginx objects are modified (restarted, etc.).
+        Property that tracks back the plus_status_internal_url from the parent
+        nginx object and caching it.  This cache works because child objects
+        are stopped and unregistered when nginx objects are modified
+        (restarted, etc.).
         """
         if not self.plus_status_internal_url_cache:
             parent_obj = context.objects.find_parent(obj_id=self.id)
@@ -54,65 +47,27 @@ class PlusObject(AbstractObject):
         return self.plus_status_internal_url_cache
 
     @property
+    def api_internal_url(self):
+        """
+        Property that tracks back the plus_api_internal_url from the parent
+        nginx object and caching it.  This cache works because child objects
+        are stopped and unregistered when nginx objects are modified
+        (restarted, etc.).
+        """
+        if not self.api_internal_url_cache:
+            parent_obj = context.objects.find_parent(obj_id=self.id)
+            if parent_obj:
+                self.api_internal_url_cache = parent_obj.api_internal_url
+        return self.api_internal_url_cache
+
+    @property
     def definition(self):
-        return {'type': self.type_template % self.type, 'local_id': self.local_id, 'root_uuid': self.root_uuid}
+        return {
+            'type': self.type_template % self.type,
+            'local_id': self.local_id,
+            'root_uuid': self.root_uuid
+        }
 
     @property
     def local_id_args(self):
         return self.parent_local_id, self.type, self.local_name
-
-
-class NginxCacheObject(PlusObject):
-    type = 'cache'
-
-    def __init__(self, *args, **kwargs):
-        super(NginxCacheObject, self).__init__(**kwargs)
-        self.collectors.append(CacheCollector(object=self, interval=self.intervals['metrics']))
-
-
-class NginxStatusZoneObject(PlusObject):
-    type = 'server_zone'  # Needs to match the plus status JSON for collector's .gather_data() method.
-
-    def __init__(self, *args, **kwargs):
-        super(NginxStatusZoneObject, self).__init__(**kwargs)
-        self.collectors.append(StatusZoneCollector(object=self, interval=self.intervals['metrics']))
-
-    @property
-    def definition(self):
-        return {'type': self.type_template % 'status_zone', 'local_id': self.local_id, 'root_uuid': self.root_uuid}
-
-
-class NginxUpstreamObject(PlusObject):
-    type = 'upstream'
-
-    def __init__(self, *args, **kwargs):
-        super(NginxUpstreamObject, self).__init__(**kwargs)
-        self.collectors.append(UpstreamCollector(object=self, interval=self.intervals['metrics']))
-
-
-class NginxStreamObject(PlusObject):
-    type = 'stream'
-
-    def __init__(self, *args, **kwargs):
-        super(NginxStreamObject, self).__init__(**kwargs)
-        self.collectors.append(StreamCollector(object=self, interval=self.intervals['metrics']))
-
-    @property
-    def definition(self):
-        return {'type': self.type_template % 'stream', 'local_id': self.local_id, 'root_uuid': self.root_uuid}
-
-
-class NginxStreamUpstreamObject(PlusObject):
-    type = 'stream_upstream'
-
-    def __init__(self, *args, **kwargs):
-        super(NginxStreamUpstreamObject, self).__init__(**kwargs)
-        self.collectors.append(StreamUpstreamCollector(object=self, interval=self.intervals['metrics']))
-
-
-class NginxSlabObject(PlusObject):
-    type = 'slab'
-
-    def __init__(self, *args, **kwargs):
-        super(NginxSlabObject, self).__init__(**kwargs)
-        self.collectors.append(SlabCollector(object=self, interval=self.intervals['metrics']))

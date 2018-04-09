@@ -160,6 +160,12 @@ class ObjectsTank(Singleton):
             )
             return
 
+        # cache relations since it will change as children remove themselves
+        starting_relations = copy.deepcopy(self.relations[obj_id])
+        # Recursively unregister children since we will be removing the parent.
+        for child_id in starting_relations:
+            self.unregister(obj_id=child_id)
+
         obj_type = obj.type
 
         # stop obj
@@ -171,15 +177,12 @@ class ObjectsTank(Singleton):
         # Remove obj_id from type tracker
         self.objects_by_type[obj_type].remove(obj_id)
 
-        # Recursively unregister children since we will be removing the parent.
-        for child_id in self.relations[obj_id]:
-            self.unregister(obj_id=child_id)
-
         # Remove relation list for object
         del self.relations[obj_id]
 
-        # Remove obj_id from parent's child list (if any).  This means by default unregister linearly scans all
-        # relations looking for obj_id of unregistered object.
+        # Remove obj_id from parent's child list (if any).  This means by
+        # default unregister linearly scans all relations looking for obj_id of
+        # unregistered object.
         for parent_id, children in self.relations.iteritems():
             if obj_id in children:
                 children.remove(obj_id)
@@ -248,4 +251,17 @@ class ObjectsTank(Singleton):
                 found_parent_id = parent_id
                 break
 
-        return self.objects[found_parent_id] if found_parent_id else None
+        # make sure the parent_id is still a valid object
+        if found_parent_id is not None:
+            if found_parent_id in self.objects:
+                return self.objects[found_parent_id]
+            else:
+                context.default_log.error(
+                    'Found an invalid parent object_id for child '
+                    '(child_id: %s, parent_id: %s)' % (obj_id, parent_id)
+                )
+                return None
+            # This is one of those situations where an action might release the
+            # GIL for an extended time, during which an object gets removed
+        else:
+            return None

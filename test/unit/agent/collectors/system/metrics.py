@@ -86,6 +86,7 @@ class SystemMetricsCollectorTestCase(BaseTestCase):
             'system.mem.pct_used',
             'system.mem.total',
             'system.mem.used',
+            'system.mem.used.all',
             'system.swap.free',
             'system.swap.pct_free',
             'system.swap.total',

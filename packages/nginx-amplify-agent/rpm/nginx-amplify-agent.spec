@@ -149,6 +149,14 @@ fi
 
 
 %changelog
+* Thu Apr  5 2018 Mike Belov <dedm@nginx.com> 1.2.0-1
+- 1.3.0-1
+- NGINX+ API support
+- Ability to store UUID in the config file (if needed)
+- Upgraded NGINX Crossplane parser
+- Improved nginx logs parsing
+- Various bug fixes
+
 * Wed Feb  7 2018 Mike Belov <dedm@nginx.com> 1.1.0-1
 - 1.1.0-1
 - MySQL monitoring support

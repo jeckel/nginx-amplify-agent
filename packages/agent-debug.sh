@@ -127,6 +127,8 @@ fi
 
 printf "\n"
 
+${sudo_cmd} chown $(whoami) $tmpdir
+
 if [ -f ./collect-env.sh ]; then
     printf "\033[32m Collecting additional information about with collect-env.sh ...\033[0m\n\n"
     ${sudo_cmd} sh ./collect-env.sh -q > "${tmpdir}/collect-env.log"

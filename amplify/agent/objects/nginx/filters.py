@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import copy
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -19,6 +20,7 @@ class Filter(object):
         self.filenamematch = None
         self.data = {}
         self._negated_conditions = {}
+        self.original_data = data
 
         # normalize vars
         for key, operator, value in data or []:
@@ -42,6 +44,9 @@ class Filter(object):
             self._negated_conditions[normalized_key] = (operator == '!~')
 
         self.empty = not self.data and not self.filename
+
+    def __deepcopy__(self, memodict=None):
+        return Filter(data=copy.deepcopy(self.original_data), metric=self.metric, filter_rule_id=self.filter_rule_id)
 
     def match(self, parsed):
         """

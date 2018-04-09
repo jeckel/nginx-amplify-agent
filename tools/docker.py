@@ -14,19 +14,17 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
-def rm_and_build(folder, name):
-    shell_call('docker rm %s' % name, terminal=True)
-
+def rebuild(folder, name):
     if folder == 'centos6':
-        shell_call('cp packages/requirements-old-gevent docker/%s/requirements' % folder)
+        shell_call('cat packages/*/requirements-old-gevent >> docker/%s/requirements' % folder)
     else:
-        shell_call('cp packages/requirements docker/%s/requirements' % folder)
+        shell_call('cat packages/*/requirements >> docker/%s/requirements' % folder)
 
     shell_call('docker build -t %s docker/%s' % (name, folder), terminal=True)
     shell_call('rm docker/%s/requirements' % folder)
 
 
-supported_os = ['ubuntu1604', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
+supported_os = ['ubuntu1604', 'ubuntu1604-controller', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
 
 usage = "usage: %prog -h"
 
@@ -87,18 +85,18 @@ if __name__ == '__main__':
         shell_call('docker rm $(docker ps -a -q)')
 
     if options.all:
-        shell_call('docker-compose -f docker/agents.yml stop', terminal=True)
+        shell_call('docker-compose -f docker/agents.yml down', terminal=True)
 
         if options.rebuild:
             for osname in supported_os:
-                rm_and_build('%s' % osname, 'amplify-agent-%s' % osname)
+                rebuild('%s' % osname, 'amplify-agent-%s' % osname)
 
         runcmd = 'docker-compose -f docker/agents.yml up'
     else:
-        shell_call('docker-compose -f docker/%s.yml stop' % options.os, terminal=True)
+        shell_call('docker-compose -f docker/%s.yml down' % options.os, terminal=True)
 
         if options.rebuild:
-            rm_and_build('%s' % options.os, 'amplify-agent-%s' % options.os)
+            rebuild('%s' % options.os, 'amplify-agent-%s' % options.os)
 
         if options.shell:
             rows, columns = os.popen('stty size', 'r').read().split()
@@ -106,7 +104,7 @@ if __name__ == '__main__':
             for helper in (
                 "service nginx start",
                 "service php7.0-fpm start",
-                "service mysql start"
+                "service mysql start",
                 "python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development",
                 "python /amplify/nginx-amplify-agent.py stop --config=/amplify/etc/agent.conf.development"
             ):

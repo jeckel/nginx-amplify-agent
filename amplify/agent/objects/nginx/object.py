@@ -6,7 +6,7 @@ from amplify.agent.collectors.nginx.config import NginxConfigCollector
 from amplify.agent.collectors.nginx.errorlog import NginxErrorLogsCollector
 
 from amplify.agent.common.context import context
-from amplify.agent.common.util import http, net
+from amplify.agent.common.util import http, net, plus
 from amplify.agent.data.eventd import INFO
 from amplify.agent.objects.abstract import AbstractObject
 from amplify.agent.objects.nginx.binary import nginx_v
@@ -59,6 +59,15 @@ class NginxObject(AbstractObject):
             self._restore_config_collector(self.data['config_data']['previous'])
         else:
             self._setup_config_collector()
+
+        # api
+        self.api_external_url, self.api_internal_url = self.get_alive_api_urls()
+        self.api_enabled = True if (self.api_external_url or self.api_internal_url) else False
+        api_url = self.api_internal_url if self.api_internal_url is not None \
+            else self.api_external_url
+        if self.api_enabled and plus.get_latest_supported_api(api_url) is None:
+            context.log.debug("API directive was specified but no supported API was found.")
+            self.api_enabled = False
 
         # plus status
         self.plus_status_external_url, self.plus_status_internal_url = self.get_alive_plus_status_urls()
@@ -150,6 +159,46 @@ class NginxObject(AbstractObject):
             )
 
         return external_status_url, internal_status_url
+
+    def get_alive_api_urls(self):
+        """
+        Tries to get alive api urls
+        There are two types of api urls: internal and external
+        - internal are for the agent and usually they have the localhost ip in address
+        - external are for the browsers and usually they have a normal server name
+
+        Returns a tuple of str or Nones - (external_url, internal_url)
+
+        Even if external api url is not responding (cannot be accesible from the host)
+        we should return it to show in our UI
+
+        :return: (str or None, str or None)
+        """
+        internal_urls = self.config.api_internal_urls
+        external_urls = self.config.api_external_urls
+
+        if 'api' in context.app_config.get('nginx', {}):
+            predefined_uri = context.app_config['nginx']['api']
+            internal_urls.append(http.resolve_uri(predefined_uri))
+
+        internal_api_url = self.__get_alive_status(internal_urls, json=True)
+        if internal_api_url:
+            self.eventd.event(
+                level=INFO,
+                message='nginx internal api detected, %s' % internal_api_url
+            )
+
+        external_api_url = self.__get_alive_status(external_urls, json=True)
+        if len(self.config.api_external_urls) > 0:
+            if not external_api_url:
+                external_api_url = 'http://%s' % self.config.api_external_urls[0]
+
+            self.eventd.event(
+                level=INFO,
+                message='nginx external api detected, %s' % external_api_url
+            )
+
+        return external_api_url, internal_api_url
 
     def __get_alive_status(self, url_list, json=False):
         """

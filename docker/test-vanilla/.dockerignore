@@ -1,0 +1,7 @@
+test/*
+test/unit
+!test/fixtures
+!test/unit/agent/common/config/app.py
+!test/base.py
+!test/unit/ext/controller
+!**__init__.py

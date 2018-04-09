@@ -17,6 +17,7 @@ api_receiver_url="${api_url}/1.3"
 public_ntp="north-america.pool.ntp.org"
 nginx_conf_file="/etc/nginx/nginx.conf"
 amplify_pid_file="/var/run/amplify-agent/amplify-agent.pid"
+store_uuid="False"
 
 #
 # Functions
@@ -347,6 +348,23 @@ fi
 
 incr_step
 
+# Write generated UUIDs to config if STORE_UUID is set to True
+
+printf "\033[32m ${step}. Checking if uuid should be stored in the config ...\033[0m"
+
+if [ -n "${STORE_UUID}" ]; then
+    store_uuid=$STORE_UUID
+fi
+
+if [ "$store_uuid" != "True" ] && [ "$store_uuid" != "False" ]; then
+    printf "\033[31m STORE_UUID needs to be True or False\033[0m\n\n"
+    exit 1
+else
+    printf "\033[32m ${store_uuid}\033[0m\n"
+fi
+
+incr_step
+
 # Get OS name and codename
 get_os_name
 
@@ -524,6 +542,7 @@ ${sudo_cmd} rm -f ${agent_conf_file} && \
 ${sudo_cmd} sh -c "sed -e 's|api_key.*$|api_key = $api_key|' \
                        -e 's|api_url.*$|api_url = $api_receiver_url|' \
                        -e 's|hostname.*$|hostname = $amplify_hostname|' \
+                       -e 's|store_uuid.*$|store_uuid = $store_uuid|' \
         ${agent_conf_file}.default > \
         ${agent_conf_file}" && \
 ${sudo_cmd} chmod 644 ${agent_conf_file} && \
@@ -623,38 +642,39 @@ if [ -n "${downloader}" ]; then
 
     if ${downloader} ${downloader_opts} ${api_ping_url} | grep 'pong' >/dev/null 2>&1; then
         printf "\033[32m ok.\033[0m\n"
-    else
-        printf "\033[31m failed to connect to the receiver! (check https://git.io/vKk0I)\033[0m\n"
-        errors=`expr $errors + 1`
-    fi
 
-    incr_step
+        incr_step
 
-    # Compare server time with local time
-    printf "\033[32m ${step}. Checking system time ...\033[0m"
-    if [ "${downloader}" = "curl" ]; then
-        downloader_opts="-fsi"
-    else
-        if [ "${downloader}" = "wget" ]; then
-            downloader_opts="-qS"
-        fi
-    fi
-
-    server_date=`${downloader} ${downloader_opts} ${api_ping_url} 2>&1 | grep '^.*Date' | sed 's/.*Date:[ ][ ]*\(.*\)/\1/'`
-
-    if [ $? -eq 0 ]; then
-        amplify_epoch=`date --date="${server_date}" "+%s"`
-        agent_epoch=`date -u '+%s'`
-        offset=`expr ${amplify_epoch} - ${agent_epoch} | sed 's/^-//'`
-
-        if [ "${offset}" -le 6 ]; then
-            printf "\033[32m ok.\033[0m\n"
+        # Compare server time with local time
+        printf "\033[32m ${step}. Checking system time ...\033[0m"
+        if [ "${downloader}" = "curl" ]; then
+            downloader_opts="-fsi"
         else
-            printf "\033[31m please adjust the system clock for proper metric collection!\033[0m\n"
+            if [ "${downloader}" = "wget" ]; then
+                downloader_opts="-qS"
+            fi
+        fi
+
+        server_date=`${downloader} ${downloader_opts} ${api_ping_url} 2>&1 | grep '^.*Date' | sed 's/.*Date:[ ][ ]*\(.*\)/\1/'`
+
+        if [ $? -eq 0 ]; then
+            amplify_epoch=`date --date="${server_date}" "+%s"`
+            agent_epoch=`date -u '+%s'`
+            offset=`expr ${amplify_epoch} - ${agent_epoch} | sed 's/^-//'`
+
+            if [ "${offset}" -le 6 ]; then
+                printf "\033[32m ok.\033[0m\n"
+            else
+                printf "\033[31m please adjust the system clock for proper metric collection!\033[0m\n"
+                errors=`expr $errors + 1`
+            fi
+        else
+            printf "\033[31m failed!\033[0m\n"
             errors=`expr $errors + 1`
         fi
+
     else
-        printf "\033[31m failed!\033[0m\n"
+        printf "\033[31m failed to connect to the receiver! (check https://git.io/vKk0I)\033[0m\n"
         errors=`expr $errors + 1`
     fi
 fi

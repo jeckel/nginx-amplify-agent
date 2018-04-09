@@ -29,7 +29,7 @@ def call(command, check=True):
     try:
         raw_out, raw_err = process.communicate()
         if process.returncode != 0 and check:
-            raise AmplifySubprocessError(message=command, payload=dict(returncode=process.returncode))
+            raise AmplifySubprocessError(message=command, payload=dict(returncode=process.returncode, error=raw_err))
         else:
             out = raw_out.split('\n')
             err = raw_err.split('\n')

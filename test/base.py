@@ -215,12 +215,27 @@ class TestWithFakeSubpCall(BaseTestCase):
 
 
 def nginx_plus_installed():
-    out, err = subp.call('/usr/sbin/nginx -V')
-    first_line = err[0]
+    first_line = ''
+    try:
+        out, err = subp.call('/usr/sbin/nginx -V')
+        first_line = err[0]
+    except:
+        pass
     return True if 'nginx-plus' in first_line else False
+
+
+def nginx_installed():
+    try:
+        subp.call('/usr/sbin/nginx -V')
+        return True
+    except:
+        return False
+
 
 nginx_plus_test = pytest.mark.skipif(not nginx_plus_installed(), reason='This is a test for nginx+')
 nginx_oss_test = pytest.mark.skipif(nginx_plus_installed(), reason='This is a test for OSS nginx')
+nginx_test = pytest.mark.skipif(not nginx_installed(), reason='This is a test for OSS nginx')
+plain_test = pytest.mark.skipif(nginx_installed(), reason='This is a test for plain OS system')
 future_test = pytest.mark.skipif(1 > 0, reason='This test will be written in future')
 disabled_test = pytest.mark.skipif(1 > 0, reason='This test has unexpected behavior')
 

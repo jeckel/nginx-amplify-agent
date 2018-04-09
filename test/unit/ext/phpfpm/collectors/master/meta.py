@@ -66,10 +66,7 @@ class PHPFPMMetaCollectorTestCase(PHPFPMTestCase):
                 'root_uuid': DEFAULT_UUID,
                 'bin_path': '/usr/sbin/php5-fpm',
                 'version': '5.5.9-1',
-                'version_line': any_of(
-                    'PHP 5.5.9-1ubuntu4.21 (fpm-fcgi) (built: Feb  9 2017 21:00:52)',
-                    'PHP 5.5.9-1ubuntu4.22 (fpm-fcgi) (built: Aug  4 2017 19:44:16)',
-                )
+                'version_line': starts_with('PHP 5.5.9-1')
             }
         ))
 

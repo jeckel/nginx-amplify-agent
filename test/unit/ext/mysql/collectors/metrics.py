@@ -72,8 +72,11 @@ class MySQLMetricsCollectorTestCase(MySQLTestCase):
         for metric_name in METRICS['counters'].iterkeys():
             assert_that(counters, has_key(metric_name))
         assert_that(counters['mysql.global.select'][0][1], equal_to(5))
+        assert_that(counters, has_key('mysql.global.writes'))
 
         # check gauges
         gauges = self.mysql_obj.statsd.current['gauge']
         for metric_name in METRICS['gauges'].iterkeys():
             assert_that(gauges, has_key(metric_name))
+        assert_that(gauges, has_key('mysql.global.innodb_buffer_pool_util'))
+        assert_that(gauges, has_key('mysql.global.innodb_buffer_pool.hit_ratio'))

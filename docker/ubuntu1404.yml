@@ -2,6 +2,7 @@ agent:
   image: amplify-agent-ubuntu1404
   volumes:
    - ../:/amplify
+   - /var/lib/mysql
   external_links:
    - docker_receiver_1:receiver
   tty: true

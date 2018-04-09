@@ -34,4 +34,4 @@ class PlusObjectTestCase(BaseTestCase):
             ),
             equal_to(plus_obj.local_id)
         )
-        assert_that(plus_obj.collectors, has_length(1))
+        assert_that(plus_obj.collectors, has_length(0))

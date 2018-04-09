@@ -89,7 +89,7 @@ class SystemMetaCollectorTestCase(BaseTestCase):
 
     def test_collect_each_interface_once(self):
         collector = self.get_collector(collect=False)
-        num_interfaces = len(psutil.net_if_stats())
+        num_interfaces = len(filter(lambda x: x.isup, psutil.net_if_stats().itervalues()))
         for x in xrange(3):
             collector.collect()
             meta = collector.object.metad.current

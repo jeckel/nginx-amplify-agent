@@ -7,6 +7,7 @@ import socket
 import sys
 import uuid as python_uuid
 import psutil
+import glob
 
 from amplify.agent.common.util import subp
 from amplify.agent.common.errors import AmplifySubprocessError
@@ -117,6 +118,32 @@ def os_name():
         return 'solaris'
     else:
         return sys.platform
+
+
+def etc_release():
+    """ /etc/*-release """
+    result = {'codename': None, 'id': None, 'name': None, 'version_id': None, 'version': None}
+    mapper = {
+        'codename': ('VERSION_CODENAME', 'DISTRIB_CODENAME', 'UBUNTU_CODENAME'),
+        'id': 'ID',
+        'name': ('NAME', 'DISTRIB_ID'),
+        'version_id': ('VERSION_ID', 'DISTRIB_RELEASE'),
+        'version': ('VERSION', 'DISTRIB_DESCRIPTION')
+    }
+    for release_file in glob.glob("/etc/*-release"):
+        etc_release_out, _ = subp.call('cat %s' % release_file)
+        for line in etc_release_out:
+            kv = re.match('(\w+)=(.+)', line)
+            if kv:
+                key, value = kv.group(1), kv.group(2)
+                for var_name, release_vars in mapper.iteritems():
+                    if key in release_vars:
+                        if result[var_name] is None:
+                            result[var_name] = value.replace('"', '')
+
+    if result['name'] is None:
+        result['name'] = 'unix'
+    return result
 
 
 def linux_name():

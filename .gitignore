@@ -27,3 +27,11 @@ naas_agent.yaml
 tools/validate.sh
 tools/qa/*
 tools/qa
+tools/access_log_parser.py
+test/unit/ext/controller
+packages/nginx-controller-agent
+etc/agent.conf.controller
+amplify/ext/controller
+docker/ubuntu1604-controller.yml
+docker/ubuntu1604-controller
+Jenkinsfile

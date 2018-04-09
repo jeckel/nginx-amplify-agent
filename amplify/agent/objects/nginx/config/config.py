@@ -63,6 +63,8 @@ class NginxConfig(object):
         self.stub_status_urls = []
         self.plus_status_external_urls = []
         self.plus_status_internal_urls = []
+        self.api_external_urls = []
+        self.api_internal_urls = []
         self.parser = None
         self.wait_until = 0
 
@@ -252,6 +254,18 @@ class NginxConfig(object):
                 for url in self.__status_url(ctx, server_preferred=False):
                     if url not in self.plus_status_internal_urls:
                         self.plus_status_internal_urls.append(url)
+
+            elif key == 'api' and ctx and 'ip_port' in ctx:
+                # use different url builders for external and internal urls
+                for url in self.__status_url(ctx, server_preferred=True):
+                    if url not in self.plus_status_external_urls:
+                        self.api_external_urls.append(url)
+
+                # for internal (agent) usage local ip address is a better choice,
+                # because the external url might not be accessible from a host
+                for url in self.__status_url(ctx, server_preferred=False):
+                    if url not in self.plus_status_internal_urls:
+                        self.api_internal_urls.append(url)
 
             elif isinstance(value, dict):
                 self.__collect_data(subtree=value, ctx=ctx)

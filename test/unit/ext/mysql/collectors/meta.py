@@ -68,10 +68,8 @@ class MySQLMetaCollectorTestCase(MySQLTestCase):
                 'conf_path': '/etc/mysql/my.cnf',
                 'root_uuid': DEFAULT_UUID,
                 'bin_path': '/usr/sbin/mysqld',
-                'version': '5.5.58',
-                'version_line': any_of(
-                    '/usr/sbin/mysqld  Ver 5.5.58-0ubuntu0.14.04.1 for debian-linux-gnu on x86_64 ((Ubuntu))',
-                )
+                'version': starts_with('5.5'),
+                'version_line': starts_with('/usr/sbin/mysqld  Ver 5.5')
             }
         ))
 

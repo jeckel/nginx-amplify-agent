@@ -36,7 +36,7 @@ class Context(Singleton):
 
         # define vars
         self.cpu_last_check = 0
-        self.version_semver = (1, 1, 0)
+        self.version_semver = (1, 2, 0)
         self.version_build = 1
         self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
@@ -85,15 +85,14 @@ class Context(Singleton):
         self._setup_app_logs(**kwargs)
         self._setup_app_listeners()
         self._setup_tags()
+        # we don't need to work with host details on config check for example
+        if not kwargs.get('skip_uuid', False):
+            self._setup_host_details()
         self._setup_http_client()
         self._setup_object_tank()
         self._setup_plus_cache()
         self._setup_nginx_config_tank()
         self._setup_container_details()
-
-        # we don't need to work with host details on config check for example
-        if not kwargs.get('skip_uuid', False):
-            self._setup_host_details()
 
     def _setup_app_config(self, **kwargs):
         self.app_name = kwargs.get('app')
@@ -196,6 +195,11 @@ class Context(Singleton):
         from amplify.agent.common.util.host import hostname, uuid
         self.hostname = hostname()
         self.uuid = uuid()
+
+        # only change agent config if uuid is generated and store_uuid == True
+        if (context.app_config['credentials'].get('store_uuid', False) and
+                context.app_config['credentials']['uuid'] == ''):
+            context.app_config.save('credentials', 'uuid', context.uuid)
 
     def _setup_http_client(self):
         from amplify.agent.common.util.http import HTTPClient

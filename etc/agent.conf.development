@@ -1,14 +1,16 @@
 [credentials]
-api_key = 
-hostname = 
+api_key =
+hostname =
 uuid =
 imagename =
+store_uuid = False
 
 [nginx]
 #user = nginx
 #configfile = /etc/nginx/nginx.conf
 #stub_status = /nginx_status
 #plus_status = /status
+#api = /api
 #exclude_logs =
 
 [proxies]

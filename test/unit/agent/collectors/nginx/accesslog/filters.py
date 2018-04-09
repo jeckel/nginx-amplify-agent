@@ -223,6 +223,65 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
         assert_that(counter['C|nginx.http.status.2xx'][0][1], equal_to(1))
         assert_that(counter['C|nginx.http.status.2xx||2'][0][1], equal_to(1))
 
+    def test_timers_with_filters(self):
+        self.fake_object.filters = [
+            Filter(
+                filter_rule_id=3,
+                metric='nginx.upstream.response.time.median',
+                data=[
+                    ['$status', '~', '200']
+                ]
+            ),
+            Filter(
+                filter_rule_id=4,
+                metric='nginx.upstream.response.time.max',
+                data=[
+                    ['$status', '~', '400']
+                ]
+            )
+        ]
+
+        collector = NginxAccessLogsCollector(
+            object=self.fake_object,
+            log_format='$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent ' +
+                       '\"$http_referer\" \"$http_user_agent\" \"$http_x_forwarded_for\" ' +
+                       'rt=$request_time ua=\"$upstream_addr\" us=\"$upstream_status\" ' +
+                       'ut=\"$upstream_response_time\" ul=\"$upstream_response_length\" ' +
+                       'cs=$upstream_cache_status sn=$server_name',
+            tail=[
+                '104.236.93.23 - - [05/May/2016:12:52:50 +0200] "GET / HTTP/1.1" 200 28275 "-" ' +
+                '"curl/7.35.0" "-" rt=0.082 ua="-" us="-" ut="1.000" ul="-" cs=- sn=differentsimgirls.com',
+                '104.236.93.23 - - [05/May/2016:12:52:50 +0200] "GET / HTTP/1.1" 200 28275 "-" ' +
+                '"curl/7.35.0" "-" rt=0.082 ua="-" us="-" ut="3.000" ul="-" cs=- sn=differentsimgirls.com',
+                '104.236.93.23 - - [05/May/2016:12:52:50 +0200] "GET / HTTP/1.1" 200 28275 "-" ' +
+                '"curl/7.35.0" "-" rt=0.082 ua="-" us="-" ut="5.000" ul="-" cs=- sn=differentsimgirls.com',
+                '104.236.93.23 - - [05/May/2016:12:52:50 +0200] "GET / HTTP/1.1" 400 28275 "-" ' +
+                '"curl/7.35.0" "-" rt=0.082 ua="-" us="-" ut="7.000" ul="-" cs=- sn=differentsimgirls.com'
+            ]
+        )
+        collector.collect()
+
+        metrics = self.fake_object.statsd.flush()['metrics']
+        timer = metrics['timer']
+        for key in ['G|nginx.upstream.response.time.max', 'G|nginx.upstream.response.time.median',
+                    'G|nginx.upstream.response.time.pctl95', 'C|nginx.upstream.response.time.count',
+                    'G|nginx.upstream.response.time.max||3', 'G|nginx.upstream.response.time.median||3',
+                    'G|nginx.upstream.response.time.pctl95||3', 'C|nginx.upstream.response.time.count||3',
+                    'G|nginx.upstream.response.time.max||4', 'G|nginx.upstream.response.time.median||4',
+                    'G|nginx.upstream.response.time.pctl95||4', 'C|nginx.upstream.response.time.count||4']:
+            assert_that(timer, has_key(key))
+
+        assert_that(timer["G|nginx.upstream.response.time.max||3"][0][1], equal_to(5.000))
+        assert_that(timer["G|nginx.upstream.response.time.median||3"][0][1], equal_to(3.000))
+        assert_that(timer["C|nginx.upstream.response.time.count||3"][0][1], equal_to(3))
+        assert_that(timer["G|nginx.upstream.response.time.max||4"][0][1], equal_to(7.000))
+        assert_that(timer["G|nginx.upstream.response.time.median||4"][0][1], equal_to(7.000))
+        assert_that(timer["C|nginx.upstream.response.time.count||4"][0][1], equal_to(1))
+        assert_that(timer["G|nginx.upstream.response.time.max"][0][1], equal_to(7.000))
+        assert_that(timer["G|nginx.upstream.response.time.median"][0][1], equal_to(4.000))
+        assert_that(timer["C|nginx.upstream.response.time.count"][0][1], equal_to(4))
+
+
     def test_separate_4xx_5xx_with_filters(self):
         self.fake_object.filters = [
             Filter(

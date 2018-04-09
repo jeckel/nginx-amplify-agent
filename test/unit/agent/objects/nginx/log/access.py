@@ -27,9 +27,6 @@ class LogParserTestCase(BaseTestCase):
         for key in expected_keys:
             assert_that(parser.keys, has_item(key))
 
-        assert_that(parser.regex_string, equal_to(
-            r'(?P<remote_addr>.+)\ \-\ (?P<remote_user>.+)\ \[(?P<time_local>.+)\]\ \"(?P<request>.+)\"\ (?P<status>\d+)\ (?P<body_bytes_sent>\d+)\ \"(?P<http_referer>.+)\"\ \"(?P<http_user_agent>.+)\"'))
-
     def test_parse_combined(self):
         """
         Checks that we can parse standart format
@@ -65,11 +62,7 @@ class LogParserTestCase(BaseTestCase):
         assert_that(parsed['server_protocol'], equal_to('HTTP/1.1'))
 
     def test_malformed_request(self):
-        """
-        This test is disabled because our current new handling of $request means the entire line parse fails rather
-        than just request parse.
-        """
-        line = '10.0.0.1 - - [03/Jul/2015:04:46:18 -0400] "/xxx?q=1 GET POST" 400 173 "-" "-" "-"'
+        line = '10.0.0.1 - - [03/Jul/2015:04:46:18 -0400] "/xxx?q=1 GET" 400 173 "-" "-" "-"'
 
         parser = NginxAccessLogParser()
         parsed = parser.parse(line)
@@ -357,11 +350,11 @@ class LogParserTestCase(BaseTestCase):
 
     def test_malformed_request_doesnt_raise_exception(self):
         log_format = '$remote_addr - $remote_user [$time_local] "$request" ' + \
-                    '$status $body_bytes_sent "$http_referer" ' + \
-                    '"$http_user_agent" "$http_x_forwarded_for" "$server_name" $request_id ' + \
-                    '$upstream_http_x_amplify_upstream ' + \
-                    '"$upstream_addr" "$upstream_response_time" "$upstream_status" ' + \
-                    '$ssl_protocol $ssl_cipher $connection/$connection_requests $request_length "$request_time"'
+                     '$status $body_bytes_sent "$http_referer" ' + \
+                     '"$http_user_agent" "$http_x_forwarded_for" "$server_name" $request_id ' + \
+                     '$upstream_http_x_amplify_upstream ' + \
+                     '"$upstream_addr" "$upstream_response_time" "$upstream_status" ' + \
+                     '$ssl_protocol $ssl_cipher $connection/$connection_requests $request_length "$request_time"'
 
         parser = NginxAccessLogParser(log_format)
         line = '139.162.124.167 - - [16/Mar/2017:00:53:14 +0000] "\x04\x01\x1F\x00\x00\x00\x00\x00\x00" ' + \
@@ -369,6 +362,14 @@ class LogParserTestCase(BaseTestCase):
                '- "-" "-" "-" - - 42433164/1 0 "0.108"'
 
         parsed = parser.parse(line)
+
+        # this block is true for GSH new parser...comment for now.
+        # for key in parser.keys:
+        #     # new parser will get this value, but post parsing logic ignores
+        #     # empty values for '*_time' variables.
+        #     if not key.endswith('_time'):
+        #         assert_that(parsed, has_item(key))
+
         assert_that(parsed['malformed'], equal_to(True))
 
     def test_empty_server_name(self):

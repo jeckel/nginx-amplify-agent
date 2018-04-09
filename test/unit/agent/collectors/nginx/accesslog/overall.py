@@ -287,9 +287,9 @@ class LogsOverallTestCase(NginxCollectorTestCase):
         collector.collect()
 
         # Make sure that variable name with number is properly formatted...
-        regex_string = collector.parser.regex_string
-        assert_that(regex_string, contains_string('<geoip_country_code>'))
-        assert_that(regex_string, contains_string('<geoip_country_code3>'))
+        keys = collector.parser.keys
+        assert_that(keys, has_item('geoip_country_code'))
+        assert_that(keys, has_item('geoip_country_code3'))
 
         # check
         metrics = self.fake_object.statsd.flush()['metrics']

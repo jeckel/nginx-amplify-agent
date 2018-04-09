@@ -22,6 +22,13 @@ option_list = (
         help='Run with nginx+ (false by default)',
         default=False,
     ),
+    Option(
+        '--plain',
+        action='store_true',
+        dest='vanilla',
+        help='Run plain Ubuntu',
+        default=False,
+    ),
 )
 
 parser = OptionParser(usage, option_list=option_list)
@@ -30,13 +37,17 @@ parser = OptionParser(usage, option_list=option_list)
 if __name__ == '__main__':
     if options.plus:
         yml, image, path = 'docker/test-plus.yml', 'amplify-agent-test-plus', 'docker/test-plus'
+    elif options.vanilla:
+        yml, image, path = 'docker/test-vanilla.yml', 'amplify-agent-test-vanilla', 'docker/test-vanilla'
     else:
         yml, image, path = 'docker/test.yml', 'amplify-agent-test', 'docker/test'
 
     shell_call('find . -name "*.pyc" -type f -delete', terminal=True)
-    shell_call('cp packages/requirements %s/requirements' % path)
-    shell_call('docker build -t %s %s' % (image, path), terminal=True)
+    shell_call('cat packages/*/requirements packages/*/test-requirements >> %s/requirements' % path)
+    shell_call('cp -pf %s/.dockerignore .' % path)
+    shell_call('docker build -t %s -f %s/Dockerfile .' % (image, path), terminal=True)
     shell_call('rm %s/requirements' % path)
+    shell_call('rm .dockerignore')
 
     rows, columns = os.popen('stty size', 'r').read().split()
     color_print("\n= RUN TESTS =" + "="*(int(columns)-13))
