@@ -102,7 +102,13 @@ get_os_name () {
                 release_amzn=`cat /etc/*-release | grep -i 'amazon.*[0-9]' | \
                               sed 's/^[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/' | \
                               head -1`
-                release="latest"
+
+                amzn=`rpm --eval "%{amzn}"`
+                if [ ${amzn} == 1 ]; then
+                    release="latest"
+                else
+                    release=${amzn}
+                fi
 
                 os="amzn"
                 centos_flavor="amazon linux"
