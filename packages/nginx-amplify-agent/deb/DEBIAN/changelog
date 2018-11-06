@@ -1,3 +1,9 @@
+nginx-amplify-agent (1.4.1-1) stable; urgency=low
+
+  * Various bug fixes
+
+ -- Mike Belov <dedm@nginx.com>  Thu, 26 Jul 2018 10:00:00 -0800
+
 nginx-amplify-agent (1.4.0-1) stable; urgency=low
 
   * New metrics for nginx, phpfpm, and mysql status

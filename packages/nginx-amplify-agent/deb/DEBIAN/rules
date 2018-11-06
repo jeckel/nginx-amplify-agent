@@ -1,4 +1,41 @@
 #!/usr/bin/make -f
 
-%:
-	dh $@ --with=python-central
+INSTALLDIR = $(CURDIR)/debian/nginx-amplify-agent
+
+build-arch:
+	dh_testdir
+
+build-indep:
+	dh_testdir
+
+build: build-arch build-indep
+	dh_testdir
+
+install:
+	dh_testdir
+
+binary-indep: build install
+	dh_testdir
+	dh_installdebconf
+	dh_installinit -i -pnginx-amplify-agent --no-restart-on-upgrade --no-start --name=amplify-agent -- defaults 99 01
+	dh_systemd_enable -pnginx-amplify-agent --name=amplify-agent amplify-agent.service
+
+binary-arch: install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs -a
+	dh_installdocs -a
+	dh_lintian -a
+	dh_link -aA
+	dh_compress -a
+	dh_fixperms -a
+	dh_installdeb -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb nginx-amplify-agent
+
+binary: binary-indep binary-arch
+
+clean:
+	dh_testdir

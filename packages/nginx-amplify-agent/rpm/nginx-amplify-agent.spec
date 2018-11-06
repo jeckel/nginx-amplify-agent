@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 
 # distribution specific definitions
-%define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7) || (0%{?suse_version} == 1315)
+%define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7) || (0%{?suse_version} == 1315) || (0%{?amzn} >= 2)
 
 %define nginx_home %{_localstatedir}/cache/nginx
 %define nginx_user nginx
@@ -20,9 +20,12 @@ License: 2-clause BSD-like license
 
 
 Source0:   nginx-amplify-agent-%{version}.tar.gz
+%if %{use_systemd}
+Source1:   nginx-amplify-agent.service
+%endif
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
-%if 0%{?amzn}
+%if (0%{?amzn} == 1)
 Requires: python27
 %else
 Requires: python >= 2.6
@@ -69,6 +72,11 @@ mkdir -p %{buildroot}/var/log/amplify-agent/
 mkdir -p %{buildroot}/var/
 mkdir -p %{buildroot}/var/run/
 mkdir -p %{buildroot}/var/run/amplify-agent/
+%if %{use_systemd}
+%{__mkdir} -p %{buildroot}/%{_unitdir}
+%{__install} -m644 %SOURCE1 %{buildroot}/%{_unitdir}/amplify-agent.service
+rm -rf %{buildroot}/etc/init.d
+%endif
 
 
 %clean
@@ -83,7 +91,11 @@ mkdir -p %{buildroot}/var/run/amplify-agent/
 %{config_files}/*
 %attr(0755,nginx,nginx) %dir /var/log/amplify-agent
 %attr(0755,nginx,nginx) %dir /var/run/amplify-agent
+%if %{use_systemd}
+%{_unitdir}/amplify-agent.service
+%else
 /etc/init.d/amplify-agent
+%endif
 /etc/logrotate.d/amplify-agent
 
 
@@ -93,6 +105,7 @@ mkdir -p %{buildroot}/var/run/amplify-agent/
 if [ $1 -eq 1 ] ; then
 %if %{use_systemd}
     /usr/bin/systemctl preset amplify-agent.service >/dev/null 2>&1 ||:
+    /usr/bin/systemctl enable amplify-agent.service >/dev/null 2>&1 ||:
 %else
     /sbin/chkconfig --add amplify-agent
 %endif
@@ -149,6 +162,10 @@ fi
 
 
 %changelog
+* Thu Jul 26 2018 Mike Belov <dedm@nginx.com> 1.4.1-1
+- 1.4.1-1
+- Various bug fixes
+
 * Thu Jul 26 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
 - 1.4.0-1
 - New metrics for nginx, phpfpm, and mysql status

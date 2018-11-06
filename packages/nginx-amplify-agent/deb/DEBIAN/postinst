@@ -10,7 +10,6 @@ if [ "$1" != "configure" ]; then
 fi
 
 if [ -z "$2" ]; then
-    update-rc.d amplify-agent defaults 99 01
     mkdir -p /var/run/amplify-agent && \
     mkdir -p /var/log/amplify-agent && \
     touch /var/log/amplify-agent/agent.log && \
@@ -50,3 +49,5 @@ else
         service amplify-agent start > /dev/null 2>&1 < /dev/null
     fi
 fi
+
+#DEBHELPER#

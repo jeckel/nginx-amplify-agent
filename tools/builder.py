@@ -23,7 +23,7 @@ if __name__ == '__main__':
     else:
         os_release = shell_call('cat /etc/os-release', important=False)
 
-        if 'amazon linux ami' in os_release.lower():
+        if 'amazon linux' in os_release.lower():
             amazon.build(package=package)
         else:
             print("sorry, it will be done later\n")

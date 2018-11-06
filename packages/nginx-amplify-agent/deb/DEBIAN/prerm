@@ -6,11 +6,6 @@ case "$1" in
     remove)
         service amplify-agent stop
 
-        if [ -e /etc/init.d/amplify-agent ]; then
-            rm /etc/init.d/amplify-agent
-            update-rc.d -f amplify-agent remove
-        fi
-
         [ -d /var/log/amplify-agent ] && rm -R /var/log/amplify-agent
         [ -d /var/run/amplify-agent ] && rm -R /var/run/amplify-agent
         [ -d /etc/amplify-agent ] && rm -R /etc/amplify-agent
@@ -27,3 +22,7 @@ case "$1" in
       exit 0
     ;;
 esac
+
+#DEBHELPER#
+
+exit 0

@@ -62,6 +62,7 @@ def build(package=None):
         shell_call('cp -r dist/*.gz %s/' % rpm_sources)
 
         # create rpm package
+        shell_call('cp packages/%s/rpm/%s.service %s' % (package, package, rpm_sources))
         shell_call(
             'rpmbuild -D "_topdir %s" -bb packages/%s/rpm/%s.spec --define "amplify_version %s" --define "amplify_release %s"' % (
                 rpm_topdir, package, package, version, bld
