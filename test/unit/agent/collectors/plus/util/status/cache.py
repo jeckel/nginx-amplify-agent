@@ -192,6 +192,9 @@ class CacheCollectorTestCase(BaseTestCase):
         assert_that(cache_obj.statsd.current, has_key('counter'))
         counters = cache_obj.statsd.current['counter']
 
+        assert_that(cache_obj.statsd.current, has_key('gauge'))
+        guages = cache_obj.statsd.current['gauge']
+
         for key in (
             'plus.cache.revalidated.bytes',
             'plus.cache.expired',
@@ -212,3 +215,19 @@ class CacheCollectorTestCase(BaseTestCase):
 
         assert_that(counters['plus.cache.hit'][0], equal_to([2, 54893]))
         assert_that(counters['plus.cache.hit.bytes'][0], equal_to([2, 641803539]))
+
+        assert_that(cache_obj.statsd.current, has_key('gauge'))
+        guages = cache_obj.statsd.current['gauge']
+
+        for key in (
+                'plus.cache.size',
+                'plus.cache.max_size',
+
+        ):
+            assert_that(guages, has_key(key))
+
+        assert_that(guages['plus.cache.size'][0], equal_to((1, 0)))
+        assert_that(guages['plus.cache.max_size'][0], equal_to((1, 0)))
+
+        assert_that(guages['plus.cache.size'][1], equal_to((2, 434008064)))
+        assert_that(guages['plus.cache.max_size'][1], equal_to((2, 536870912)))

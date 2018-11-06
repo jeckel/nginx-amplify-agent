@@ -25,6 +25,9 @@ __email__ = "dedm@nginx.com"
 VALID_HOSTNAME_RFC_1123_PATTERN = re.compile(
     r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$")
 
+VALID_SRV_RFC_2782_PATTERN = re.compile(
+    r"^((_{1}[a-zA-Z0-9\-]*[a-zA-Z0-9])\.){2}(([A-Za-z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$")
+
 MAX_HOSTNAME_LEN = 255
 
 
@@ -48,9 +51,10 @@ def is_valid_hostname(name):
             (name, MAX_HOSTNAME_LEN)
         )
         return False
-    if VALID_HOSTNAME_RFC_1123_PATTERN.match(name) is None:
+    if VALID_HOSTNAME_RFC_1123_PATTERN.match(name) is None and \
+            VALID_SRV_RFC_2782_PATTERN.match(name) is None:
         context.default_log.warning(
-            "Hostname: %s is not complying with RFC 1123" % name
+            "Hostname: %s is not complying with RFC 1123 or RFC 2782" % name
         )
         return False
     return True

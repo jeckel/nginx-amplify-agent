@@ -54,6 +54,7 @@ class NginxMetricsCollector(AbstractMetricsCollector):
             self.workers_fds_count,
             self.workers_cpu,
             self.global_metrics,
+            self.reloads_and_restarts_count,
         )
         if not self.in_container:
             self.register(
@@ -79,6 +80,10 @@ class NginxMetricsCollector(AbstractMetricsCollector):
                 onetime=True
             )
             super(NginxMetricsCollector, self).handle_exception(method, exception)
+
+    def reloads_and_restarts_count(self):
+        self.object.statsd.incr('nginx.master.reloads', self.object.reloads)
+        self.object.reloads = 0
 
     def workers_count(self):
         """nginx.workers.count"""
@@ -347,32 +352,55 @@ class NginxMetricsCollector(AbstractMetricsCollector):
 
     def plus_api(self):
         """
-                plus api top-level metrics
+        plus api top-level metrics
 
-                nginx.http.conn.accepted = connections.accepted  ## counter
-                nginx.http.conn.dropped = connections.dropped  ## counter
-                nginx.http.conn.active = connections.active
-                nginx.http.conn.current = connections.active + connections.idle
-                nginx.http.conn.idle = connections.idle
-                nginx.http.request.count = requests.total  ## counter
-                nginx.http.request.current = requests.current
+        nginx.http.conn.accepted = connections.accepted  ## counter
+        nginx.http.conn.dropped = connections.dropped  ## counter
+        nginx.http.conn.active = connections.active
+        nginx.http.conn.current = connections.active + connections.idle
+        nginx.http.conn.idle = connections.idle
+        nginx.http.request.count = requests.total  ## counter
+        nginx.http.request.current = requests.current
 
-                plus.http.ssl.handshakes = ssl.handshakes
-                plus.http.ssl.failed = ssl.handshakes_failed
-                plus.http.ssl.reuses = ssl.session_reuses
-                plus.proc.respawned = processes.respawned
+        plus.http.ssl.handshakes = ssl.handshakes
+        plus.http.ssl.failed = ssl.handshakes_failed
+        plus.http.ssl.reuses = ssl.session_reuses
+        plus.proc.respawned = processes.respawned
 
-                also here we run plus metrics collection
-                """
+        also here we run plus metrics collection
+        """
         stamp = int(time.time())
 
+        def _get_root_endpoints_to_skip():
+            """
+            This searches the tree's main context for http and stream blocks and returns which ones were not found.
+            """
+            if self.object.config is None:
+                return []
+
+            blocks_to_find = set(['http', 'stream'])
+
+            # includes logic must be handled because main contexts can span multiple files in crossplane payloads
+            def _find_blocks_in_main_ctx(index):
+                block = self.object.config.tree['config'][index]['parsed']
+                for stmt in block:
+                    if stmt['directive'] in blocks_to_find:
+                        yield stmt['directive']
+                    elif 'includes' in stmt:
+                        for idx in stmt['includes']:
+                            for directive in _find_blocks_in_main_ctx(index=idx):
+                                yield directive
+
+            # return a list of whichever blocks (from blocks_to_find) were not found in the main context
+            found_in_main_context = _find_blocks_in_main_ctx(index=0)
+            not_in_main_context = blocks_to_find.difference(found_in_main_context)
+            return not_in_main_context
+
         try:
-            root_endpoints_to_skip = []
-            if self.object.config is not None:
-                root_endpoints_to_skip = [directive for directive in ["http", "stream"] if
-                                      directive not in self.object.config.tree]
-            aggregated_api_payload = traverse_plus_api(self.object.api_internal_url,
-                                                       root_endpoints_to_skip=root_endpoints_to_skip)
+            aggregated_api_payload = traverse_plus_api(
+                location_prefix=self.object.api_internal_url,
+                root_endpoints_to_skip=_get_root_endpoints_to_skip()
+            )
         except GreenletExit:
             raise
         except:
@@ -391,6 +419,7 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         ssl = aggregated_api_payload.get('ssl', {})
         processes = aggregated_api_payload.get('processes', {})
         stream = aggregated_api_payload.get('stream', {})
+
 
         # gauges
         self.object.statsd.gauge('nginx.http.conn.active', connections.get('active'))

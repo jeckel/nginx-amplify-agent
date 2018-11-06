@@ -11,7 +11,8 @@ __email__ = "grant.hulegaard@nginx.com"
 
 def collect_cache_size(collector, data, stamp):
     collector.object.statsd.gauge('plus.cache.size', data['size'], stamp=stamp)
-    #collector.object.statsd.gauge('plus.cache.max_size', data['max_size'], stamp=stamp)
+    if 'max_size' in data:
+        collector.object.statsd.gauge('plus.cache.max_size', data['max_size'], stamp=stamp)
 
 
 def collect_cache_metrics(collector, data, stamp):

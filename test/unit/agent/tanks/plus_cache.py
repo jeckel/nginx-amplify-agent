@@ -76,12 +76,12 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
     @nginx_plus_test
     def test_plus_status_cache(self):
         time.sleep(1)  # Give N+ some time to start
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # get metrics collector - the third in the list
         metrics_collector = nginx_obj.collectors[2]
@@ -97,12 +97,12 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
     @nginx_plus_test
     def test_plus_api_cache(self):
         time.sleep(1)
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # get metrics collector - the third in the list
         metrics_collector = nginx_obj.collectors[2]
@@ -118,12 +118,12 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
     @nginx_plus_test
     def test_plus_status_cache_limit(self):
         time.sleep(1)  # Give N+ some time to start
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # get metrics collector - the third in the list
         metrics_collector = nginx_obj.collectors[2]

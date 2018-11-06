@@ -60,7 +60,9 @@ class Supervisor(object):
         # init
         self.object_managers = {}
         self.object_manager_order = ['system', 'nginx', 'status', 'api']
-        self.external_managers = []
+        self.external_object_manager_types = []
+        self.external_managers = {}
+        self.external_modules = []
         self.bridge = None
         self.bridge_object = None
         self.start_time = int(time.time())
@@ -104,21 +106,51 @@ class Supervisor(object):
         import inspect
         import amplify.ext as extensions
         from amplify.agent.common.util.configtypes import boolean
-        from amplify.agent.managers.abstract import (
-            AbstractManager, ObjectManager
+        from amplify.ext.abstract.manager import (
+            AbstractExtManager, ExtObjectManager
         )
+        from amplify.ext.abstract.config import AbstractExtConfig
 
         base_prefix = extensions.__name__ + '.'  # 'amplify.ext.'
 
-        def _recursive_manager_init(inspected_package, prefix=base_prefix):
+        def enabled_extension(modname):
+            # not defined in the config
+            if modname not in context.app_config.get('extensions', {}):
+                return False
+
+            # not enabled
+            if not boolean(context.app_config.get('extensions', {}).get(modname, False)):
+                return False
+
+            return True
+
+        def _recursive_manager_init(inspected_package, prefix=base_prefix, top_mod=None):
             """
             Takes a package and iterates all of the modules.  If it's a module (e.g. not a package), it will look for
             ObjectManager class definitions and add and instance of it to the object_managers store.
 
             :param inspected_package: Package
+            :return: List Module names inspected by the call
             """
+            passed_top_mod = top_mod is not None
+            module_paths = dict()
+
             # iter all modules in package
             for _, modname, ispkg in pkgutil.iter_modules(inspected_package.__path__):
+                # add module name as the start of an inner modpath
+                new_mod_path = {
+                    modname: None
+                }
+
+                # set the top_mod if not passed from outer scope
+                if not passed_top_mod:
+                    top_mod = modname
+
+                # don't scan modules that aren't enabled
+                if not enabled_extension(top_mod):
+                    context.log.debug('ignored "%s" module during ext scan' % top_mod)
+                    continue
+
                 current_loc = prefix + modname
                 # import module
                 mod = __import__(current_loc, fromlist='dummy')
@@ -126,30 +158,57 @@ class Supervisor(object):
                 if ispkg:
                     # if it is another package, recursively call this function
                     current_prefix = current_loc + '.'
-                    _recursive_manager_init(mod, prefix=current_prefix)
+                    recursive_mod_path = _recursive_manager_init(
+                        mod, prefix=current_prefix, top_mod=top_mod
+                    )
+
+                    # add the mod path the recursive function walked to current
+                    new_mod_path[modname] = recursive_mod_path
                 else:
                     # otherwise if it is a module walk the objects to find ObjectManagers
                     for obj in mod.__dict__.itervalues():
+
                         # if it is a class defintion
                         if inspect.isclass(obj):
                             # and it is a subclass of ObjectManager (but not
-                            # AbstractManaager or ObjectManager itself)
-                            if issubclass(obj, AbstractManager) \
-                               and obj.__name__ not in (
-                                   AbstractManager.__name__,
-                                   ObjectManager.__name__
-                               ):
-                                # check that the extension is enabled in the config
-                                if obj.ext in context.app_config.get('extensions', {}) and \
-                                        boolean(context.app_config.get('extensions', {}).get(obj.ext, False)):
-                                    # add to object_managers
-                                    self.object_managers[obj.type] = obj()
-                                    self.external_managers.append(obj.type)
-                                    context.log.debug('loaded "%s" object manager from %s' % (obj.type, obj))
-                                else:
-                                    context.log.debug('ignored "%s" object manager from %s' % (obj.type, obj))
+                            # ObjectManager itself)
+                            if issubclass(obj, ExtObjectManager) \
+                                    and obj.__name__ not in (
+                                        ExtObjectManager.__name__
+                                    ):
+                                # add to object_managers
+                                self.object_managers[obj.type] = obj()
+                                self.external_object_manager_types.append(obj.type)
+                                context.log.debug('loaded "%s" object manager from %s' % (obj.type, obj))
 
-        _recursive_manager_init(extensions)  # start the recursive loading process
+                            # or it is a subclass of AbstractManager (but not
+                            # AbstractManager itself or an ObjectManager)
+                            elif issubclass(obj, AbstractExtManager) \
+                                    and obj.__name__ not in (
+                                            AbstractExtManager.__name__,
+                                            ExtObjectManager.__name__
+                                    ):
+                                # add to external_managers
+                                self.external_managers[obj.name] = obj()
+                                context.log.debug('loaded "%s" manager from %s' % (obj.name, obj))
+
+                            # or it is a subclass of AbstractConfig (but not
+                            # AbstractConfig itself)
+                            elif issubclass(obj, AbstractExtConfig) \
+                                    and obj.__name__ != AbstractExtConfig.__name__:
+                                # check that the extension is enabled in the config
+                                # add to ConfigTank
+                                config = obj()
+                                context.app_config.add(config)
+                                context.log.debug('loaded "%s" extension config from %s' % (obj.ext, obj))
+
+                # add now completed modpath walk to return
+                module_paths.update(new_mod_path)
+
+            return module_paths
+
+        # start the recursive loading process...
+        _recursive_manager_init(extensions)
 
     def run(self):
         # get correct pid
@@ -197,16 +256,19 @@ class Supervisor(object):
             try:
                 context.inc_action_id()
 
-                # run internal objects
+                # run internal object managers
                 for object_manager_name in self.object_manager_order:
                     object_manager = self.object_managers[object_manager_name]
                     object_manager.run()
 
-                # run exeternal objects
-                external_managers = filter(lambda x: x not in self.object_manager_order, self.object_managers.keys())
-                for object_manager_name in external_managers:
+                # run external object managers
+                external_object_managers = filter(lambda x: x not in self.object_manager_order, self.object_managers.keys())
+                for object_manager_name in external_object_managers:
                     object_manager = self.object_managers[object_manager_name]
                     object_manager.run()
+
+                # manage external regular managers
+                self.manage_external_managers()
 
                 # talk to cloud
                 try:
@@ -337,7 +399,7 @@ class Supervisor(object):
         matched_object_configs = set()
         for obj in cloud_response.objects:
             object_manager = self.object_managers.get(obj.type)
-            if not object_manager:
+            if object_manager is None:
                 continue
 
             if obj.id in object_manager.object_configs:
@@ -386,11 +448,11 @@ class Supervisor(object):
             return True
 
         config_changed = not _recursive_dict_match_only_existing(
-            cloud_response.config, context.app_config
+            cloud_response.config, context.app_config.default
         )
 
         # apply new config
-        context.app_config.apply(cloud_response.config)
+        context.app_config.apply(cloud_response.config, target=0)
 
         # perform restarts
         if config_changed or len(changed_object_managers) > 0:
@@ -411,9 +473,13 @@ class Supervisor(object):
                         object_manager = self.object_managers[object_manager_name]
                         object_manager.stop()
 
-                    for object_manager_name in self.external_managers:
+                    for object_manager_name in self.external_object_manager_types:
                         object_manager = self.object_managers[object_manager_name]
                         object_manager.stop()
+
+                    for manager in self.external_managers.values():
+                        manager.stop()
+
             elif len(changed_object_managers) > 0:
                 context.log.debug(
                     'obj configs changed. changed managers: %s' % list(changed_object_managers)
@@ -435,3 +501,21 @@ class Supervisor(object):
         if self.bridge.ready and self.bridge.exception:
             context.log.debug('bridge exception: %s' % self.bridge.exception)
             self.bridge = gevent.spawn(Bridge().start)
+
+    def manage_external_managers(self):
+        """
+        Check external managers, start/restart them if needed
+        """
+        for name, manager_cls in self.external_managers.iteritems():
+            attr_string = '%s_manager' % name
+            attr = getattr(self, attr_string, None)
+
+            if attr is None:
+                # start and set the manager
+                setattr(self, attr_string, gevent.spawn(manager_cls.start))
+            elif attr.ready and attr.exception:
+                context.log.debug(
+                    'restarting "%s" external manager' % manager_cls.__class__.__name__
+                )
+                # restart crashed managers
+                setattr(self, attr_string, gevent.spawn(manager_cls.start))

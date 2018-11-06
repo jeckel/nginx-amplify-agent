@@ -76,7 +76,7 @@ def test(config_file, pid_file, wait_for_cloud=False):
         # check that it contain needed stuff
         if not context.app_config['cloud']['api_url']:
             print("\033[31mAPI url is not specified in %s\033[0m\n" % config_file)
-            print("Write API url https://receiver.amplify.nginx.com:443/1.3 in [cloud][api_url]")
+            print("Write API url https://receiver.amplify.nginx.com:443/1.4 in [cloud][api_url]")
             return 1
 
         if not context.app_config['credentials']['api_key']:

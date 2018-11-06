@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+from shutil import copyfile
 
 from hamcrest import *
 
@@ -62,6 +63,32 @@ class TailTestCase(BaseTestCase):
         new_lines = tail.readlines()
         assert_that(new_lines, has_length(1))
         assert_that(new_lines, equal_to(['from a new file']))
+
+    def test_copytruncate(self):
+        tail = FileTail(filename=self.test_log)
+
+        lines = ["line %d" % i for i in range(5)]
+        for line in lines:
+            self.write_log(line)
+        assert_that(tail.readlines(), equal_to(lines))
+
+        # mock copytruncate mechanic
+        copyfile(self.test_log, self.test_log_rotated)
+        with open(self.test_log, 'w') as file_to_truncate:
+            file_to_truncate.truncate()
+
+        next_lines = ["line %d" % i for i in range(5,10)]
+        for line in next_lines:
+            self.write_log(line)
+
+        # check offset is updated to the beginning
+        assert_that(tail.readlines(), equal_to(next_lines))
+
+        # resume normal behavior
+        final_lines = ["line %d" % i for i in range(10, 15)]
+        for line in final_lines:
+            self.write_log(line)
+        assert_that(tail.readlines(), equal_to(final_lines))
 
     def test_lose_changes_while_rotate(self):
         tail = FileTail(filename=self.test_log)

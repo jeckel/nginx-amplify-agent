@@ -4,9 +4,10 @@ import psutil
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
-from amplify.agent.managers.abstract import ObjectManager, launch_method_supported
+from amplify.agent.managers.abstract import launch_method_supported
 from amplify.agent.data.eventd import INFO
 
+from amplify.ext.abstract.manager import ExtObjectManager
 from amplify.ext.phpfpm.util.ps import PS_CMD, MASTER_PARSER, PS_PARSER
 from amplify.ext.phpfpm.objects.master import PHPFPMObject
 from amplify.ext.phpfpm import AMPLIFY_EXT_KEY
@@ -19,7 +20,7 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-class PHPFPMManager(ObjectManager):
+class PHPFPMManager(ExtObjectManager):
     """
     Manager for php-fpm objects.
     """

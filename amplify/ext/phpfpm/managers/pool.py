@@ -2,11 +2,10 @@
 import psutil
 
 from amplify.agent.common.context import context
-from amplify.agent.managers.abstract import ObjectManager
 from amplify.agent.data.eventd import INFO
 
+from amplify.ext.abstract.manager import ExtObjectManager
 from amplify.ext.phpfpm.objects.pool import PHPFPMPoolObject
-
 from amplify.ext.phpfpm import AMPLIFY_EXT_KEY
 
 
@@ -17,7 +16,7 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-class PHPFPMPoolManager(ObjectManager):
+class PHPFPMPoolManager(ExtObjectManager):
     """
     Manager for php-fpm pools.
     """

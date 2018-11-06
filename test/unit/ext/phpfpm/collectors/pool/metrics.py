@@ -56,7 +56,7 @@ class PHPFPMPoolMetricsCollectorTestCase(PHPFPMTestCase):
 
     def teardown_method(self, method):
         context._setup_object_tank()
-        super(PHPFPMPoolMetricsCollectorTestCase, self).setup_method(method)
+        super(PHPFPMPoolMetricsCollectorTestCase, self).teardown_method(method)
 
     def test_init(self):
         phpfpm_pool_metrics_collector = PHPFPMPoolMetricsCollector(

@@ -4,8 +4,9 @@ import psutil
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
-from amplify.agent.managers.abstract import ObjectManager, launch_method_supported
+from amplify.agent.managers.abstract import launch_method_supported
 from amplify.agent.data.eventd import INFO
+from amplify.ext.abstract.manager import ExtObjectManager
 from amplify.ext.mysql.util import PS_CMD, master_parser, ps_parser
 from amplify.ext.mysql import AMPLIFY_EXT_KEY
 from amplify.ext.mysql.objects import MySQLObject
@@ -18,7 +19,7 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
-class MySQLManager(ObjectManager):
+class MySQLManager(ExtObjectManager):
     """
     Manager for MySQL objects.
     """
@@ -186,7 +187,7 @@ class MySQLManager(ObjectManager):
                 pid, ppid, cmd = parsed  # unpack values
 
                 # match master process
-                if 'mysqld' in cmd:
+                if cmd.split(' ', 1)[0].endswith('mysqld'):
                     if not launch_method_supported("mysql", ppid):
                         continue
 

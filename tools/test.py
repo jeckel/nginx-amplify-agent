@@ -43,7 +43,7 @@ if __name__ == '__main__':
         yml, image, path = 'docker/test.yml', 'amplify-agent-test', 'docker/test'
 
     shell_call('find . -name "*.pyc" -type f -delete', terminal=True)
-    shell_call('cat packages/*/requirements packages/*/test-requirements >> %s/requirements' % path)
+    shell_call('cat packages/*/requirements >> %s/requirements' % path)
     shell_call('cp -pf %s/.dockerignore .' % path)
     shell_call('docker build -t %s -f %s/Dockerfile .' % (image, path), terminal=True)
     shell_call('rm %s/requirements' % path)

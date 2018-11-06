@@ -23,6 +23,7 @@ api_timeout = 5.0
 [extensions]
 phpfpm = True
 mysql = True
+configurator = True
 
 [mysql]
 #host =

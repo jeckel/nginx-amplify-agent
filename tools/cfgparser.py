@@ -34,6 +34,7 @@ def parse_args():
     group.add_argument('--light', action='store_true', help='light parse (find all files)')
     group.add_argument('--simple', action='store_true', help='print the simplified config')
     group.add_argument('--dirmap', action='store_true', help='print directory and file map')
+    group.add_argument('--payload', action='store_true', help='print entire config payload')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--pretty', action='store_true', help='pretty print json payloads')
@@ -86,14 +87,36 @@ def main():
         dump('Config directories', cfg.directories)
         dump('Config directory map', cfg.directory_map)
         dump('Config errors', cfg.parser_errors)
+    elif args.payload:
+        cfg.run_ssl_analysis()
+        payload = {
+            'tree': cfg.tree,
+            'directory_map': cfg.directory_map,
+            'files': cfg.files,
+            'directories': cfg.directories,
+            'ssl_certificates': cfg.ssl_certificates,
+            'access_logs': cfg.access_logs,
+            'error_logs': cfg.error_logs,
+            'errors': {
+                'parser': len(cfg.parser_errors),
+                'test': len(cfg.test_errors)
+            }
+        }
+        dump(None, payload)
     else:
         cfg.run_ssl_analysis()
         dump('Config tree', cfg.tree)
-        dump('Config index', cfg.index)
         dump('Config files', cfg.files)
         dump('Config directory map', cfg.directory_map)
         dump('SSL certificates', cfg.ssl_certificates)
-        dump('Stub/plus status', cfg.stub_status_urls, cfg.plus_status_external_urls, cfg.plus_status_internal_urls)
+        dump(
+            'Stub status/plus status/api urls',
+            cfg.stub_status_urls,
+            cfg.plus_status_external_urls,
+            cfg.plus_status_internal_urls,
+            cfg.api_external_urls,
+            cfg.api_internal_urls
+        )
         dump('Access logs', cfg.access_logs)
         dump('Error logs', cfg.error_logs)
         dump('Log formats', cfg.log_formats)

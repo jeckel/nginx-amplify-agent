@@ -1,45 +1,24 @@
 # -*- coding: utf-8 -*-
-import copy
 import fnmatch
 import glob
 import os
 import re
 import sys
 
+import crossplane
 import scandir
 
 from amplify.agent.common.context import context
-from crossplane.parser import parse as parse_file
-from crossplane.errors import NgxParserDirectiveError
-from crossplane.lexer import _iterescape
 
 __author__ = 'Arie van Luttikhuizen'
 __copyright__ = 'Copyright (C) Nginx, Inc. All rights reserved.'
+__license__ = ''
 __maintainer__ = 'Arie van Luttikhuizen'
 __email__ = 'arie@nginx.com'
 
+# these regular expressions are used for light-weight parsing
 INCLUDE_ONLY_RE = re.compile(r'(?:^|[;{}])\s*(include)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
 INCLUDE_CERT_RE = re.compile(r'(?:^|[;{}])\s*(include|ssl_certificate)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
-
-ARGDICT_DIRECTIVES = frozenset([
-    'log_format'
-])
-
-ALWAYS_PACK_DIRECTIVES = frozenset([
-    'include'
-])
-
-ALWAYS_PACK_BLOCKS = frozenset([
-    'server'
-])
-
-NEVER_PACK_DIRECTIVES = frozenset()
-
-NEVER_PACK_BLOCKS = frozenset([
-    'http',
-    'events',
-    'types'
-])
 
 IGNORED_DIRECTIVES = frozenset([
     'ssl_certificate_key',
@@ -50,18 +29,6 @@ IGNORED_DIRECTIVES = frozenset([
     'auth_basic_user_file',
     'secure_link_secret'
 ])
-
-
-def _is_always_packed(cmd, is_block=None):
-    if is_block is None:
-        return cmd in ALWAYS_PACK_BLOCKS or cmd in ALWAYS_PACK_DIRECTIVES
-    return cmd in (ALWAYS_PACK_BLOCKS if is_block else ALWAYS_PACK_DIRECTIVES)
-
-
-def _is_never_packed(cmd, is_block=None):
-    if is_block is None:
-        return cmd in NEVER_PACK_BLOCKS or cmd in NEVER_PACK_DIRECTIVES
-    return cmd in (NEVER_PACK_BLOCKS if is_block else NEVER_PACK_DIRECTIVES)
 
 
 def get_filesystem_info(path):
@@ -77,61 +44,6 @@ def get_filesystem_info(path):
         context.log.debug(message, exc_info=True)
     finally:
         return {'size': size, 'mtime': mtime, 'permissions': permissions}
-
-
-def _enquote(arg):
-    arg = str(arg.encode('utf-8'))
-    if not arg or any(char.isspace() for char in _iterescape(arg)):
-        return repr(arg).decode('string_escape')
-    else:
-        return arg
-
-
-def argstring(stmt):
-    if not stmt['args']:
-        return ''
-    elif stmt['directive'] in ARGDICT_DIRECTIVES:
-        return ''.join(x.encode('utf-8').decode('string_escape') for x in stmt['args'][1:])
-    else:
-        return ' '.join(map(_enquote, stmt['args']))
-
-
-def store_directive(block, stmt, value):
-    cmd = stmt['directive']
-    if cmd in ARGDICT_DIRECTIVES:
-        key = stmt['args'][0]
-        block.setdefault(cmd, {})[key] = value
-    elif 'block' in stmt and stmt['args']:
-        key = argstring(stmt)
-        block.setdefault(cmd, {})[key] = value
-    elif _is_always_packed(cmd, is_block='block' in stmt):
-        block.setdefault(cmd, []).append(value)
-    elif _is_never_packed(cmd, is_block='block' in stmt) or cmd not in block:
-        block[cmd] = value
-    elif isinstance(block[cmd], list):
-        block[cmd].append(value)
-    else:
-        block[cmd] = [block[cmd], value]
-
-
-def merge_blocks(a, b):
-    for cmd, value in b.iteritems():
-        if cmd in ARGDICT_DIRECTIVES:
-            a.setdefault(cmd, {}).update(value)
-        elif _is_always_packed(cmd):
-            a.setdefault(cmd, []).extend(value)
-        elif _is_never_packed(cmd) or cmd not in a:
-            a[cmd] = value
-        elif isinstance(a[cmd], dict) and isinstance(value, dict):
-            a[cmd].update(value)
-        elif isinstance(a[cmd], list) and isinstance(value, list):
-            a[cmd].extend(value)
-        elif isinstance(a[cmd], list):
-            a[cmd].append(value)
-        elif isinstance(value, list):
-            a[cmd] = [a[cmd]] + value
-        else:
-            a[cmd] = [a[cmd], value]
 
 
 def _fnmatch_pattern(names, pttn):
@@ -157,6 +69,11 @@ def _getline(filename, lineno):
 
 
 class NginxConfigParser(object):
+    """
+    Parser responsible for parsing the NGINX config and following all includes.
+    It is created on demand and discarded after use (to save system resources).
+    """
+
     def __init__(self, filename='/etc/nginx/nginx.conf'):
         self.filename = filename
         self.directory = self._dirname(filename)
@@ -166,18 +83,13 @@ class NginxConfigParser(object):
         self.directory_map = {}
 
         self.errors = []
-        self.broken_files = {}
-        self.broken_directories = {}
+        self._broken_files = {}
+        self._broken_directories = {}
 
-        self.index = []  # list of directive locations (file, lineno)
         self.tree = {}
 
         self.includes = []
         self.ssl_certificates = []
-
-        self._converted_cache = {}
-        self._parsed_cache = {}
-        self._file_order = {}
 
     def _abspath(self, path):
         if not os.path.isabs(path):
@@ -202,13 +114,13 @@ class NginxConfigParser(object):
         message = 'failed to %s %s due to: %s' % (what, path, exc_cls)
         self.errors.append(message)
         if is_dir:
-            self.broken_directories[path] = '%s: %s' % (exc_cls, exc_msg)
+            self._broken_directories[path] = '%s: %s' % (exc_cls, exc_msg)
             context.log.debug(message, exc_info=exc_info)
         else:
-            self.broken_files[path] = '%s: %s' % (exc_cls, exc_msg)
+            self._broken_files[path] = '%s: %s' % (exc_cls, exc_msg)
             context.log.error(message)
 
-            if isinstance(e, NgxParserDirectiveError):
+            if isinstance(e, crossplane.errors.NgxParserDirectiveError):
                 line = _getline(e.filename, e.lineno)
                 context.log.debug('line where error was raised: %r' % line)
 
@@ -229,19 +141,10 @@ class NginxConfigParser(object):
             self._add_directory(dirname, check=True)
             try:
                 info = get_filesystem_info(filename)
-                info['index'] = len(self.files)
                 info['lines'] = open(filename).read().count('\n')
                 self.files[filename] = info
             except Exception as e:
                 self._handle_error(filename, e, is_dir=False)
-
-        if filename in self.files:
-            return self.files[filename]['index']
-
-    def _add_index(self, filename, lineno):
-        file_index = self._add_file(filename)
-        self.index.append((file_index, lineno))
-        return len(self.index) - 1
 
     def _scan_path_pattern(self, pattern):
         """Similar to glob.iglob, except it saves directory errors"""
@@ -291,74 +194,29 @@ class NginxConfigParser(object):
                 for d in _fnmatch_pattern(dirs, parts[index]):
                     yield os.path.join(root, d) + '/'
 
-    def _convert(self, filename, ngx_ctx=None):
-        """
-        Convert a new style payload to the old 'dense' style payload
-        
-        :param filename: str - name of the file
-        :param ngx_ctx: dict - block from block directive to convert
-        :return: dict - the converted block payload
-        """
-        # pause for a bit if this is taking up too much cpu
-        context.check_and_limit_cpu_consumption()
-
-        if ngx_ctx is not None:
-            skip_cache = True  # because we're parsing a block context
-        elif filename in self._converted_cache:
-            cached = self._converted_cache[filename]
-            return copy.deepcopy(cached)
-        elif filename in self._parsed_cache:
-            ngx_ctx = self._parsed_cache[filename]
-            skip_cache = False  # because this is the top context for a file
-        else:
-            return {}  # this file must've been empty
-
-        block = {}
-
-        for stmt in ngx_ctx:
-            # ignore certain directives for security reasons
-            if stmt['directive'] in IGNORED_DIRECTIVES:
-                continue
-
-            # get the directive's value
-            if 'block' in stmt:
-                value = self._convert(filename, stmt['block'])
-            else:
-                value = argstring(stmt)
-
-            # ignore access/error log directives if they use nginx variables
-            if stmt['directive'] in ('access_log', 'error_log'):
-                if not value or ('$' in value and ' if=$' not in value):
-                    continue
-
-            # add the (file name, line number) tuple to self.index
-            index = self._add_index(filename, stmt['line'])
-
-            # add the (directive value, index index) tuple to the block
-            store_directive(block, stmt, (value, index))
-
+    def _collect_included_files_and_cert_dirs(self, block):
+        for stmt in block:
             if stmt['directive'] == 'include':
-                value = self._abspath(value)
-                if value not in self.includes:
-                    self.includes.append(value)
+                pattern = self._abspath(stmt['args'][0])
+                if pattern not in self.includes:
+                    self.includes.append(pattern)
 
-                # add the included directives to the current block
-                for index in stmt['includes']:
-                    fname = self._file_order[index]
-                    merge_blocks(block, self._convert(fname))
+                    # use found include patterns to check for os errors
+                    for filename in self._scan_path_pattern(pattern):
+                        self._add_file(filename)
 
-            elif stmt['directive'] == 'ssl_certificate' and value:
-                # skip if value uses nginx variables other than if
-                if value and ('$' not in value or ' if=$' in value):
-                    value = self._abspath(value)
-                    if value not in self.ssl_certificates:
-                        self.ssl_certificates.append(value)
+            elif stmt['directive'] == 'ssl_certificate':
+                cert = self._abspath(stmt['args'][0])
+                if stmt['args'][0] and ('$' not in cert or ' if=$' in cert):
 
-        # we cache converted junk by file, so skip if we just parsed a block
-        if not skip_cache:
-            self._converted_cache[filename] = copy.deepcopy(block)
+                    # add directories that only contain ssl cert files
+                    if cert not in self.ssl_certificates:
+                        self.ssl_certificates.append(cert)
+                        dirname = self._dirname(cert)
+                        self._add_directory(dirname, check=True)
 
-        return block
+            elif 'block' in stmt:
+                self._collect_included_files_and_cert_dirs(stmt['block'])
 
     def parse(self):
         # clear results from the previous run
@@ -366,90 +224,82 @@ class NginxConfigParser(object):
         self.directories = {}
 
         # clear some bits and pieces from previous run
-        self.broken_files = {}
-        self.broken_directories = {}
+        self._broken_files = {}
+        self._broken_directories = {}
         self.includes = []
         self.ssl_certificates = []
-        try:
-            # use the new parser to parse the nginx config
-            get_exc_info = lambda e: sys.exc_info()
-            payload = parse_file(self.filename, onerror=get_exc_info, catch_errors=True)
 
-            for error in payload['errors']:
-                path = error['file']
-                exc_info = error['callback']
-                try:
-                    # these error types are handled by this script already
-                    if not isinstance(exc_info[1], (OSError, IOError)):
-                        self._handle_error(path, exc_info[1], exc_info=exc_info, what='parse')
-                        self._add_file(path)
-                finally:
-                    # this speeds things up by deleting traceback, see python docs
-                    del exc_info
+        # use the new parser to parse the nginx config
+        self.tree = crossplane.parse(
+            filename=self.filename,
+            onerror=(lambda e: sys.exc_info()),
+            catch_errors=True,
+            ignore=IGNORED_DIRECTIVES
+        )
 
-            for index, config in enumerate(payload['config']):
-                path = config['file']
-                self._file_order[index] = path
-                if config['parsed']:
-                    self._parsed_cache[path] = config['parsed']
+        for error in self.tree['errors']:
+            path = error['file']
+            exc_info = error.pop('callback')
+            try:
+                # these error types are handled by this script already
+                if not isinstance(exc_info[1], (OSError, IOError)):
+                    self._handle_error(path, exc_info[1], exc_info=exc_info, what='parse')
                     self._add_file(path)
+            finally:
+                # this speeds things up by deleting traceback, see python docs
+                del exc_info
 
-            # convert the parsed payload into our dense payload structure
-            self._add_file(self.filename)
-            self.tree = self._convert(self.filename)
+        # for every file in parsed payload, search for files/directories to add
+        for config in self.tree['config']:
+            if config['parsed']:
+                self._add_file(config['file'])
+                self._collect_included_files_and_cert_dirs(config['parsed'])
 
-            # use found include patterns to check for os errors
-            for pattern in self.includes:
-                for filename in self._scan_path_pattern(pattern):
-                    self._add_file(filename)
+        # construct directory_map
+        for dirname, info in self.directories.iteritems():
+            self.directory_map[dirname] = {'info': info, 'files': {}}
 
-            # add directories that only contain ssl cert files
-            for cert in self.ssl_certificates:
-                dirname = self._dirname(cert)
-                self._add_directory(dirname, check=True)
+        for dirname, error in self._broken_directories.iteritems():
+            self.directory_map.setdefault(dirname, {'info': {}, 'files': {}})
+            self.directory_map[dirname]['error'] = error
 
-            # construct self.directory_map
-            dirmap = self.directory_map
+        for filename, info in self.files.iteritems():
+            dirname = self._dirname(filename)
+            self.directory_map[dirname]['files'][filename] = {'info': info}
 
-            # start with directories
-            for dirname, info in self.directories.iteritems():
-                dirmap[dirname] = {'info': info, 'files': {}}
-
-            for dirname, error in self.broken_directories.iteritems():
-                dirmap.setdefault(dirname, {'info': {}, 'files': {}})
-                dirmap[dirname]['error'] = error
-
-            # then do files
-            for filename, info in self.files.iteritems():
-                dirname = self._dirname(filename)
-                dirmap[dirname]['files'][filename] = {'info': info}
-
-            for filename, error in self.broken_files.iteritems():
-                dirname = self._dirname(filename)
-                dirmap[dirname]['files'].setdefault(filename, {'info': {}})
-                dirmap[dirname]['files'][filename]['error'] = error
-        finally:
-            # clear the converted and parsed caches
-            self._converted_cache = {}
-            self._parsed_cache = {}
-            self._file_order = {}
+        for filename, error in self._broken_files.iteritems():
+            dirname = self._dirname(filename)
+            self.directory_map[dirname]['files'].setdefault(filename, {'info': {}})
+            self.directory_map[dirname]['files'][filename]['error'] = error
 
     def simplify(self):
         """
-        Returns self.tree without the "self.index index" tuples
-
-        :return: dict - self.tree without index positions
+        This will return one giant list that uses all of the includes logic
+        to compile one large nginx context (similar to parsing nginx -T).
+        It's very useful for post-analysis and testing.
         """
-        def _simplify(tree):
-            if isinstance(tree, dict):
-                return dict((k, _simplify(v)) for k, v in tree.iteritems())
-            elif isinstance(tree, list):
-                return map(_simplify, tree)
-            elif isinstance(tree, tuple):
-                return _simplify(tree[0])
-            return tree
+        def simplify_block(block):
+            for stmt in block:
+                # ignore comments
+                if 'comment' in stmt:
+                    continue
 
-        return _simplify(self.tree)
+                # recurse deeper into block contexts
+                if 'block' in stmt:
+                    ctx = simplify_block(stmt['block'])
+                    stmt = dict(stmt, block=list(ctx))
+
+                yield stmt
+
+                # do yield from contexts included from other files
+                if stmt['directive'] == 'include':
+                    for index in stmt['includes']:
+                        incl_block = self.tree['config'][index]['parsed']
+                        for incl_stmt in simplify_block(incl_block):
+                            yield incl_stmt
+
+        main_ctx = simplify_block(self.tree['config'][0]['parsed'])
+        return list(main_ctx)
 
     def get_structure(self, include_ssl_certs=False):
         """

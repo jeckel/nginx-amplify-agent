@@ -40,8 +40,8 @@ class NginxManagerTestCase(RealNginxTestCase):
         return master, workers
 
     def test_find_all(self):
-        container = NginxManager()
-        nginxes = container._find_all()
+        manager = NginxManager()
+        nginxes = manager._find_all()
         assert_that(nginxes, has_length(1))
 
         definition, data = nginxes.pop(0)
@@ -57,19 +57,19 @@ class NginxManagerTestCase(RealNginxTestCase):
     def test_restart(self):
         old_master, old_workers = self.get_master_workers()
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, equal_to(old_master))
         assert_that(obj.workers, equal_to(old_workers))
 
         self.restart_nginx()
         new_master, new_workers = self.get_master_workers()
 
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, not_(equal_to(old_master)))
         assert_that(obj.pid, equal_to(new_master))
         assert_that(obj.workers, not_(equal_to(old_workers)))
@@ -78,10 +78,10 @@ class NginxManagerTestCase(RealNginxTestCase):
     def test_reload(self):
         old_master, old_workers = self.get_master_workers()
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
 
         # The following assertion is unreliable for some reason.
         assert_that(obj.pid, equal_to(old_master))
@@ -93,23 +93,23 @@ class NginxManagerTestCase(RealNginxTestCase):
         new_master, new_workers = self.get_master_workers()
         assert_that(new_master, equal_to(old_master))
 
-        container._discover_objects()
-        obj = container.objects.find_all(types=container.types)[0]
+        manager._discover_objects()
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, equal_to(old_master))
         assert_that(obj.workers, not_(equal_to(old_workers)))
         assert_that(obj.workers, equal_to(new_workers))
 
     def test_two_instances(self):
-        container = NginxManager()
-        container._discover_objects()
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        obj = manager.objects.find_all(types=manager.types)[0]
 
         self.start_second_nginx()
 
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(2))
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(2))
 
-        local_ids = map(lambda x: x.local_id, container.objects.find_all(types=container.types))
+        local_ids = map(lambda x: x.local_id, manager.objects.find_all(types=manager.types))
         assert_that(local_ids, has_item(obj.local_id))
 
     def test_find_none(self):
@@ -120,8 +120,8 @@ class NginxManagerTestCase(RealNginxTestCase):
         # Setup dummy object
         context.objects.register(DummyRootObject())
 
-        container = NginxManager()
-        nginxes = container._find_all()
+        manager = NginxManager()
+        nginxes = manager._find_all()
         assert_that(nginxes, has_length(0))
 
         root_object = context.objects.root_object
@@ -138,10 +138,10 @@ class DockerNginxManagerTestCase(NginxManagerTestCase):
     def test_restart(self):
         old_master, old_workers = self.get_master_workers()
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, equal_to(old_master))
         assert_that(obj.workers, equal_to(old_workers))
         assert_that(obj.type, equal_to('container_nginx'))
@@ -149,9 +149,9 @@ class DockerNginxManagerTestCase(NginxManagerTestCase):
         self.restart_nginx()
         new_master, new_workers = self.get_master_workers()
 
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, not_(equal_to(old_master)))
         assert_that(obj.pid, equal_to(new_master))
         assert_that(obj.workers, not_(equal_to(old_workers)))
@@ -161,10 +161,10 @@ class DockerNginxManagerTestCase(NginxManagerTestCase):
     def test_reload(self):
         old_master, old_workers = self.get_master_workers()
 
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         # The following assertion is unreliable for some reason.
         assert_that(obj.pid, equal_to(old_master))
         assert_that(obj.workers, equal_to(old_workers))
@@ -176,26 +176,26 @@ class DockerNginxManagerTestCase(NginxManagerTestCase):
         new_master, new_workers = self.get_master_workers()
         assert_that(new_master, equal_to(old_master))
 
-        container._discover_objects()
-        obj = container.objects.find_all(types=container.types)[0]
+        manager._discover_objects()
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.pid, equal_to(old_master))
         assert_that(obj.workers, not_(equal_to(old_workers)))
         assert_that(obj.workers, equal_to(new_workers))
         assert_that(obj.type, equal_to('container_nginx'))
 
     def test_two_instances(self):
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(1))
-        obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(1))
+        obj = manager.objects.find_all(types=manager.types)[0]
         assert_that(obj.type, equal_to('container_nginx'))
 
         self.start_second_nginx()
 
-        container._discover_objects()
-        assert_that(container.objects.find_all(types=container.types), has_length(2))
+        manager._discover_objects()
+        assert_that(manager.objects.find_all(types=manager.types), has_length(2))
 
-        local_ids = map(lambda x: x.local_id, container.objects.find_all(types=container.types))
+        local_ids = map(lambda x: x.local_id, manager.objects.find_all(types=manager.types))
         assert_that(local_ids, has_item(obj.local_id))
 
 

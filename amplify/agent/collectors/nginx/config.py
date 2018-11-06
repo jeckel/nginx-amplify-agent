@@ -132,8 +132,6 @@ class NginxConfigCollector(AbstractCollector):
 
     def upload(self, config, checksum):
         payload = {
-            'root': config.filename,
-            'index': config.index,
             'tree': config.tree,
             'directory_map': config.directory_map,
             'files': config.files,

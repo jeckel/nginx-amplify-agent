@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from amplify.agent.common.context import context
 from amplify.agent.common.util.host import hostname
-from amplify.ext.abstract.object import AbstractObject
+from amplify.ext.abstract.object import AbstractExtObject
 from amplify.ext.mysql.collectors.meta import MySQLMetaCollector
 from amplify.ext.mysql.collectors.metrics import MySQLMetricsCollector
 
@@ -12,7 +12,7 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
-class MySQLObject(AbstractObject):
+class MySQLObject(AbstractExtObject):
     type = 'mysql'
 
     def __init__(self, **kwargs):

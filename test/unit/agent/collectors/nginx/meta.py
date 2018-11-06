@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from hamcrest import *
 
-from amplify.agent.collectors.nginx.meta import NginxMetaCollector
+from amplify.agent.collectors.nginx.meta import NginxMetaCollector, CentosNginxMetaCollector, FreebsdNginxMetaCollector, DebianNginxMetaCollector
 from amplify.agent.managers.nginx import NginxManager
 from amplify.agent.objects.nginx.binary import _parse_arguments
-from test.base import NginxCollectorTestCase, RealNginxTestCase, container_test
+from test.base import NginxCollectorTestCase, RealNginxTestCase, container_test, TestWithFakeSubpCall
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -87,12 +87,17 @@ class MetaParsersTestCase(NginxCollectorTestCase):
             '/opt/build/nginx/modules/nginx-headers-more'
         ))
 
-class NginxMetaCollectorTestCase(RealNginxTestCase):
+
+class NginxMetaCollectorTestCase(RealNginxTestCase, TestWithFakeSubpCall):
+
+    meta_collector_class = NginxMetaCollector
+    from_source_subp_result = ([''], ['dpkg-query: no path found matching pattern /usr/sbin/nginx', ''])
+    from_package_subp_result = (['nginx-core: /usr/sbin/nginx', ''], [''])
 
     def test_collect_meta(self):
-        container = NginxManager()
-        container._discover_objects()
-        nginx_obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        nginx_obj = manager.objects.find_all(types=manager.types)[0]
 
         collector = NginxMetaCollector(object=nginx_obj, interval=nginx_obj.intervals['meta'])
         assert_that(not_(collector.in_container))
@@ -106,10 +111,9 @@ class NginxMetaCollectorTestCase(RealNginxTestCase):
 
     @container_test
     def test_collect_meta_in_container(self):
-
-        container = NginxManager()
-        container._discover_objects()
-        nginx_obj = container.objects.find_all(types=container.types)[0]
+        manager = NginxManager()
+        manager._discover_objects()
+        nginx_obj = manager.objects.find_all(types=manager.types)[0]
 
         collector = NginxMetaCollector(object=nginx_obj, interval=nginx_obj.intervals['meta'])
         assert_that(collector.in_container)
@@ -120,3 +124,94 @@ class NginxMetaCollectorTestCase(RealNginxTestCase):
             'stub_status_url', 'plus_status_url', 'version', 'plus', 'configure', 'packages', 'path',
             'built_from_source', 'parent_hostname', 'display_name'
         ))
+
+    def test_find_packages_nginx_from_source(self):
+        manager = NginxManager()
+        manager._discover_objects()
+        nginx_obj = manager.objects.find_all(types=manager.types)[0]
+
+        collector = self.meta_collector_class(object=nginx_obj, interval=nginx_obj.intervals['meta'])
+        collector.meta = collector.default_meta
+        self.push_subp_result(
+            stdout_lines=self.from_source_subp_result[0],
+            stderr_lines=self.from_source_subp_result[1]
+        )
+        collector.find_packages()
+
+        assert_that(collector.meta['packages'], equal_to({}))
+        assert_that(collector.meta['built_from_source'], equal_to(True))
+
+    def test_find_packages_nginx_from_package(self):
+        manager = NginxManager()
+        manager._discover_objects()
+        nginx_obj = manager.objects.find_all(types=manager.types)[0]
+
+        collector = self.meta_collector_class(object=nginx_obj, interval=nginx_obj.intervals['meta'])
+        collector.meta = collector.default_meta
+
+        self.push_subp_result(
+            stdout_lines=[
+                'ii  nginx          1.4.6-1ubuntu3.8   all     small, powerful, scalable web/proxy server',
+                'ii  nginx-common   1.4.6-1ubuntu3.8   all     small, powerful, scalable web/proxy server - common files',
+                'ii  nginx-core     1.4.6-1ubuntu3.8   amd64   nginx web/proxy server (core version)',
+                ''
+            ]
+        )
+
+        self.push_subp_result(
+            stdout_lines=self.from_package_subp_result[0],
+            stderr_lines=self.from_package_subp_result[1]
+        )
+
+        collector.find_packages()
+
+        assert_that(collector.meta['packages'], has_key('nginx-core'))
+        assert_that(collector.meta['built_from_source'], equal_to(False))
+
+
+class CentosNginxMetaCollectorTestCase(NginxMetaCollectorTestCase):
+
+    meta_collector_class = CentosNginxMetaCollector
+    from_source_subp_result = (['file /usr/local/nginx/sbin/nginx is not owned by any package', ''], [''])
+    from_package_subp_result = (['nginx-core 1.4.6-1', ''], [''])
+
+    def test_find_packages_nginx_from_source(self):
+        manager = NginxManager()
+        manager._discover_objects()
+        nginx_obj = manager.objects.find_all(types=manager.types)[0]
+
+        collector = CentosNginxMetaCollector(object=nginx_obj, interval=nginx_obj.intervals['meta'])
+        collector.meta = collector.default_meta
+
+        #stdout
+        self.push_subp_result(
+            stdout_lines=self.from_source_subp_result[0],
+            stderr_lines=self.from_source_subp_result[1]
+        )
+        collector.find_packages()
+
+        assert_that(collector.meta['packages'], equal_to({}))
+        assert_that(collector.meta['built_from_source'], equal_to(True))
+
+        collector.meta = collector.default_meta
+
+        #stderr - seems like some Centos / RPM versions do this, AMPDEV-1995
+        self.push_subp_result(
+            stdout_lines=self.from_source_subp_result[1],
+            stderr_lines=self.from_source_subp_result[0]
+        )
+        collector.find_packages()
+        assert_that(collector.meta['packages'], equal_to({}))
+        assert_that(collector.meta['built_from_source'], equal_to(True))
+
+
+class FreebsdNginxMetaCollectorTestCase(NginxMetaCollectorTestCase):
+
+    meta_collector_class = FreebsdNginxMetaCollector
+    from_source_subp_result = (['/usr/local/bin/nginx was not found in the database', ''], [''])
+    from_package_subp_result = (['/usr/local/bin/nginx was installed by package nginx-core-1.4.6_1', ''], [''])
+
+
+class DebianNginxMetaCollectorTestCase(NginxMetaCollectorTestCase):
+
+    meta_collector_class = DebianNginxMetaCollector

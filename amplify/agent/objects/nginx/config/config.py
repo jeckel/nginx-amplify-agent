@@ -6,11 +6,14 @@ import re
 import time
 import rstr
 
+from crossplane.lexer import _iterescape
+
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
 from amplify.agent.common.util.glib import glib
 from amplify.agent.common.util.ssl import ssl_analysis
 from amplify.agent.objects.nginx.config.parser import NginxConfigParser, get_filesystem_info
+from amplify.agent.objects.nginx.binary import nginx_v
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -31,10 +34,17 @@ ERROR_LOG_LEVELS = (
 )
 
 
+def _enquote(arg):
+    arg = str(arg.encode('utf-8'))
+    if not arg or any(char.isspace() for char in _iterescape(arg)):
+        return repr(arg).decode('string_escape')
+    else:
+        return arg
+
+
 class NginxConfig(object):
     """
-    Nginx config representation
-    Parses configs with all includes, etc
+    Nginx config representation **for a running NGINX instance**
 
     Main tasks:
     - find all log formats
@@ -55,8 +65,7 @@ class NginxConfig(object):
         self.files = {}
         self.directories = {}
         self.directory_map = {}
-        self.index = []
-        self.subtree = {}
+        self.subtree = []
         self.ssl_certificates = {}
         self.parser_ssl_certificates = []
         self.parser_errors = []
@@ -88,6 +97,8 @@ class NginxConfig(object):
             self._setup_parser()  # Re-init parser to discard partial data (if any)
 
         # Post-handling
+        # try to add logs from nginx -V configure options
+        self.add_configured_variable_logs()
 
         # try to locate and use default logs (PREFIX/logs/*)
         self.add_default_logs()
@@ -111,7 +122,6 @@ class NginxConfig(object):
         self.files = self.parser.files
         self.directories = self.parser.directories
         self.directory_map = self.parser.directory_map
-        self.index = self.parser.index
         self.subtree = self.parser.simplify()
         self.parser_ssl_certificates = self.parser.ssl_certificates
         self.parser_errors = self.parser.errors
@@ -120,7 +130,7 @@ class NginxConfig(object):
         self._teardown_parser()
 
         # go through and collect all logical data
-        self.__collect_data(subtree=self.subtree)
+        self._collect_data(self.subtree)
 
     def collect_structure(self, include_ssl_certs=False):
         """
@@ -149,134 +159,128 @@ class NginxConfig(object):
         """
         return sum(data['size'] for data in self.files.itervalues())
 
-    def __collect_data(self, subtree=None, ctx=None):
+    def _collect_data(self, block, ctx=None):
         """
         Searches needed data in config's tree
 
-        :param subtree: dict with tree to parse
+        :param block: list of statement dicts to parse
         :param ctx: dict with context
         """
         ctx = ctx if ctx is not None else {}
-        subtree = subtree if subtree is not None else {}
 
-        for key, value in subtree.iteritems():
-            if key == 'error_log':
-                error_logs = value if isinstance(value, list) else [value]
-                for er_log_definition in error_logs:
-                    if er_log_definition == 'off':
-                        continue
+        def usable_log_args(args):
+            is_disabled = not args or args[0] == 'off'
+            uses_variable = any('$' in arg for arg in args if not arg.startswith('if='))
+            return not is_disabled and not uses_variable
 
-                    split_er_log_definition = er_log_definition.split(' ')
-                    log_name = split_er_log_definition[0]
-                    log_level = split_er_log_definition[-1] \
-                        if split_er_log_definition[-1] in ERROR_LOG_LEVELS else 'error'  # nginx default log level
-                    log_name = re.sub('[\'"]', '', log_name)  # remove all ' and "
+        for stmt in block:
+            directive = stmt['directive']
+            args = stmt['args']
 
-                    # if not syslog, assume it is a file...if not starts with '/' assume relative path
-                    if not log_name.startswith('syslog') and not log_name.startswith('/'):
-                        log_name = '%s/%s' % (self.prefix, log_name)
+            if directive == 'error_log' and usable_log_args(args):
+                path = args[0].replace('"', '').replace("'", '')
+                # if not syslog, assume it is a file...if not starts with '/' assume relative path
+                if not path.startswith('syslog') and not path.startswith('/'):
+                    path = os.path.join(self.prefix, path)
 
-                    if log_name not in self.error_logs:
-                        self.error_logs[log_name] = {'log_level': log_level}
+                if path not in self.error_logs:
+                    if len(args) > 1 and args[1] in ERROR_LOG_LEVELS:
+                        self.error_logs[path] = {'log_level': args[1]}
+                    else:
+                        self.error_logs[path] = {'log_level': 'error'}  # nginx default log level
 
-            elif key == 'access_log':
-                access_logs = value if isinstance(value, list) else [value]
-                for ac_log_definition in access_logs:
-                    if ac_log_definition == 'off':
-                        continue
+            elif directive == 'access_log' and usable_log_args(args):
+                path = args[0].replace('"', '').replace("'", '')
+                # if not syslog, assume it is a file...if not starts with '/' assume relative path
+                if not path.startswith('syslog') and not path.startswith('/'):
+                    path = os.path.join(self.prefix, path)
 
-                    parts = filter(len, ac_log_definition.split(' '))
-                    log_format = None if len(parts) == 1 else parts[1]
-                    log_name = parts[0]
-                    log_name = re.sub('[\'"]', '', log_name)  # remove all ' and "
+                format = args[1] if len(args) > 1 else None
+                self.access_logs[path] = {'log_format': format}
 
-                    # if not syslog, assume it is a file...if not starts with '/' assume relative path
-                    if not log_name.startswith('syslog') and not log_name.startswith('/'):
-                        log_name = '%s/%s' % (self.prefix, log_name)
+            elif directive == 'log_format':
+                name, strings = args[0], args[1:]
+                # disregard the (optional) escape parameter
+                # if len(args) > 2 and args[1].startswith('escape='):
+                #     strings = strings.pop(0)
+                self.log_formats[name] = ''.join(
+                    x.encode('utf-8').decode('string_escape') for x in strings
+                )
 
-                    self.access_logs[log_name] = {'log_format': log_format}
+            elif directive == 'server' and 'upstream' not in ctx:
+                listens = []
+                for inner_stmt in stmt['block']:
+                    if inner_stmt['directive'] == 'listen':
+                        listens.append(inner_stmt['args'][0])
 
-            elif key == 'log_format':
-                for k, v in value.iteritems():
-                    self.log_formats[k] = v
+                if not listens:
+                    listens += ['80', '8000']
 
-            elif key == 'server' and isinstance(value, list) and 'upstream' not in ctx:
-                for server in value:
-                    listen = server.get('listen')
-                    if listen is None:
-                        listen = ['80', '8000']
-                    elif not isinstance(listen, list):
-                        listen = [listen]
+                ip_port = []
+                for listen in listens:
+                    try:
+                        ip_port.append(self._parse_listen(listen))
+                    except:
+                        context.log.error('failed to parse bad ipv6 listen directive: %s' % listen)
+                        context.log.debug('additional info:', exc_info=True)
 
-                    ip_port = []
-                    for item in listen:
-                        listen_first_part = item.split(' ')[0]
-                        try:
-                            addr, port = self.__parse_listen(listen_first_part)
-                            if addr in ('*', '0.0.0.0'):
-                                addr = '127.0.0.1'
-                            elif addr == '[::]':
-                                addr = '[::1]'
-                            ip_port.append((addr, port))
-                        except:
-                            context.log.error('failed to parse bad ipv6 listen directive: %s' % listen_first_part)
-                            context.log.debug('additional info:', exc_info=True)
+                server_ctx = dict(ctx, ip_port=ip_port)
+                for inner_stmt in stmt['block']:
+                    if inner_stmt['directive'] == 'server_name':
+                        server_ctx['server_name'] = inner_stmt['args'][0]
+                        break
 
-                    server_ctx = dict(ctx, ip_port=ip_port)
-                    if 'server_name' in server:
-                        server_ctx['server_name'] = server.get('server_name')
+                for inner_stmt in stmt['block']:
+                    if inner_stmt['directive'] == 'listen':
+                        server_ctx['server_schema'] = 'https' if 'ssl' in inner_stmt['args'] else 'http'
+                        break
 
-                    self.__collect_data(subtree=server, ctx=server_ctx)
+                self._collect_data(stmt['block'], ctx=server_ctx)
 
-            elif key == 'upstream':
-                for upstream, upstream_info in value.iteritems():
-                    upstream_ctx = dict(ctx, upstream=upstream)
-                    self.__collect_data(subtree=upstream_info, ctx=upstream_ctx)
+            elif directive == 'upstream':
+                upstream = args[0]
+                upstream_ctx = dict(ctx, upstream=upstream)
+                self._collect_data(stmt['block'], ctx=upstream_ctx)
 
-            elif key == 'location':
-                for location, location_info in value.iteritems():
-                    location_ctx = dict(ctx, location=location)
-                    self.__collect_data(subtree=location_info, ctx=location_ctx)
+            elif directive == 'location':
+                location = ' '.join(map(_enquote, args))
+                location_ctx = dict(ctx, location=location)
+                self._collect_data(stmt['block'], ctx=location_ctx)
 
-            elif key == 'stub_status' and ctx and 'ip_port' in ctx:
-                for url in self.__status_url(ctx):
+            elif directive == 'stub_status' and 'ip_port' in ctx:
+                for url in self._status_url(ctx):
                     if url not in self.stub_status_urls:
                         self.stub_status_urls.append(url)
 
-            elif key == 'status' and ctx and 'ip_port' in ctx:
+            elif directive == 'status' and 'ip_port' in ctx:
                 # use different url builders for external and internal urls
-                for url in self.__status_url(ctx, server_preferred=True):
+                for url in self._status_url(ctx, server_preferred=True):
                     if url not in self.plus_status_external_urls:
                         self.plus_status_external_urls.append(url)
 
                 # for internal (agent) usage local ip address is a better choice,
                 # because the external url might not be accessible from a host
-                for url in self.__status_url(ctx, server_preferred=False):
+                for url in self._status_url(ctx, server_preferred=False):
                     if url not in self.plus_status_internal_urls:
                         self.plus_status_internal_urls.append(url)
 
-            elif key == 'api' and ctx and 'ip_port' in ctx:
+            elif directive == 'api' and 'ip_port' in ctx:
                 # use different url builders for external and internal urls
-                for url in self.__status_url(ctx, server_preferred=True):
-                    if url not in self.plus_status_external_urls:
+                for url in self._status_url(ctx, server_preferred=True):
+                    if url not in self.api_external_urls:
                         self.api_external_urls.append(url)
 
                 # for internal (agent) usage local ip address is a better choice,
                 # because the external url might not be accessible from a host
-                for url in self.__status_url(ctx, server_preferred=False):
-                    if url not in self.plus_status_internal_urls:
+                for url in self._status_url(ctx, server_preferred=False):
+                    if url not in self.api_internal_urls:
                         self.api_internal_urls.append(url)
 
-            elif isinstance(value, dict):
-                self.__collect_data(subtree=value, ctx=ctx)
-
-            elif isinstance(value, list):
-                for next_subtree in value:
-                    if isinstance(next_subtree, dict):
-                        self.__collect_data(subtree=next_subtree, ctx=ctx)
+            elif 'block' in stmt:
+                self._collect_data(stmt['block'], ctx=ctx)
 
     @staticmethod
-    def __status_url(ctx, server_preferred=False):
+    def _status_url(ctx, server_preferred=False):
         """
         Creates stub/plus status url based on context
 
@@ -284,7 +288,6 @@ class NginxConfig(object):
         :param server_preferred: bool - use server_name instead of listen
         :return: [] of urls
         """
-        results = []
         location = ctx.get('location', '/')
 
         # remove all modifiers
@@ -314,14 +317,13 @@ class NginxConfig(object):
             for ip_port in ctx.get('ip_port'):
                 address, port = ip_port
                 if server_preferred and 'server_name' in ctx:
-                    if isinstance(ctx['server_name'], list):
-                        address = ctx['server_name'][0].split(' ')[0]
-                    else:
-                        address = ctx['server_name'].split(' ')[0]
+                    address = ctx['server_name']
 
-                results.append('%s:%s%s' % (address, port, exact_location))
+                schema = 'http'
+                if 'server_schema' in ctx:
+                    schema = ctx['server_schema']
 
-        return results
+                yield '%s://%s:%s%s' % (schema, address, port, exact_location)
 
     def run_test(self):
         """
@@ -361,7 +363,7 @@ class NginxConfig(object):
             checksums.append(hashlib.sha256(open(cert).read()).hexdigest())
         return hashlib.sha256('.'.join(checksums)).hexdigest()
 
-    def __parse_listen(self, listen):
+    def _parse_listen(self, listen):
         """
         Parses listen directive value and return ip:port string, like *:80 and so on
 
@@ -370,30 +372,50 @@ class NginxConfig(object):
         """
         if '[' in listen:
             # ipv6
-            addr_port_parts = filter(len, listen.rsplit(']', 1))
-            address = '%s]' % addr_port_parts[0]
-
-            if len(addr_port_parts) == 1:  # only address specified, add default 80
-                return address, '80'
-            else:  # get port
-                bracket, port = addr_port_parts[1].split(':')
-                return address, port
+            parts = filter(len, listen.rsplit(']', 1))
+            address = '%s]' % parts[0]
+            port = '80' if len(parts) == 1 else parts[1].split(':')[1]
         else:
             # ipv4
-            addr_port_parts = filter(len, listen.rsplit(':', 1))
-
-            if len(addr_port_parts) == 1:
-                # can be address or port only
-                is_port = addr_port_parts[0].isdigit()
-                if is_port:  # port!
-                    port = addr_port_parts[0]
-                    return '*', port
-                else:  # it was address only, add default 80
-                    address = addr_port_parts[0]
-                    return address, '80'
+            parts = filter(len, listen.rsplit(':', 1))
+            if len(parts) == 1 and parts[0].isdigit():
+                address, port = '*', parts[0]
+            elif len(parts) == 1:
+                address, port = parts[0], '80'
             else:
-                address, port = addr_port_parts
-                return address, port
+                address, port = parts
+
+        # standardize address
+        if address in ('*', '0.0.0.0'):
+            address = '127.0.0.1'
+        elif address == '[::]':
+            address = '[::1]'
+
+        return address, port
+
+    def add_configured_variable_logs(self):
+        """
+        Get logs configured through nginx -V options and try to find access and error logs
+        This happens only if nginx access and error logs are not configured in nginx.conf
+        """
+        if self.binary is not None and (len(self.access_logs) < 1 or len(self.error_logs) < 1):
+            try:
+                v_options = nginx_v(self.binary)
+                configure = v_options['configure']
+                # adding access or error logs from options only if they are empty
+                if len(self.access_logs) < 1:
+                    access_log_path = configure.get('http-log-path')
+                    if os.path.isfile(access_log_path) and access_log_path is not None:
+                        self.access_logs[access_log_path] = {'log_format': None}
+                if len(self.error_logs) < 1:
+                    error_log_path = configure.get('error-log-path')
+                    if os.path.isfile(error_log_path) and error_log_path is not None:
+                        self.error_logs[error_log_path] = {'log_level': 'error'}
+            except Exception as e:
+                exception_name = e.__class__.__name__
+                context.log.error('failed to get configured variables from %s -V due to %s' % (self.binary, exception_name))
+                context.log.debug('additional info:', exc_info=True)
+
 
     def add_default_logs(self):
         """

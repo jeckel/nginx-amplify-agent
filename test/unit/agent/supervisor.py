@@ -22,11 +22,11 @@ class SupervisorTestCase(RealNginxTestCase):
 
     def setup_method(self, method):
         super(SupervisorTestCase, self).setup_method(method)
-        self.old_cloud_config = deepcopy(context.app_config.config)
+        self.old_cloud_config = deepcopy(context.app_config.get_config(0).config)
         self.old_backpressure_time = context.backpressure_time
 
     def teardown_method(self, method):
-        context.app_config.config = self.old_cloud_config
+        context.app_config.get_config(0).config = deepcopy(self.old_cloud_config)
         context.backpressure_time = self.old_backpressure_time
         super(SupervisorTestCase, self).teardown_method(method)
 
@@ -367,7 +367,7 @@ class SupervisorTestCase(RealNginxTestCase):
 
         # check that agent config was changed
         assert_that(context.app_config.config, not_(equal_to(self.old_cloud_config)))
-        self.old_cloud_config = deepcopy(context.app_config.config)
+        old_cloud_config = deepcopy(context.app_config.config)
 
         # check that object configs were also changed (because filters were pushed)
         nginx_manager = supervisor.object_managers['nginx']
@@ -399,7 +399,7 @@ class SupervisorTestCase(RealNginxTestCase):
             object_manager._discover_objects()
 
         # check that agent config was not changed
-        assert_that(context.app_config.config, equal_to(self.old_cloud_config))
+        assert_that(context.app_config.config, equal_to(old_cloud_config))
 
         # check that object configs were not changed
         nginx_manager = supervisor.object_managers['nginx']
@@ -461,9 +461,12 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(7))
 
+        # check indexed configs
+        assert_that(context.app_config._configs, has_length(2))
+
     def test_dont_load_missing_ext_managers(self):
-        old = context.app_config.config['extensions']
-        context.app_config.config['extensions'] = {}
+        old = context.app_config['extensions']
+        context.app_config['extensions'] = {}
 
         supervisor = Supervisor()
         assert_that(supervisor.object_managers, has_length(0))
@@ -476,11 +479,11 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # non loaded
 
-        context.app_config.config['extensions'] = old
+        context.app_config['extensions'] = old
 
     def test_dont_load_false_ext_managers(self):
-        old = context.app_config.config['extensions']
-        context.app_config.config['extensions'] = dict(phpfpm=False)
+        old = context.app_config['extensions']
+        context.app_config['extensions'] = dict(phpfpm=False)
 
         supervisor = Supervisor()
         assert_that(supervisor.object_managers, has_length(0))
@@ -493,11 +496,11 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # none loaded
 
-        context.app_config.config['extensions'] = old
+        context.app_config['extensions'] = old
 
     def test_dont_load_string_false_ext_managers(self):
-        old = context.app_config.config['extensions']
-        context.app_config.config['extensions'] = dict(phpfpm='False')
+        old = context.app_config['extensions']
+        context.app_config['extensions'] = dict(phpfpm='False')
 
         supervisor = Supervisor()
         assert_that(supervisor.object_managers, has_length(0))
@@ -510,7 +513,7 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # none loaded
 
-        context.app_config.config['extensions'] = old
+        context.app_config['extensions'] = old
 
     def test_freeze_api_url_true(self):
         context.freeze_api_url = True
@@ -518,7 +521,7 @@ class SupervisorTestCase(RealNginxTestCase):
         with requests_mock.mock() as m:
             m.post(
                 '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
-                text='{"config": {"cloud": {"talk_interval": 120.0, "api_url": "https://receiver.amplify.nginx.com:443/1.3", "push_interval": 60.0, "api_timeout": 10.0}, "containers": {"plus": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}, "nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 60.0, "logs": 10.0, "discover": 10.0}}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}}}, "objects": [{"object": {"type": "nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config": {"upload_ssl": true}, "filters": [{"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]}]}], "messages": [], "versions": {"current": 0.41, "old": 0.26, "obsolete": 0.21}}'
+                text='{"config": {"cloud": {"talk_interval": 120.0, "api_url": "https://receiver.amplify.nginx.com:443/1.4", "push_interval": 60.0, "api_timeout": 10.0}, "containers": {"plus": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}, "nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 60.0, "logs": 10.0, "discover": 10.0}}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}}}, "objects": [{"object": {"type": "nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config": {"upload_ssl": true}, "filters": [{"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]}]}], "messages": [], "versions": {"current": 0.41, "old": 0.26, "obsolete": 0.21}}'
             )
             # check that talking to cloud changes the api_url
             assert_that(context.app_config['cloud']['api_url'], equal_to(DEFAULT_API_URL))
@@ -531,9 +534,9 @@ class SupervisorTestCase(RealNginxTestCase):
         with requests_mock.mock() as m:
             m.post(
                 '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
-                text='{"config": {"cloud": {"talk_interval": 120.0, "api_url": "https://receiver.amplify.nginx.com:443/1.3", "push_interval": 60.0, "api_timeout": 10.0}, "containers": {"plus": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}, "nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 60.0, "logs": 10.0, "discover": 10.0}}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}}}, "objects": [{"object": {"type": "nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config": {"upload_ssl": true}, "filters": [{"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]}]}], "messages": [], "versions": {"current": 0.41, "old": 0.26, "obsolete": 0.21}}'
+                text='{"config": {"cloud": {"talk_interval": 120.0, "api_url": "https://receiver.amplify.nginx.com:443/1.4", "push_interval": 60.0, "api_timeout": 10.0}, "containers": {"plus": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}, "nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 60.0, "logs": 10.0, "discover": 10.0}}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 60.0, "discover": 10.0}}}}, "objects": [{"object": {"type": "nginx", "root_uuid": "6789abcde", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config": {"upload_ssl": true}, "filters": [{"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]}]}], "messages": [], "versions": {"current": 0.41, "old": 0.26, "obsolete": 0.21}}'
             )
             # check that talking to cloud does not change the api_url
             assert_that(context.app_config['cloud']['api_url'], equal_to(DEFAULT_API_URL))
             supervisor.talk_to_cloud(force=True)
-            assert_that(context.app_config['cloud']['api_url'], equal_to('https://receiver.amplify.nginx.com:443/1.3'))
+            assert_that(context.app_config['cloud']['api_url'], equal_to('https://receiver.amplify.nginx.com:443/1.4'))

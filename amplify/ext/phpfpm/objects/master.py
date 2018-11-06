@@ -3,7 +3,7 @@ import time
 
 from amplify.agent.common.context import context
 
-from amplify.ext.abstract.object import AbstractObject
+from amplify.ext.abstract.object import AbstractExtObject
 from amplify.ext.phpfpm.util.parser import PHPFPMConfig
 from amplify.ext.phpfpm.collectors.master.meta import PHPFPMMetaCollector
 from amplify.ext.phpfpm.collectors.master.metrics import PHPFPMMetricsCollector
@@ -15,7 +15,7 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-class PHPFPMObject(AbstractObject):
+class PHPFPMObject(AbstractExtObject):
     type = 'phpfpm'
 
     def __init__(self, **kwargs):

@@ -64,14 +64,15 @@ RUN apt-get update \
 ADD docker/test-plus/requirements /etc/naas/requirements
 
 # Install agent requirements:
-RUN pip install -r /etc/naas/requirements
+RUN pip install -I -r /etc/naas/requirements
 
 # Install test requirements
 RUN pip install \
     pytest \
     pytest-xdist \
     pyhamcrest \
-    requests_mock
+    requests_mock \
+    timeout-decorator
 
 ENV AMPLIFY_ENVIRONMENT testing
 ENV PYTHONPATH /amplify
@@ -86,6 +87,7 @@ ADD docker/test-plus/nginx2.conf /etc/nginx/nginx2.conf
 ADD docker/test-plus/nginx_bad_status.conf /etc/nginx/nginx_bad_status.conf
 ADD docker/test-plus/nginx_syslog.conf /etc/nginx/nginx_syslog.conf
 ADD docker/test-plus/supervisord.conf /etc/supervisord.conf
+ADD docker/test-plus/nginx_no_logs.conf /etc/nginx/nginx_no_logs.conf
 
 # add ssl
 ADD docker/test-plus/amplify-agent-test.crt /etc/nginx/certs.d/amplify-agent-test.crt

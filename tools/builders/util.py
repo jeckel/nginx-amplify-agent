@@ -11,6 +11,12 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
+def py_is_version(expected_major, expected_minor):
+    return sys.version_info[:2] == (expected_major, expected_minor)
+
+is_python_2_6 = py_is_version(2, 6)
+
+
 def color_print(message, color='green'):
     if color == 'red':
         template = '\033[31m%s\033[0m'
@@ -76,21 +82,22 @@ def change_first_line(filename, first_line):
 
 
 def install_pip(python='python'):
-    shell_call('wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py')
+    if is_python_2_6:
+        get_pip_link = 'https://bootstrap.pypa.io/2.6/get-pip.py'
+    else:
+        get_pip_link = 'https://bootstrap.pypa.io/get-pip.py'
+
+    shell_call('wget -O get-pip.py --no-check-certificate %s' % get_pip_link)
     shell_call('%s get-pip.py --user --ignore-installed --upgrade' % python)
 
-    # next lines are for "error: invalid command 'bdist_wheel'" on centos6
-    shell_call('~/.local/bin/pip install setuptools --user')
-    shell_call('~/.local/bin/pip install setuptools --upgrade --user')
-
-    # this line is to be able to build a package for centos6
-    shell_call('~/.local/bin/pip install wheel==0.29.0 --user')
+    if is_python_2_6:
+        shell_call('~/.local/bin/pip install setuptools --user')
+        shell_call('~/.local/bin/pip install setuptools --upgrade --user')
+        shell_call('~/.local/bin/pip install wheel==0.29.0 --user')
 
 
 def install_pip_deps(package=None):
-    distname, distversion, __ = platform.linux_distribution(full_distribution_name=False)
-    is_centos_6 = distname == 'centos' and distversion.split('.')[0] == '6'
-    if is_centos_6:
+    if is_python_2_6:
         shell_call(
             '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements-old-gevent' %
             package
@@ -100,4 +107,3 @@ def install_pip_deps(package=None):
             '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements' %
             package
         )
-

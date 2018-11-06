@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from hamcrest import *
 
-from amplify.ext.abstract.object import AbstractObject
+from amplify.ext.abstract.object import AbstractExtObject
 from test.fixtures.defaults import DEFAULT_UUID
 from test.base import BaseTestCase
 
@@ -15,7 +15,7 @@ __email__ = "grant.hulegaard@nginx.com"
 
 class AbstractObjectTestCase(BaseTestCase):
     def test_basic(self):
-        abstract_obj = AbstractObject()
+        abstract_obj = AbstractExtObject()
 
         # Test things only different from standard abstract object (amplify.agent.objects.abstract)
         assert_that(abstract_obj, not_(equal_to(None)))

@@ -3,7 +3,7 @@ import re
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util.host import hostname
-from amplify.ext.abstract.object import AbstractObject
+from amplify.ext.abstract.object import AbstractExtObject
 
 from amplify.ext.phpfpm.collectors.pool.meta import PHPFPMPoolMetaCollector
 from amplify.ext.phpfpm.collectors.pool.metrics import PHPFPMPoolMetricsCollector
@@ -19,7 +19,7 @@ __email__ = "grant.hulegaard@nginx.com"
 _LISTEN_RE = re.compile(r'(\$\w+)')
 
 
-class PHPFPMPoolObject(AbstractObject):
+class PHPFPMPoolObject(AbstractExtObject):
     type = 'phpfpm_pool'
 
     def __init__(self, **kwargs):

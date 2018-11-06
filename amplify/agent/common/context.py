@@ -36,7 +36,7 @@ class Context(Singleton):
 
         # define vars
         self.cpu_last_check = 0
-        self.version_semver = (1, 2, 0)
+        self.version_semver = (1, 3, 0)
         self.version_build = 1
         self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
@@ -96,13 +96,21 @@ class Context(Singleton):
 
     def _setup_app_config(self, **kwargs):
         self.app_name = kwargs.get('app')
-        self.app_config = kwargs.get('app_config')
+        app_config = kwargs.get('app_config')
 
         from amplify.agent.common.util import configreader
-        if self.app_config is None:
-            self.app_config = configreader.read('app', config_file=kwargs.get('config_file'))
+        if app_config is None:
+            app_config = configreader.read('app', config_file=kwargs.get('config_file'))
         else:
-            configreader.CONFIG_CACHE['app'] = self.app_config
+            configreader.CONFIG_CACHE['app'] = app_config
+
+        if self.app_config is not None:
+            self.app_config = None
+
+        from amplify.agent.tanks.config import ConfigTank
+        config_tank = ConfigTank()
+        config_tank.add(app_config)
+        self.app_config = config_tank
 
         # if the api_url was set in the config and isn't from our receiver's domain then never overwrite it
         api_url = self.app_config.get('cloud', {}).get('api_url', '') or ''

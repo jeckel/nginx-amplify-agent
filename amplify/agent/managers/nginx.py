@@ -69,6 +69,11 @@ class NginxManager(ObjectManager):
                 configd=current_obj.configd
             )
 
+        # also pass on reloads counter
+        data.update(
+            reloads=current_obj.reloads
+        )
+
         new_obj = self._init_nginx_object(data=data)
 
         # Send nginx config changed event.
@@ -113,13 +118,12 @@ class NginxManager(ObjectManager):
                     # New object -- create it
                     data.update(self.object_configs.get(definition_hash, {}))  # push cloud config
                     new_obj = self._init_nginx_object(data=data)
-
                     # Send discover event.
                     new_obj.eventd.event(
                         level=INFO,
                         message='nginx-%s master process found, pid %s' % (new_obj.version, new_obj.pid)
                     )
-
+                    
                     self.objects.register(new_obj, parent_id=self.objects.root_id)
                 elif definition_hash in existing_hashes:
                     for obj in self.objects.find_all(types=self.types):
@@ -147,10 +151,10 @@ class NginxManager(ObjectManager):
                         data.update(self.object_configs.get(definition_hash, {}))
                         new_obj = self._init_nginx_object(data=data)
 
-                        # Send nginx master process restart/reload event.
+                        # Send nginx master process restart event.
                         new_obj.eventd.event(
                             level=INFO,
-                            message='nginx-%s master process restarted/reloaded, new pid %s, old pid %s' % (
+                            message='nginx-%s master process restarted, new pid %s, old pid %s' % (
                                 new_obj.version,
                                 new_obj.pid,
                                 current_obj.pid
@@ -171,6 +175,8 @@ class NginxManager(ObjectManager):
                         self.objects.objects[current_obj.id] = new_obj
                         current_obj.stop()  # stop old object
                     elif current_obj.workers != data['workers']:
+                        # this is a reload, increment counter
+                        current_obj.reloads += 1
                         # if workers changed nginx was reloaded
                         context.log.debug(
                             'nginx was reloaded (workers were %s now %s)' % (

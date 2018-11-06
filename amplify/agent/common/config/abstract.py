@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import ConfigParser
 
+
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
@@ -11,7 +12,7 @@ __email__ = "dedm@nginx.com"
 class AbstractConfig(object):
     filename = None
     write_new = False
-    config = None
+    config = dict()
 
     def __init__(self, config_file=None):
         self.from_file = None
@@ -41,6 +42,8 @@ class AbstractConfig(object):
 
     def save(self, section, key, value):
         self.config[section][key] = value
+
+        # if write on, save value to disk
         if self.write_new:
             self.from_file.set(section, key, value)
             with open(self.filename, 'wb') as configfile:
@@ -54,9 +57,13 @@ class AbstractConfig(object):
     def __getitem__(self, item):
         return self.config[item]
 
+    def __setitem__(self, item, value):
+        self.config[item] = value
+
     def apply(self, patch, current=None):
         """
-        Recursevly applies changes to config and return amount of changes
+        Recursevly applies changes to config and return amount of changes.
+        Does NOT save changes to disk.
 
         :param patch: patches to config
         :param current: current tree

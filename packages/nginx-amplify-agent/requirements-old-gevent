@@ -11,5 +11,5 @@ setproctitle==1.1.10
 rstr==2.2.3
 flup==1.0.2
 scandir==1.5
-crossplane==0.3.1
-PyMySQL==0.7.11
+crossplane==0.4.3
+PyMySQL==0.8.0

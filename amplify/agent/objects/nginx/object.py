@@ -10,7 +10,6 @@ from amplify.agent.common.util import http, net, plus
 from amplify.agent.data.eventd import INFO
 from amplify.agent.objects.abstract import AbstractObject
 from amplify.agent.objects.nginx.binary import nginx_v
-from amplify.agent.objects.nginx.config.config import NginxConfig
 from amplify.agent.objects.nginx.filters import Filter
 from amplify.agent.pipelines.syslog import SyslogTail
 from amplify.agent.pipelines.file import FileTail
@@ -63,8 +62,7 @@ class NginxObject(AbstractObject):
         # api
         self.api_external_url, self.api_internal_url = self.get_alive_api_urls()
         self.api_enabled = True if (self.api_external_url or self.api_internal_url) else False
-        api_url = self.api_internal_url if self.api_internal_url is not None \
-            else self.api_external_url
+        api_url = self.api_internal_url if self.api_internal_url is not None else self.api_external_url
         if self.api_enabled and plus.get_latest_supported_api(api_url) is None:
             context.log.debug("API directive was specified but no supported API was found.")
             self.api_enabled = False
@@ -78,6 +76,8 @@ class NginxObject(AbstractObject):
         self.stub_status_enabled = True if self.stub_status_url else False
 
         self.processes = []
+
+        self.reloads = self.data.get('reloads', 0)
 
         self._setup_meta_collector()
         self._setup_metrics_collector()
@@ -151,7 +151,7 @@ class NginxObject(AbstractObject):
         external_status_url = self.__get_alive_status(external_urls, json=True)
         if len(self.config.plus_status_external_urls) > 0:
             if not external_status_url:
-                external_status_url = 'http://%s' % self.config.plus_status_external_urls[0]
+                external_status_url = self.config.plus_status_external_urls[0]
 
             self.eventd.event(
                 level=INFO,
@@ -191,7 +191,7 @@ class NginxObject(AbstractObject):
         external_api_url = self.__get_alive_status(external_urls, json=True)
         if len(self.config.api_external_urls) > 0:
             if not external_api_url:
-                external_api_url = 'http://%s' % self.config.api_external_urls[0]
+                external_api_url = self.config.api_external_urls[0]
 
             self.eventd.event(
                 level=INFO,

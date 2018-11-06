@@ -8,15 +8,17 @@ import pytest
 import random
 import shutil
 import time
+import copy
 
 from unittest import TestCase
 
 import test.unit.agent.common.config.app
 
 from amplify.agent.common.util import configreader, subp, host
+from amplify.agent.common.errors import AmplifySubprocessError
 from amplify.agent.common.context import context
 from amplify.agent.objects.abstract import AbstractObject
-
+from amplify.agent.tanks.config import ConfigTank
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -30,6 +32,7 @@ class BaseTestCase(TestCase):
         imp.reload(configreader)
         imp.reload(test.unit.agent.common.config.app)
 
+        # remove reference to Singleton for GC
         context.setup(
             app='test',
             app_config=test.unit.agent.common.config.app.TestingConfig()
@@ -65,6 +68,24 @@ class BaseTestCase(TestCase):
         pass
 
 
+class BaseConfiguratorTestCase(BaseTestCase):
+    @pytest.fixture(autouse=True)
+    def setup(self, tmpdir):
+        self.tmpdir = tmpdir
+
+    def setup_method(self, method):
+        super(BaseConfiguratorTestCase, self).setup_method(method)
+        from amplify.ext.configurator.config import ConfiguratorConfig
+        self.original_config = copy.deepcopy(ConfiguratorConfig.config)
+        context.app_config.add(ConfiguratorConfig())
+
+    def teardown_method(self, method):
+        from amplify.ext.configurator.config import ConfiguratorConfig
+        ConfiguratorConfig.config = copy.deepcopy(self.original_config)
+        context.app_config.remove(ConfiguratorConfig())
+        super(BaseConfiguratorTestCase, self).teardown_method(method)
+
+
 class WithConfigTestCase(BaseTestCase):
 
     def setup_method(self, method):
@@ -82,7 +103,9 @@ class WithConfigTestCase(BaseTestCase):
         if os.path.exists(self.original_file):
             shutil.copyfile(self.original_file, self.fake_config_file)
         imp.reload(test.unit.agent.common.config.app)
-        context.app_config = test.unit.agent.common.config.app.TestingConfig()
+
+        context.app_config = ConfigTank()
+        context.app_config.add(test.unit.agent.common.config.app.TestingConfig())
 
 
 class NginxCollectorTestCase(BaseTestCase):
@@ -138,7 +161,8 @@ class RealNginxTestCase(BaseTestCase):
 
     def teardown_method(self, method):
         if self.running:
-            subp.call('pgrep nginx |sudo xargs kill -9')
+            # use check=False because sometimes this returns code 123 on test-plus for some reason
+            subp.call('pgrep nginx |sudo xargs kill -9', check=False)
             self.running = False
         super(RealNginxTestCase, self).teardown_method(method)
 
@@ -203,12 +227,18 @@ class TestWithFakeSubpCall(BaseTestCase):
     This allows us to push the desired result of the next supb.call, that's returned when subp is called
     After the pushed results are all popped, subp.call will actually spin up a subprocess like usual
     """
-    def push_subp_result(self, stdout_lines, stderr_lines):
+    def push_subp_result(self, stdout_lines=None, stderr_lines=None, returncode=0):
+        stdout_lines = [''] if stdout_lines is None else stdout_lines
+        stderr_lines = [''] if stderr_lines is None else stderr_lines
+
         from amplify.agent.common.util import subp
         original_call = subp.call
 
         def fake_call(command, check=True):
             subp.call = original_call
+            if check and returncode != 0:
+                payload = {'returncode': returncode, 'error': '\n'.join(stderr_lines)}
+                raise AmplifySubprocessError(message=command, payload=payload)
             return stdout_lines, stderr_lines
 
         subp.call = fake_call

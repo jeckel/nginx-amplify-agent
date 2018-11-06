@@ -50,7 +50,7 @@ class DevelopmentConfig(Config):
 
     config_changes = dict(
         cloud=dict(
-            api_url='http://%s:%s/1.3' % (
+            api_url='http://%s:%s/1.4' % (
                 os.environ.get('RECEIVER_PORT_5000_TCP_ADDR'),
                 os.environ.get('RECEIVER_PORT_5000_TCP_PORT')
             ),
@@ -72,7 +72,7 @@ class SandboxConfig(Config):
 
     config_changes = dict(
         cloud=dict(
-            api_url='http://localhost:5001/1.3',
+            api_url='http://localhost:5001/1.4',
             verify_ssl_cert=False
         ),
         credentials=dict(

@@ -52,18 +52,17 @@ class NginxObjectTestCase(RealNginxTestCase):
         - one for web link (with server name)
         - one for agent purposes (local url)
         """
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # check all plus status urls
         assert_that(nginx_obj.plus_status_enabled, equal_to(True))
         assert_that(nginx_obj.plus_status_internal_url, equal_to('https://127.0.0.1:443/plus_status'))
-        assert_that(nginx_obj.plus_status_external_url,
-        equal_to('http://status.naas.nginx.com:443/plus_status_bad'))
+        assert_that(nginx_obj.plus_status_external_url, equal_to('https://status.naas.nginx.com:443/plus_status_bad'))
 
     @nginx_plus_test
     def test_api_discovery(self):
@@ -72,29 +71,29 @@ class NginxObjectTestCase(RealNginxTestCase):
         - one for web link (with server name)
         - one for agent purposes (local url)
         """
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # check all plus status urls
         assert_that(nginx_obj.api_enabled, equal_to(True))
         assert_that(nginx_obj.api_internal_url, equal_to('https://127.0.0.1:443/api'))
-        assert_that(nginx_obj.api_external_url, equal_to('http://status.naas.nginx.com:443/api_bad'))
+        assert_that(nginx_obj.api_external_url, equal_to('https://status.naas.nginx.com:443/api_bad'))
 
     @nginx_plus_test
     def test_bad_plus_status_discovery(self):
         self.stop_first_nginx()
         self.start_second_nginx(conf='nginx_bad_status.conf')
-        container = NginxManager()
-        container._discover_objects()
+        manager = NginxManager()
+        manager._discover_objects()
 
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # check all plus status urls
         assert_that(nginx_obj.plus_status_enabled, equal_to(True))
@@ -108,9 +107,9 @@ class NginxObjectTestCase(RealNginxTestCase):
 
         self.stop_first_nginx()
         self.start_second_nginx(conf='nginx_bad_status.conf')
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # self.http_request should look like this
         # [
@@ -134,9 +133,9 @@ class NginxObjectTestCase(RealNginxTestCase):
 
         self.stop_first_nginx()
         self.start_second_nginx(conf='nginx_bad_status.conf')
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         assert_that(self.http_requests[-1], equal_to('https://127.0.0.1/foo_basic'))
         assert_that(self.http_requests[-2], equal_to('http://127.0.0.1/foo_basic'))
@@ -194,12 +193,12 @@ class NginxObjectTestCase(RealNginxTestCase):
         pass
 
     def test_with_default_logs(self):
-        container = NginxManager()
-        container._discover_objects()
-        assert_that(container.objects.objects_by_type[container.type], has_length(1))
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
 
         # get nginx object
-        nginx_obj = container.objects.objects[container.objects.objects_by_type[container.type][0]]
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
 
         # just check that everything went ok
         assert_that(nginx_obj, not_none())

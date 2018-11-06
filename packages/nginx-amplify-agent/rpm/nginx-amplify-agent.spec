@@ -118,8 +118,8 @@ elif [ $1 -eq 2 ] ; then
         service amplify-agent stop > /dev/null 2>&1 < /dev/null
     fi
 
-    # Change API URL to 1.3
-    sh -c "sed -i.old 's/api_url.*receiver.*$/api_url = https:\/\/receiver.amplify.nginx.com:443\/1.3/' \
+    # Change API URL to 1.4
+    sh -c "sed -i.old 's/api_url.*receiver.*$/api_url = https:\/\/receiver.amplify.nginx.com:443\/1.4/' \
         %{agent_conf_file}"
 
     # Add PHP-FPM to config file
@@ -149,13 +149,21 @@ fi
 
 
 %changelog
-* Thu Apr  5 2018 Mike Belov <dedm@nginx.com> 1.2.0-1
+* Thu May 10 2018 Mike Belov <dedm@nginx.com> 1.3.0-1
 - 1.3.0-1
+- New nginx metric: number of config reloads, cache max size
+- Improvements to extension interface
+- Improved nginx log detection
+- Additional config reporting
+- MySQL extension fixes and improvements
+- Various bug fixes
+
+* Thu Apr  5 2018 Mike Belov <dedm@nginx.com> 1.2.0-1
+- 1.2.0-1
 - NGINX+ API support
 - Ability to store UUID in the config file (if needed)
 - Upgraded NGINX Crossplane parser
 - Improved nginx logs parsing
-- Various bug fixes
 
 * Wed Feb  7 2018 Mike Belov <dedm@nginx.com> 1.1.0-1
 - 1.1.0-1

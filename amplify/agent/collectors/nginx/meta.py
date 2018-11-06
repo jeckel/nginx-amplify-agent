@@ -84,7 +84,7 @@ class NginxMetaCollector(AbstractMetaCollector):
                 package = kv.group(1)
                 break
 
-        if 'no_path' in dpkg_s_err[0]:
+        if 'no path' in dpkg_s_err[0]:
             self.meta['built_from_source'] = True
 
         if package:
@@ -144,11 +144,17 @@ class CentosNginxMetaCollector(NginxMetaCollector):
             'rpm -qf %s ' % self.object.bin_path + '--queryformat="%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}\\n"',
             check=False
         )
+
+        # looks like *some* centos/rpm versions will NOT consider
+        # 'is not owned by' as an error
         if rpm_out and rpm_out[0]:
-            package, version = rpm_out[0].split()
+            if 'is not owned by' in rpm_out[0]:
+                self.meta['built_from_source'] = True
+            else:
+                package, version = rpm_out[0].split()
 
         if 'is not owned by' in rpm_err[0]:
-             self.meta['built_from_source'] = True
+            self.meta['built_from_source'] = True
 
         if package:
             self.meta['packages'] = {package: version}
@@ -164,7 +170,7 @@ class FreebsdNginxMetaCollector(NginxMetaCollector):
         if 'was installed by package ' in pkg_out[0]:
 
             # get version
-            package, version = pkg_out[0].split()[-1].split('-', 1)
+            package, version = pkg_out[0].split()[-1].rsplit('-', 1)
             self.meta['packages'] = {package: version}
 
         elif 'was not found in the database' in pkg_out[0]:

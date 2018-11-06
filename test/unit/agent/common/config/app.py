@@ -11,7 +11,7 @@ __email__ = "dedm@nginx.com"
 
 class TestingConfig(Config):
     filename = 'etc/agent.conf.testing'
-    write_new = True
+    write_new = False
 
     config_changes = dict(
         daemon=dict(

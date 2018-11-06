@@ -13,7 +13,7 @@ agent_conf_file="${agent_conf_path}/agent.conf"
 amplify_hostname=""
 api_url="https://receiver.amplify.nginx.com:443"
 api_ping_url="${api_url}/ping/"
-api_receiver_url="${api_url}/1.3"
+api_receiver_url="${api_url}/1.4"
 public_ntp="north-america.pool.ntp.org"
 nginx_conf_file="/etc/nginx/nginx.conf"
 amplify_pid_file="/var/run/amplify-agent/amplify-agent.pid"
@@ -541,7 +541,7 @@ fi
 if [ -n "${API_URL}" ]; then
     api_url="${API_URL}"
     api_ping_url="${api_url}/ping/"
-    api_receiver_url="${api_url}/1.3"
+    api_receiver_url="${api_url}/1.4"
 fi
 
 ${sudo_cmd} rm -f ${agent_conf_file} && \

@@ -29,6 +29,10 @@ class DummyRootObject(DummyObject):
     type = 'system'
 
 
+class DummyNginxObject(DummyObject):
+    type = 'nginx'
+
+
 def collected_metric(matcher=None):
     matcher = anything() if matcher is None else wrap_matcher(matcher)
     return only_contains(contains(greater_than(1476820876), matcher))

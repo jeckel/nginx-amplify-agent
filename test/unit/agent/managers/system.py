@@ -47,12 +47,12 @@ class ContainerSystemManagerTestCase(RealNginxTestCase):
 
         context.app_config['credentials']['imagename'] = 'DockerTest'
         context.app_config['credentials']['uuid'] = None
-        context.setup(app='test', app_config=context.app_config)
+        context.setup(app='test', app_config=context.app_config.default)
 
     def teardown_method(self, method):
         context.app_config['credentials']['imagename'] = None
         context.app_config['credentials']['uuid'] = DEFAULT_UUID
-        context.setup(app='test', app_config=context.app_config)
+        context.setup(app='test', app_config=context.app_config.default)
 
         context.objects = None
         context._setup_object_tank()

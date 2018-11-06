@@ -173,7 +173,7 @@ class AbstractObject(object):
                     except BlockingSwitchOutError:
                         pass
                     except Exception as e:
-                        context.log.debug('exception during object stop', exc_info=True)
+                        context.log.debug('exception during object stop: {}'.format(e.__class__.__name__), exc_info=True)
 
             # For every collector, if the collector has a .tail attribute and is a Pipeline, send a stop signal.
             for collector in self.collectors:

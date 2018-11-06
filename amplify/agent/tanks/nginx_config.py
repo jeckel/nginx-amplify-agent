@@ -13,8 +13,8 @@ __email__ = "grant.hulegaard@nginx.com"
 
 class NginxConfigTank(Singleton):
     """
-    NginxConfig tank that holds NginxConfig objects for granular tracking and management.  Useful for passing 
-    NginxConfigs between agent objects.
+    NginxConfig tank that holds NginxConfig objects for granular tracking and
+    management.  Useful for passing NginxConfigs between agent objects.
 
     TODO: Think about simplifying our NginxConfig address pattern (perhaps just filename)
     """

@@ -218,3 +218,84 @@ class ApiHttpCacheCollectorTestCase(BaseTestCase):
 
         assert_that(counters['plus.cache.hit'][0], equal_to([2, 54893]))
         assert_that(counters['plus.cache.hit.bytes'][0], equal_to([2, 641803539]))
+        assert_that(cache_obj.statsd.current, has_key('gauge'))
+        guages = cache_obj.statsd.current['gauge']
+
+        for key in (
+                'plus.cache.size',
+                'plus.cache.max_size',
+
+        ):
+            assert_that(guages, has_key(key))
+
+        assert_that(guages['plus.cache.size'][0], equal_to((1, 0)))
+        assert_that(guages['plus.cache.max_size'][0], equal_to((1, 0)))
+
+        assert_that(guages['plus.cache.size'][1], equal_to((2, 434008064)))
+        assert_that(guages['plus.cache.max_size'][1], equal_to((2, 536870912)))
+
+    def test_missing_max_size(self):
+        cache_obj = NginxApiHttpCacheObject(local_name='http_cache', parent_local_id='nginx123', root_uuid='root123')
+        # Do a quick override of api_internal_url_cache
+        cache_obj.api_internal_url_cache = 'test_api'
+
+        # Get the cache collector
+        cache_collector = cache_obj.collectors[-1]
+        assert_that(cache_collector.last_collect, equal_to(None))
+
+        # Insert some dummy data
+        context.plus_cache.put('test_api', (
+            {
+                "http": {
+                    "caches": {
+                        "http_cache": {
+                            "size": 0,
+                            "cold": False,
+                            "hit": {
+                                "responses": 0,
+                                "bytes": 0
+                            },
+                            "stale": {
+                                "responses": 0,
+                                "bytes": 0
+                            },
+                            "updating": {
+                                "responses": 0,
+                                "bytes": 0
+                            },
+                            "revalidated": {
+                                "responses": 0,
+                                "bytes": 0
+                            },
+                            "miss": {
+                                "responses": 0,
+                                "bytes": 0,
+                                "responses_written": 0,
+                                "bytes_written": 0
+                            },
+                            "expired": {
+                                "responses": 0,
+                                "bytes": 0,
+                                "responses_written": 0,
+                                "bytes_written": 0
+                            },
+                            "bypass": {
+                                "responses": 0,
+                                "bytes": 0,
+                                "responses_written": 0,
+                                "bytes_written": 0
+                            }
+                        }
+                    }
+                }
+            },
+            1
+        ))
+        cache_collector.collect()
+        assert_that(cache_collector.last_collect, equal_to(1))
+
+        assert_that(cache_obj.statsd.current, not_(has_length(0)))
+        assert_that(cache_obj.statsd.current, has_key('gauge'))
+        guages = cache_obj.statsd.current['gauge']
+        assert_that(guages, has_key('plus.cache.size'))
+        assert_that(guages, is_not(has_key('plus.cache.max_size')))

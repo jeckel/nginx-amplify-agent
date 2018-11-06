@@ -14,17 +14,24 @@ __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
 
-def rebuild(folder, name):
+def rebuild(folder, name, build_args):
+    add_build_args = ''
+    if len(build_args) > 0:
+        for build_arg in build_args:
+            add_build_args += (' --build-arg %s' % build_arg)
+
     if folder == 'centos6':
         shell_call('cat packages/*/requirements-old-gevent >> docker/%s/requirements' % folder)
     else:
         shell_call('cat packages/*/requirements >> docker/%s/requirements' % folder)
-
-    shell_call('docker build -t %s docker/%s' % (name, folder), terminal=True)
+    if folder == 'ubuntu1604-controller':
+        shell_call('docker build -t %s -f docker/%s/Dockerfile .' % (name, folder), terminal=True)
+    else:
+        shell_call('docker build %s -t %s docker/%s' % (add_build_args, name, folder), terminal=True)
     shell_call('rm docker/%s/requirements' % folder)
 
 
-supported_os = ['ubuntu1604', 'ubuntu1604-controller', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
+supported_os = ['ubuntu1604', 'ubuntu1604-plus', 'ubuntu1604-controller', 'ubuntu1604-mysql8', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
 
 usage = "usage: %prog -h"
 
@@ -35,6 +42,14 @@ option_list = (
         dest='rebuild',
         help='Rebuild before run (False by default)',
         default=False,
+    ),
+    Option(
+        '--build-arg',
+        action='append',
+        dest='build_args',
+        help='Build arguments for docker build',
+        default=[],
+        type='str',
     ),
     Option(
         '--drop',
@@ -89,14 +104,14 @@ if __name__ == '__main__':
 
         if options.rebuild:
             for osname in supported_os:
-                rebuild('%s' % osname, 'amplify-agent-%s' % osname)
+                rebuild('%s' % osname, 'amplify-agent-%s' % osname, options.build_args)
 
         runcmd = 'docker-compose -f docker/agents.yml up'
     else:
         shell_call('docker-compose -f docker/%s.yml down' % options.os, terminal=True)
 
         if options.rebuild:
-            rebuild('%s' % options.os, 'amplify-agent-%s' % options.os)
+            rebuild('%s' % options.os, 'amplify-agent-%s' % options.os, options.build_args)
 
         if options.shell:
             rows, columns = os.popen('stty size', 'r').read().split()

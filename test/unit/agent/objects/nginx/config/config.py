@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
-
 from hamcrest import *
 
 from amplify.agent.common.context import context
-from amplify.agent.objects.nginx.config.config import NginxConfig
-from test.base import BaseTestCase
+from amplify.agent.objects.nginx.config.config import NginxConfig, ERROR_LOG_LEVELS
+from test.base import BaseTestCase, RealNginxTestCase
+from amplify.agent.managers.nginx import NginxManager
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -28,7 +28,24 @@ regex_status_config = os.getcwd() + '/test/fixtures/nginx/regex_status/nginx.con
 wildcard_directory_config = os.getcwd() + '/test/fixtures/nginx/wildcard_directory/etc/nginx/nginx.conf'
 tabs_everywhere = os.getcwd() + '/test/fixtures/nginx/tabs/nginx.conf'
 status_urls = os.getcwd() + '/test/fixtures/nginx/status_urls/nginx.conf'
+log_format_string_concat = os.getcwd() + '/test/fixtures/nginx/custom/log_format_string_concat.conf'
+log_format_unicode_quote = os.getcwd() + '/test/fixtures/nginx/custom/log_format_unicode_quote.conf'
+bad_log_directives_config = os.getcwd() + '/test/fixtures/nginx/broken/bad_logs.conf'
 
+class ConfigLogsTestCase(RealNginxTestCase):
+
+    def test_logs_path(self):
+        self.stop_first_nginx()
+        self.start_second_nginx(conf='nginx_no_logs.conf')
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
+        # get nginx object
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
+        assert_that(nginx_obj.config.access_logs, has_length(1))
+        assert_that(nginx_obj.config.access_logs, has_key('/var/log/nginx/access.log'))
+        assert_that(nginx_obj.config.error_logs, has_length(1))
+        assert_that(nginx_obj.config.error_logs, has_key('/var/log/nginx/error.log'))
 
 class ConfigTestCase(BaseTestCase):
 
@@ -41,7 +58,7 @@ class ConfigTestCase(BaseTestCase):
         assert_that(config.error_logs, has_key('/var/log/nginx/error.log'))
         assert_that(config.error_logs.values(), only_contains(
             has_entries(
-                log_level=instance_of(str),
+                log_level=is_in(ERROR_LOG_LEVELS),
                 permissions=matches_regexp('[0-7]{4}'),
                 readable=instance_of(bool)
             )
@@ -74,22 +91,25 @@ class ConfigTestCase(BaseTestCase):
         )
 
         # stub status urls
-        assert_that(config.stub_status_urls, has_length(1))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_length(2))
+        assert_that(config.stub_status_urls[0], equal_to('http://127.0.0.1:81/basic_status'))
 
         # status urls
-        assert_that(config.plus_status_external_urls, has_length(1))
-        assert_that(config.plus_status_external_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_length(2))
+        assert_that(config.plus_status_external_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_item('https://127.0.0.1:443/plus_status'))
 
-        assert_that(config.plus_status_internal_urls, has_length(1))
-        assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_length(2))
+        assert_that(config.plus_status_internal_urls, has_item('http://127.0.0.1:81/plus_status'))
 
         # api urls
-        assert_that(config.api_external_urls, has_length(1))
-        assert_that(config.api_external_urls[0], equal_to('127.0.0.1:81/api'))
+        assert_that(config.api_external_urls, has_length(2))
+        assert_that(config.api_external_urls, has_item('http://127.0.0.1:81/api'))
+        assert_that(config.api_external_urls, has_item('https://127.0.0.1:443/api'))
 
-        assert_that(config.api_internal_urls, has_length(1))
-        assert_that(config.api_internal_urls[0], equal_to('127.0.0.1:81/api'))
+        assert_that(config.api_internal_urls, has_length(2))
+        assert_that(config.api_internal_urls, has_item('http://127.0.0.1:81/api'))
+        assert_that(config.api_external_urls, has_item('https://127.0.0.1:443/api'))
 
     def test_parse_huge(self):
         config = NginxConfig(huge_config)
@@ -100,7 +120,7 @@ class ConfigTestCase(BaseTestCase):
         assert_that(config.error_logs, has_key('/var/log/nginx-error.log'))
         assert_that(config.error_logs.values(), only_contains(
             has_entries(
-                log_level=instance_of(str),
+                log_level=is_in(ERROR_LOG_LEVELS),
                 permissions=matches_regexp('[0-7]{4}'),
                 readable=instance_of(bool)
             )
@@ -140,16 +160,11 @@ class ConfigTestCase(BaseTestCase):
 
         # stub status url
         assert_that(config.stub_status_urls, has_length(2))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:80/nginx_status'))
+        assert_that(config.stub_status_urls[0], equal_to('http://127.0.0.1:80/nginx_status'))
 
     def test_parse_complex(self):
         config = NginxConfig(complex_config)
         config.full_parse()
-
-        context.log.info(config.index)
-        context.log.info(config.tree)
-        context.log.info(config.files)
-        context.log.info(config.checksum())
 
         assert_that(config.error_logs, empty())
         assert_that(config.access_logs, empty())
@@ -160,26 +175,73 @@ class ConfigTestCase(BaseTestCase):
         config = NginxConfig(broken_config)
         config.full_parse()
 
-        assert_that(config.tree, equal_to({}))
-        # this would be has_length(1) but new parser cascades errors when error is 'expected "}"'
-        assert_that(config.parser_errors, not_(empty()))
+        assert_that(config.tree, has_entries({
+            'status': 'failed',
+            'errors': has_length(2),
+            'config': contains(
+                has_entries({
+                    'file': '/amplify/test/fixtures/nginx/broken/nginx.conf',
+                    'status': 'failed',
+                    'errors': contains(
+                        has_entries({
+                            'line': 9,
+                            'error': '"http" directive is not allowed here in /amplify/test/fixtures/nginx/broken/nginx.conf:9'
+                        }),
+                        has_entries({
+                            'line': 11,
+                            'error': 'unexpected end of file, expecting "}" in /amplify/test/fixtures/nginx/broken/nginx.conf:11'
+                        })
+                    )
+                })
+            )
+        }))
 
     def test_broken_includes(self):
         config = NginxConfig(huge_config)
         config.full_parse()
 
-        assert_that(config.tree, not_(equal_to({})))
-        assert_that(config.parser_errors, has_length(5))  # 5 missing includes
+        assert_that(config.tree, has_entries({
+            'status': 'failed',
+            'errors': has_length(9),
+            'config': contains(
+                has_entries({
+                    'file': '/amplify/test/fixtures/nginx/huge/nginx.conf',
+                    'status': 'failed',
+                    'errors': contains(
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/mime.types2'", 'line': 13},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/dir.map'", 'line': 31},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/ec2-public-networks.conf'", 'line': 114},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/ec2-public-networks.conf'", 'line': 117},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/ec2-public-networks.conf'", 'line': 120},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/ec2-public-networks.conf'", 'line': 123},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/ec2-public-networks.conf'", 'line': 126},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/azure-public-networks.conf'", 'line': 129},
+                        {'error': "[Errno 2] No such file or directory: '/amplify/test/fixtures/nginx/huge/gce-public-networks.conf'", 'line': 132},
+                    )
+                }),
+                has_entries({
+                    'file': '/amplify/test/fixtures/nginx/huge/mime.types',
+                    'status': 'ok'
+                })
+            )
+        }))
+
+        # despite there being 8 errors, there are only 5 missing includes
+        assert_that(config.parser_errors, has_length(5))
 
     def test_proxy_buffers_simple(self):
         config = NginxConfig(proxy_buffers_simple_config)
         config.full_parse()
 
-        assert_that(config.tree, has_key('http'))
-
-        http_bucket = config.tree['http'][0]
-        assert_that(http_bucket, has_key('proxy_buffering'))
-        assert_that(http_bucket, has_key('proxy_buffers'))
+        assert_that(config.subtree, has_item(
+            has_entries({
+                'directive': 'http',
+                'block': has_items(
+                    has_entries({'directive': 'proxy_buffering'}),
+                    has_entries({'directive': 'proxy_buffers'})
+                )
+            })
+        ))
 
         assert_that(config.parser_errors, empty())
         assert_that(config.test_errors, empty())
@@ -188,15 +250,29 @@ class ConfigTestCase(BaseTestCase):
         config = NginxConfig(proxy_buffers_complex_config)
         config.full_parse()
 
-        assert_that(config.tree, has_key('http'))
-
-        http_bucket = config.tree['http'][0]
-        assert_that(http_bucket, has_key('proxy_buffering'))
-        assert_that(http_bucket, has_key('proxy_buffers'))
-
-        location_bucket = config.tree['http'][0]['server'][0][0]['location']['/'][0]
-        assert_that(location_bucket, has_key('proxy_buffering'))
-        assert_that(location_bucket, has_key('proxy_buffers'))
+        assert_that(config.subtree, has_item(
+            has_entries({
+                'directive': 'http',
+                'block': has_items(
+                    has_entries({'directive': 'proxy_buffering'}),
+                    has_entries({'directive': 'proxy_buffers'}),
+                    has_entries({
+                        'directive': 'server',
+                        'block': has_item(
+                            has_entries({
+                                'directive': 'location',
+                                'args': ['/'],
+                                'block': has_items(
+                                    has_entries({'directive': 'proxy_pass'}),
+                                    has_entries({'directive': 'proxy_buffering'}),
+                                    has_entries({'directive': 'proxy_buffers'})
+                                )
+                            })
+                        )
+                    })
+                )
+            })
+        ))
 
         assert_that(config.parser_errors, empty())
         assert_that(config.test_errors, empty())
@@ -205,27 +281,117 @@ class ConfigTestCase(BaseTestCase):
         config = NginxConfig(tabs_config)
         config.full_parse()
 
-        assert_that(config.log_formats, has_key('main'))
+        # common structure
+        assert_that(config.subtree, contains(
+            has_entries({'directive': 'user'}),
+            has_entries({'directive': 'worker_processes'}),
+            has_entries({'directive': 'error_log'}),
+            has_entries({'directive': 'pid'}),
+            has_entries({'directive': 'events'}),
+            has_entries({'directive': 'http'})
+        ))
+
+        http = config.subtree[5]['block']
+        assert_that(http, contains(
+            has_entries({'directive': 'charset'}),
+            has_entries({'directive': 'log_format'}),
+            has_entries({'directive': 'access_log'}),
+            has_entries({'directive': 'proxy_cache_path'}),
+            has_entries({'directive': 'sendfile'}),
+            has_entries({'directive': 'keepalive_timeout'}),
+            has_entries({'directive': 'gzip'}),
+            has_entries({'directive': 'gzip_types'}),
+            has_entries({'directive': 'root'}),
+            has_entries({'directive': 'server'}),
+            has_entries({'directive': 'server'}),
+            has_entries({'directive': 'upstream'}),
+            has_entries({'directive': 'server'}),
+            has_entries({'directive': 'server'}),
+        ))
+
+        log_format_args = http[1]['args']
+        assert_that(log_format_args[0], equal_to('main'))
+        assert_that(log_format_args[1], equal_to(
+            '"$time_local"\\t"$remote_addr"\\t"$http_host"\\t"$request"\\t'
+            '"$status"\\t"$body_bytes_sent\\t"$http_referer"\\t'
+            '"$http_user_agent"\\t"$http_x_forwarded_for"'
+        ))
+
         assert_that(
             config.log_formats['main'],
-            equal_to('"$time_local"\t"$remote_addr"\t"$http_host"\t"$request"\t'
-                     '"$status"\t"$body_bytes_sent\t"$http_referer"\t'
-                     '"$http_user_agent"\t"$http_x_forwarded_for"')
+            equal_to(
+                '"$time_local"\t"$remote_addr"\t"$http_host"\t"$request"\t'
+                '"$status"\t"$body_bytes_sent\t"$http_referer"\t'
+                '"$http_user_agent"\t"$http_x_forwarded_for"'
+            )
         )
 
     def test_fastcgi(self):
         config = NginxConfig(fastcgi_config)
         config.full_parse()
 
-        assert_that(config.tree, has_key('http'))
-
-        http_bucket = config.tree['http'][0]
-        server_bucket = http_bucket['server'][0][0]  # fastcgi server tree
-        location = server_bucket['location']['~ \\.php$'][0]  # fastcgi pass location tree
-
-        assert_that(location, has_key('fastcgi_pass'))
-        assert_that(location, has_key('fastcgi_param'))
-        assert_that(location['fastcgi_param'], has_length(17))
+        assert_that(config.subtree, contains(
+            has_entries({'directive': 'user'}),
+            has_entries({'directive': 'worker_processes'}),
+            has_entries({'directive': 'pid'}),
+            has_entries({'directive': 'events'}),
+            has_entries({
+                'directive': 'http',
+                'block': contains(
+                    has_entries({'directive': 'sendfile'}),
+                    has_entries({'directive': 'tcp_nopush'}),
+                    has_entries({'directive': 'tcp_nodelay'}),
+                    has_entries({'directive': 'keepalive_timeout'}),
+                    has_entries({'directive': 'types_hash_max_size'}),
+                    has_entries({'directive': 'include', 'args': ['mime.types']}),
+                    has_entries({'directive': 'types'}),
+                    has_entries({'directive': 'default_type'}),
+                    has_entries({'directive': 'proxy_buffering'}),
+                    has_entries({'directive': 'log_format'}),
+                    has_entries({'directive': 'access_log'}),
+                    has_entries({'directive': 'error_log'}),
+                    has_entries({'directive': 'gzip'}),
+                    has_entries({'directive': 'gzip_disable'}),
+                    has_entries({'directive': 'include', 'args': ['conf.d/*.conf']}),
+                    has_entries({
+                        'directive': 'server',
+                        'block': contains(
+                            has_entries({'directive': 'listen'}),
+                            has_entries({'directive': 'index'}),
+                            has_entries({'directive': 'access_log'}),
+                            has_entries({
+                                'directive': 'location',
+                                'block': contains(
+                                    has_entries({'directive': 'include', 'args': ['fastcgi_params']}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_param'}),
+                                    has_entries({'directive': 'fastcgi_pass'}),
+                                )
+                            }),
+                        )
+                    }),
+                    has_entries({
+                        'directive': 'server',
+                        'block': has_length(5)
+                    })
+                )
+            })
+        ))
 
     def test_json(self):
         config = NginxConfig(json_config)
@@ -269,6 +435,7 @@ class ConfigTestCase(BaseTestCase):
         assert_that(ssl_certificates.values()[0], has_item('names'))
 
     def test_regex_status_url(self):
+        from re import sub as re_sub
         """
         Check that we could handle regex urls like
 
@@ -279,30 +446,34 @@ class ConfigTestCase(BaseTestCase):
         config.full_parse()
 
         # check total amount of status urls
-        assert_that(config.stub_status_urls, has_length(4))  # we have 4 valid locations in the regex_status/status.conf
+        assert_that(config.stub_status_urls, has_length(5))  # we have 4 valid locations in the regex_status/status.conf
 
         # check each location
         valid_urls_dict = {
             '1.1.1.1:80': [
-                '1.1.1.1:80/nginx_status',
-                '1.1.1.1:80/status',
+                'http://1.1.1.1:80/nginx_status',
+                'http://1.1.1.1:80/status',
             ],
             '1.1.1.1:81': [
-                '1.1.1.1:81/nginx_status'
+                'http://1.1.1.1:81/nginx_status'
+            ],
+            '1.1.1.1:443': [
+                'https://1.1.1.1:443/ssl_stat'
             ],
             '1.1.1.1:82': [
-                '1.1.1.1:82/status_weird_thing',
-                '1.1.1.1:82/nginx_status_weird_thing',
-                '1.1.1.1:82/status_weird_some',
-                '1.1.1.1:82/nginx_status_weird_some'
+                'http://1.1.1.1:82/status_weird_thing',
+                'http://1.1.1.1:82/nginx_status_weird_thing',
+                'http://1.1.1.1:82/status_weird_some',
+                'http://1.1.1.1:82/nginx_status_weird_some'
             ],
             '1.1.1.1:84': [
-                '1.1.1.1:84/valid_location'
+                'http://1.1.1.1:84/valid_location'
             ],
         }
 
         for url in config.stub_status_urls:
-            address = url.split('/')[0]
+            address = re_sub('https?://', '', url)
+            address = address.split('/')[0]
             valid_urls = valid_urls_dict[address]
             assert_that(valid_urls, has_item(url))
 
@@ -339,9 +510,65 @@ class ConfigTestCase(BaseTestCase):
         config = NginxConfig(status_urls)
         config.full_parse()
 
-        assert_that(config, has_property('stub_status_urls', ['127.0.0.1:80/', '127.0.0.1:80/nginx_status']))
-        assert_that(config, has_property('plus_status_external_urls', ['www.example.com:80/status']))
-        assert_that(config, has_property('plus_status_internal_urls', ['127.0.0.1:80/status']))
+        assert_that(config, has_property('stub_status_urls', ['http://127.0.0.1:80/', 'http://127.0.0.1:80/nginx_status']))
+        assert_that(config, has_property('plus_status_external_urls', ['http://www.example.com:80/status']))
+        assert_that(config, has_property('plus_status_internal_urls', ['http://127.0.0.1:80/status']))
+
+    def test_log_format_string_concat(self):
+        config = NginxConfig(log_format_string_concat)
+        config.full_parse()
+
+        expected = (
+            '$remote_addr - $remote_user [$time_local] "$request" '
+            '$status $body_bytes_sent "$http_referer" '
+            '"$http_user_agent" "$http_x_forwarded_for" '
+            '"$host" sn="$server_name" '
+            'rt=$request_time '
+            'ua="$upstream_addr" us="$upstream_status" '
+            'ut="$upstream_response_time" ul="$upstream_response_length" '
+            'cs=$upstream_cache_status'
+        )
+
+        assert_that(config.log_formats, has_length(2))
+        assert_that(config.log_formats, has_entries({
+            'without_newlines': expected,
+            'with_newlines': expected
+        }))
+
+    def test_log_format_unicode_quote(self):
+        config = NginxConfig(log_format_unicode_quote)
+        config.full_parse()
+
+        assert_that(config.log_formats, has_length(1))
+        assert_that(config.log_formats, has_entries({
+            'foo': 'site="$server_name" server="$host\xe2\x80\x9d uri="uri"'
+        }))
+
+    def test_parse_bad_access_and_error_log(self):
+        """
+        Test case for ignoring access_log and error_log edge cases.
+        """
+        config = NginxConfig(bad_log_directives_config)
+        config.full_parse()
+
+        # common structure
+        assert_that(config.subtree, contains(
+            has_entries({'directive': 'user'}),
+            has_entries({'directive': 'worker_processes'}),
+            has_entries({'directive': 'pid'}),
+            has_entries({'directive': 'events'}),
+            has_entries({'directive': 'http'})
+        ))
+
+        # http
+        http = config.subtree[4]['block']
+        assert_that(http, has_items(
+            has_entries({'directive': 'access_log', 'args': ['']}),
+            has_entries({'directive': 'error_log', 'args': ['/var/log/nginx/$host-error.log']})
+        ))
+
+        assert_that(config.access_logs, empty())
+        assert_that(config.error_logs, empty())
 
 
 class MiscConfigTestCase(BaseTestCase):
@@ -390,15 +617,18 @@ class ExcludeConfigTestCase(BaseTestCase):
         )
 
         # stub status urls
-        assert_that(config.stub_status_urls, has_length(1))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_length(2))
+        assert_that(config.stub_status_urls, has_item('http://127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_item('https://127.0.0.1:443/basic_status'))
 
         # status urls
-        assert_that(config.plus_status_external_urls, has_length(1))
-        assert_that(config.plus_status_external_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_length(2))
+        assert_that(config.plus_status_external_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_item('https://127.0.0.1:443/plus_status'))
 
-        assert_that(config.plus_status_internal_urls, has_length(1))
-        assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_length(2))
+        assert_that(config.plus_status_internal_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_item('https://127.0.0.1:443/plus_status'))
 
     def test_parse_simple_exclude_file(self):
         """Check that config.full_parse() obeys exclude_logs from app_config with file ignore"""
@@ -426,15 +656,18 @@ class ExcludeConfigTestCase(BaseTestCase):
         )
 
         # stub status urls
-        assert_that(config.stub_status_urls, has_length(1))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_length(2))
+        assert_that(config.stub_status_urls, has_item('http://127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_item('https://127.0.0.1:443/basic_status'))
 
         # status urls
-        assert_that(config.plus_status_external_urls, has_length(1))
-        assert_that(config.plus_status_external_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_length(2))
+        assert_that(config.plus_status_external_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_item('https://127.0.0.1:443/plus_status'))
 
-        assert_that(config.plus_status_internal_urls, has_length(1))
-        assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_length(2))
+        assert_that(config.plus_status_internal_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_item('https://127.0.0.1:443/plus_status'))
 
     def test_parse_simple_exclude_combined(self):
         """Check that config.full_parse() obeys exclude_logs from app_config with combined ignore"""
@@ -461,16 +694,19 @@ class ExcludeConfigTestCase(BaseTestCase):
             )
         )
 
-        # stub status urls
-        assert_that(config.stub_status_urls, has_length(1))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:81/basic_status'))
+       # stub status urls
+        assert_that(config.stub_status_urls, has_length(2))
+        assert_that(config.stub_status_urls, has_item('http://127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_item('https://127.0.0.1:443/basic_status'))
 
         # status urls
-        assert_that(config.plus_status_external_urls, has_length(1))
-        assert_that(config.plus_status_external_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_length(2))
+        assert_that(config.plus_status_external_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_item('https://127.0.0.1:443/plus_status'))
 
-        assert_that(config.plus_status_internal_urls, has_length(1))
-        assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_length(2))
+        assert_that(config.plus_status_internal_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_item('https://127.0.0.1:443/plus_status'))
 
     def test_parse_simple_exclude_multiple(self):
         """Check that config.full_parse() obeys exclude_logs from app_config with multiple ignores"""
@@ -508,12 +744,15 @@ class ExcludeConfigTestCase(BaseTestCase):
         )
 
         # stub status urls
-        assert_that(config.stub_status_urls, has_length(1))
-        assert_that(config.stub_status_urls[0], equal_to('127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_length(2))
+        assert_that(config.stub_status_urls, has_item('http://127.0.0.1:81/basic_status'))
+        assert_that(config.stub_status_urls, has_item('https://127.0.0.1:443/basic_status'))
 
         # status urls
-        assert_that(config.plus_status_external_urls, has_length(1))
-        assert_that(config.plus_status_external_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_length(2))
+        assert_that(config.plus_status_external_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_external_urls, has_item('https://127.0.0.1:443/plus_status'))
 
-        assert_that(config.plus_status_internal_urls, has_length(1))
-        assert_that(config.plus_status_internal_urls[0], equal_to('127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_length(2))
+        assert_that(config.plus_status_internal_urls, has_item('http://127.0.0.1:81/plus_status'))
+        assert_that(config.plus_status_internal_urls, has_item('https://127.0.0.1:443/plus_status'))

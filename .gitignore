@@ -28,10 +28,12 @@ tools/validate.sh
 tools/qa/*
 tools/qa
 tools/access_log_parser.py
-test/unit/ext/controller
+test/unit/ext/configurator
 packages/nginx-controller-agent
-etc/agent.conf.controller
-amplify/ext/controller
+etc/agent.configurator.conf.default
+etc/agent.controller.conf.default
+amplify/ext/configurator
 docker/ubuntu1604-controller.yml
 docker/ubuntu1604-controller
+docker/agent-pipeline
 Jenkinsfile

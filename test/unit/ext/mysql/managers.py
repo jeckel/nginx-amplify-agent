@@ -49,6 +49,29 @@ class MySQLManagerTestCase(MySQLTestCase):
             'd3780726c2fdcbf45e32729a3113131f1cb4cf9a7cd42f99cd3f0ec88b9840c6'
         ))
 
+    def test_find_correct_cmd(self):
+        ps_output = [
+            ('17761 1 /usr/sbin/mysqld --basedir=/usr --datadir=/var/lib/mysql --plugin-dir=/usr/lib/mysql/plugin' +
+             ' --user=mysql --skip-log-error --open-files-limit=65535 --pid-file=/var/run/mysqld/mysqld.pid' +
+             ' --socket=/var/run/mysqld/mysqld.sock --port=3306'),
+            ('17764 1 /bin/sh /usr/local/bin/mysqld_safe --basedir=/usr/local --datadir=/var/db/mysql' +
+             ' --user=mysql --pid-file=/var/db/mysql/freebsd-amd64-arie-test.pid'),
+            '17762 1 logger -t mysqld -p daemon error',
+            '17763 1 mysql -u root -p',
+            ''
+        ]
+
+        # find mysql master processes
+        found_masters = MySQLManager()._find_all(ps=ps_output)
+
+        # check that only the first command from the ps output would be recognized as a master process
+        assert_that(found_masters, has_length(1))
+        assert_that(found_masters[0]['cmd'], equal_to(
+            '/usr/sbin/mysqld --basedir=/usr --datadir=/var/lib/mysql --plugin-dir=/usr/lib/mysql/plugin ' +
+            '--user=mysql --skip-log-error --open-files-limit=65535 --pid-file=/var/run/mysqld/mysqld.pid ' +
+            '--socket=/var/run/mysqld/mysqld.sock --port=3306'
+        ))
+
     def test_discover_objects(self):
         mysql_manager = MySQLManager()
         assert_that(mysql_manager, not_none())

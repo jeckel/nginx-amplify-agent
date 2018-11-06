@@ -71,3 +71,14 @@ class HostTestCase(WithConfigTestCase):
         context._setup_app_config(config_file=self.fake_config_file)
         assert_that(context.app_config['credentials']['uuid'], equal_to('fakeuuid'))
 
+    def test_is_valid_hostname(self):
+
+        assert_that(host.is_valid_hostname('foo.bar'), equal_to(True))
+        assert_that(host.is_valid_hostname('abcdefg123-foo.com'), equal_to(True))
+        assert_that(host.is_valid_hostname('0f26e87c7df0'), equal_to(True))
+        assert_that(host.is_valid_hostname('_foo._tcp.myhostname.com'), equal_to(True))
+        assert_that(host.is_valid_hostname('_foo._bar.abc.host.com'), equal_to(True))
+        assert_that(host.is_valid_hostname('localhost'), equal_to(False))
+        assert_that(host.is_valid_hostname('_foo._bar._foobar.com'), equal_to(False))
+        assert_that(host.is_valid_hostname('_foo.bar'), equal_to(False))
+        assert_that(host.is_valid_hostname('foo@bar'), equal_to(False))

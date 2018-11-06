@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import time
+from copy import deepcopy
 
 from hamcrest import *
 
@@ -18,10 +18,10 @@ class ConfigCollectorTestCase(RealNginxTestCase):
 
     def setup_method(self, method):
         super(ConfigCollectorTestCase, self).setup_method(method)
-        self.max_test_time = context.app_config['containers']['nginx']['max_test_duration']
+        self.max_test_time = deepcopy(context.app_config['containers']['nginx']['max_test_duration'])
 
     def teardown_method(self, method):
-        context.app_config['containers']['nginx']['max_test_duration'] = self.max_test_time
+        context.app_config['containers']['nginx']['max_test_duration'] = deepcopy(self.max_test_time)
         super(ConfigCollectorTestCase, self).teardown_method(method)
 
     def test_collect(self):
@@ -117,10 +117,10 @@ class ConfigCollectorSSLTestCase(RealNginxTestCase):
 
     def setup_method(self, method):
         super(ConfigCollectorSSLTestCase, self).setup_method(method)
-        self.original_upload_ssl = context.app_config['containers']['nginx']['upload_ssl']
+        self.original_upload_ssl = deepcopy(context.app_config['containers']['nginx']['upload_ssl'])
 
     def teardown_method(self, method):
-        context.app_config['containers']['nginx']['upload_ssl'] = self.original_upload_ssl
+        context.app_config['containers']['nginx']['upload_ssl'] = deepcopy(self.original_upload_ssl)
         super(ConfigCollectorSSLTestCase, self).teardown_method(method)
 
     def test_ssl_config_works_if_ssl_enabled(self):

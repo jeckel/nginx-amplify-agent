@@ -7,6 +7,7 @@ from threading import current_thread
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
 
+
 __author__ = "Grant Hulegaard"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
@@ -58,7 +59,7 @@ class AbstractManager(object):
 
     def __init__(self, **kwargs):
         self.running = False
-        self.interval = kwargs.get('interval') or 5.0  # Run interval for manager
+        self.interval = float(kwargs.get('interval', 5.0))  # Run interval for manager
         self.in_container = bool(context.app_config['credentials']['imagename'])
 
     @property
@@ -89,10 +90,15 @@ class AbstractManager(object):
 
         self.running = True
 
-        while self.running:
-            self._wait(self.interval)
-            context.inc_action_id()
-            self._run()
+        try:
+            while self.running:
+                self._wait(self.interval)
+                context.inc_action_id()
+                self._run()
+        except Exception as e:
+            context.log.error('manager execution failed due to "%s"' % e.__class__.__name__)
+            context.log.debug('additional info:', exc_info=True)
+            raise e
 
     def stop(self):
         # TODO: Think about whether or not this is necessary.  Managers should probably be receiving thread.kill().

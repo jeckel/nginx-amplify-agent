@@ -8,4 +8,4 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-
+AMPLIFY_EXT_KEY = 'abstract'

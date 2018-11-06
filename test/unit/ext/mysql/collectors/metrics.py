@@ -33,7 +33,7 @@ class MySQLMetricsCollectorTestCase(MySQLTestCase):
 
     def teardown_method(self, method):
         context._setup_object_tank()
-        super(MySQLMetricsCollectorTestCase, self).setup_method(method)
+        super(MySQLMetricsCollectorTestCase, self).teardown_method(method)
 
     def make_selects(self, amount=5):
         c = pymysql.connect(**self.mysql_obj.connection_args)
