@@ -33,8 +33,11 @@ class Config(AbstractConfig):
             api_key=None,
             uuid=None,
             hostname=None,
-            imagename=None
+            imagename=None,
         ),
+        agent=dict(
+            launchers=[]
+        )
     )
 
     config_changes = dict()

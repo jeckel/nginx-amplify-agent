@@ -5,6 +5,9 @@ uuid =
 imagename =
 store_uuid = False
 
+[agent]
+launchers =
+
 [nginx]
 #user = nginx
 #configfile = /etc/nginx/nginx.conf
@@ -31,6 +34,7 @@ configurator = True
 unix_socket = /var/run/mysqld/mysqld.sock
 user = root
 password = root
+remote = False
 
 [listeners]
 keys = syslog-default,syslog-alternate

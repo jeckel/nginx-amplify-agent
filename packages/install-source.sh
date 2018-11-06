@@ -256,13 +256,13 @@ if [ "${os}" = "freebsd" ]; then
     test "${rel}" = "11" && \
 	opt='-std=c99'
 
-    grep -v gevent packages/nginx-amplify-agent/requirements > packages/nginx-amplify-agent/req-nogevent
-    grep gevent packages/nginx-amplify-agent/requirements > packages/nginx-amplify-agent/req-gevent
+    grep -v gevent packages/nginx-amplify-agent/requirements.txt > packages/nginx-amplify-agent/req-nogevent.txt
+    grep gevent packages/nginx-amplify-agent/requirements.txt > packages/nginx-amplify-agent/req-gevent.txt
 
-    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/req-nogevent
-    CFLAGS=${opt} ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/req-gevent
+    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/req-nogevent.txt
+    CFLAGS=${opt} ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/req-gevent.txt
 else
-    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/requirements
+    ~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/nginx-amplify-agent/requirements.txt
 fi
 
 if [ "${os}" = "fedora" -a "${arch64}" = "yes" ]; then

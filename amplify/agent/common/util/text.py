@@ -62,9 +62,6 @@ def decompose_format(string, full=False):
     :return keys: list Key name strings ordered by occurance.
     :return trie_dict: dict A Trie dictionary for matching the non-key patterns
     """
-    # before starting strip left and right spaces
-    string = string.strip()
-
     keys = []
     non_key_patterns = []
     first_value_is_key = False
@@ -113,8 +110,12 @@ def decompose_format(string, full=False):
         else:
             non_key_patterns.append(current_pattern)
 
-    return (keys, construct_trie_dict(*non_key_patterns)) if not full \
-        else (keys, construct_trie_dict(*non_key_patterns), non_key_patterns, first_value_is_key)
+    trie = construct_trie_dict(*non_key_patterns)
+
+    if full:
+        return keys, trie, non_key_patterns, first_value_is_key
+    else:
+        return keys, trie
 
 
 def parse_line(line, keys=None, trie=None):
@@ -124,9 +125,6 @@ def parse_line(line, keys=None, trie=None):
     splitting this more easily parsed line into values.  The Trie dict is
     important since it allows efficient single-pass pattern replacement.
     """
-    # before starting strip left and right spaces
-    line = line.strip()
-
     stripped_line = ''
 
     current_location = trie  # start at the top of the Trie
@@ -163,12 +161,7 @@ def parse_line(line, keys=None, trie=None):
 
     values = stripped_line.split('\n')
 
-    # construct dict without comprehension for old python support
-    result = {}
-    for k, v in zip(keys, values):
-        result[k] = v
-
-    return result
+    return dict(zip(keys, values))
 
 
 def parse_line_split(line, keys=None, non_key_patterns=None, first_value_is_key=False):
@@ -176,27 +169,16 @@ def parse_line_split(line, keys=None, non_key_patterns=None, first_value_is_key=
     Take a raw access log line and parse it.  It works by taking all found
     non-key patterns and iteratively splitting the line.
     """
-    # before starting strip left and right spaces
-    line = line.strip()
-
     values = []
-    for pattern in non_key_patterns:
+    for i, pattern in enumerate(non_key_patterns):
         value, line = line.split(pattern, 1)
 
         # skip first split if it is a non_key_pattern
-        if non_key_patterns.index(pattern) == 0 \
-           and not first_value_is_key:
-            continue
+        if first_value_is_key or i > 0:
+            values.append(value)
 
-        values.append(value)
-
-    # if there are still characters in line it is a value
-    if len(line):
+    # if there are characters in line or there's one more value left to find
+    if len(line) or len(keys) == len(values) + 1:
         values.append(line)
 
-    # construct dict without comprehension for old python support
-    result = {}
-    for k, v in zip(keys, values):
-        result[k] = v
-
-    return result
+    return dict(zip(keys, values))

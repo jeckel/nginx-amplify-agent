@@ -268,4 +268,12 @@ class AbstractMetaCollector(AbstractCollector):
 
 
 class AbstractMetricsCollector(AbstractCollector):
-    pass
+    status_metric_key = None
+
+    def status_update(self):
+        if hasattr(self, 'object') and self.status_metric_key is not None:
+            self.object.statsd.object_status(self.status_metric_key)
+
+    def collect(self, *args, **kwargs):
+        self.status_update()
+        super(AbstractMetricsCollector, self).collect(*args, **kwargs)

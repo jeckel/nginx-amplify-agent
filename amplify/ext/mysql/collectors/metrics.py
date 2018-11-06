@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import pymysql
 import time
 
 from amplify.agent.common.context import context
@@ -43,6 +42,7 @@ class MySQLMetricsCollector(AbstractMetricsCollector):
     Metrics collector.  Spawned per master.
     """
     short_name = 'mysql_metrics'
+    status_metric_key = 'mysql.status'
 
     def __init__(self, **kwargs):
         super(MySQLMetricsCollector, self).__init__(**kwargs)
@@ -60,30 +60,21 @@ class MySQLMetricsCollector(AbstractMetricsCollector):
         """
         stamp = int(time.time())
 
-        # open a connection
-        try:
-            c = pymysql.connect(**self.object.connection_args)  # these are coming from agent config for now
-        except Exception as e:
-            exception_name = e.__class__.__name__
-            context.log.debug('failed to connect to MySQLd due to %s' % exception_name)
-            context.log.debug('additional info:', exc_info=True)
-            raise
-
         # get data
+        conn = self.object.connect()
         result = {}
         try:
-            cursor = c.cursor()
-            for key in REQUIRED_STATUS_FIELDS:
-                cursor.execute('SHOW GLOBAL STATUS LIKE "%s";' % key)
-                row = cursor.fetchone()
-                result[row[0]] = row[1]
+            with conn as cursor:
+                for key in REQUIRED_STATUS_FIELDS:
+                    cursor.execute('SHOW GLOBAL STATUS LIKE "%s";' % key)
+                    row = cursor.fetchone()
+                    result[row[0]] = row[1]
         except Exception as e:
             exception_name = e.__class__.__name__
             context.log.debug('failed to collect MySQLd metrics due to %s' % exception_name)
             context.log.debug('additional info:', exc_info=True)
-
-        # close the connection
-        c.close()
+        finally:
+            conn.close()
 
         # counters
         counted_vars = {}

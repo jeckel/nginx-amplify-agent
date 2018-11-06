@@ -61,10 +61,10 @@ RUN apt-get update \
 
 # Copy the application folder inside the container
 #ADD . /amplify
-ADD docker/test-plus/requirements /etc/naas/requirements
+ADD docker/test-plus/requirements.txt /etc/naas/requirements.txt
 
 # Install agent requirements:
-RUN pip install -I -r /etc/naas/requirements
+RUN pip install -I -r /etc/naas/requirements.txt
 
 # Install test requirements
 RUN pip install \

@@ -15,7 +15,22 @@ __maintainer__ = "Grant Hulegaard"
 __email__ = "grant.hulegaard@nginx.com"
 
 
-LAUNCHERS = ['supervisord', 'supervisorctl', 'runsv', 'supervise', 'mysqld_safe']
+def get_launchers():
+    # built-in
+    launchers = ['supervisord', 'supervisorctl', 'runsv', 'supervise', 'mysqld_safe']
+
+    # config values
+    if context.app_config is not None:
+        config_launchers = context.app_config['agent'].get('launchers', launchers)
+        # support single values
+        if not isinstance(launchers, list):
+            config_launchers = [launchers]
+
+        for config_launcher in config_launchers:
+            if config_launcher not in launchers:
+                launchers.append(config_launcher)
+
+    return launchers
 
 
 def launch_method_supported(manager_type, ppid):
@@ -32,7 +47,7 @@ def launch_method_supported(manager_type, ppid):
         out, err = subp.call('ps o "ppid,command" %d' % ppid)
         # take the second line because the first is a header
         launcher_ppid, parent_command = out[1].split(None, 1)
-        if not any(x in parent_command for x in LAUNCHERS):
+        if not any(x in parent_command for x in get_launchers()):
             context.log.debug(
                 'launching %s with "%s" is not currently supported' %
                 (manager_type, parent_command)

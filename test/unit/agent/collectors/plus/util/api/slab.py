@@ -116,7 +116,6 @@ class SlabCollectorTestCase(BaseTestCase):
 
         assert_that(slab_obj.statsd.current, has_key('gauge'))
         gauges = slab_obj.statsd.current['gauge']
-        print gauges
 
         for key in (
             'plus.slab.pages.free',

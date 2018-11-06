@@ -42,6 +42,7 @@ ssl_text_regexs = (
 
 ssl_dns_regex = re.compile('DNS:[\w\s\-\.]+')
 
+
 def certificate_dates(filename):
     keys = {
         'notBefore': 'start',

@@ -36,8 +36,8 @@ class Context(Singleton):
 
         # define vars
         self.cpu_last_check = 0
-        self.version_semver = (1, 3, 0)
-        self.version_build = 1
+        self.version_semver = (1, 4, 0)
+        self.version_build = 2
         self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
         self.environment = None
@@ -53,6 +53,7 @@ class Context(Singleton):
         self.action_ids = {}
         self.cloud_restart = False  # Handle improper duplicate logging of start/stop events.
         self.freeze_api_url = False
+        self.agent_name = ''
 
         self.objects = None
         self.top_object = None  # TODO: Remove top_object entirely in favor of just top_object_id.
@@ -114,8 +115,8 @@ class Context(Singleton):
 
         # if the api_url was set in the config and isn't from our receiver's domain then never overwrite it
         api_url = self.app_config.get('cloud', {}).get('api_url', '') or ''
-        from_us = api_url.startswith('https://receiver.amplify.nginx.com')
-        self.freeze_api_url = bool(api_url) and not from_us
+        from_saas = api_url.startswith('https://receiver.amplify.nginx.com')
+        self.freeze_api_url = bool(api_url) and not from_saas
 
         if kwargs.get('pid_file'):  # If pid_file given in setup, then assume agent running in daemon mode.
             self.app_config['daemon']['pid'] = kwargs.get('pid_file')
@@ -133,6 +134,8 @@ class Context(Singleton):
         # if in a container, sets self.uuid to a... not... ultimately unique id that's based on the imagename
         if self.app_config['credentials']['imagename']:
             self.app_config['credentials']['uuid'] = 'container-%s' % self.app_config['credentials']['imagename']
+
+        self.agent_name = kwargs.get('agent_name')
 
     def _setup_app_logs(self, **kwargs):
         """

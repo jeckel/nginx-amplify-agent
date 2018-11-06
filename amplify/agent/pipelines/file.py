@@ -90,7 +90,7 @@ class FileTail(Pipeline):
         # check for copytruncate
         # it will use the same file so inode will stay the same
         file_truncated = False
-        if new_inode == self._inode:
+        if new_inode == self._inode and self.filename in OFFSET_CACHE:
             with open(self.filename, 'r') as temp_fh:
                 temp_fh.seek(0, 2)
                 if temp_fh.tell() < OFFSET_CACHE[self.filename]:
@@ -151,4 +151,4 @@ class FileTail(Pipeline):
         line = self._fh.readline()
         if not line:
             raise StopIteration
-        return line.rstrip()
+        return line.rstrip('\n\r')

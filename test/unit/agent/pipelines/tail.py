@@ -24,7 +24,7 @@ class TailTestCase(BaseTestCase):
         self.write_log('start')
 
     def write_log(self, line):
-        os.system('echo %s >> %s' % (line, self.test_log))
+        os.system("echo '%s' >> %s" % (line, self.test_log))
         """
         with open(self.test_log, 'a+') as f:
             print 'writing "%s" to %s' % (line, f.name)
@@ -136,3 +136,10 @@ class TailTestCase(BaseTestCase):
         # create new
         tail = FileTail(filename=self.test_log)
         assert_that(tail._offset, equal_to(old_offset))
+
+    def test_keeps_trailing_spaces(self):
+        tail = FileTail(filename=self.test_log)
+        self.write_log('foo bar baz    ')
+        lines = tail.readlines()
+        assert_that(lines, has_length(1))
+        assert_that(lines[0], ends_with('    '))

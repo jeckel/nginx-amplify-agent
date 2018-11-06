@@ -20,7 +20,7 @@ __email__ = 'arie@nginx.com'
 INCLUDE_ONLY_RE = re.compile(r'(?:^|[;{}])\s*(include)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
 INCLUDE_CERT_RE = re.compile(r'(?:^|[;{}])\s*(include|ssl_certificate)\s+([\'"]?)([^#]*?)\2\s*?(?=;)')
 
-IGNORED_DIRECTIVES = frozenset([
+IGNORED_DIRECTIVES = [] if context.agent_name == 'controller' else frozenset([
     'ssl_certificate_key',
     'ssl_client_certificate',
     'ssl_password_file',

@@ -9,6 +9,7 @@ from amplify.agent.data.eventd import INFO
 from amplify.ext.abstract.manager import ExtObjectManager
 from amplify.ext.mysql.util import PS_CMD, master_parser, ps_parser
 from amplify.ext.mysql import AMPLIFY_EXT_KEY
+from amplify.agent.common.util.configtypes import boolean
 from amplify.ext.mysql.objects import MySQLObject
 
 
@@ -37,7 +38,7 @@ class MySQLManager(ExtObjectManager):
         ]
         discovered_hashes = []
 
-        mysql_daemons = self._find_all()
+        mysql_daemons = self._find_remote() if boolean(context.app_config['mysql'].get('remote', False)) == True else self._find_local()
 
         while len(mysql_daemons):
             try:
@@ -135,7 +136,7 @@ class MySQLManager(ExtObjectManager):
             self.objects.unregister(dropped_obj)
 
     @staticmethod
-    def _find_all(ps=None):
+    def _find_local(ps=None):
         """
         Tries to find all mysqld processes
 
@@ -223,5 +224,32 @@ class MySQLManager(ExtObjectManager):
                 results.append(payload)
             else:
                 context.log.debug('MySQL "_find_all()" found an incomplete entity %s' % payload)
+
+        return results
+
+    @staticmethod
+    def _find_remote():
+        """
+        :return: [] of {} MySQL object definition for remote mysqld process
+        """
+        results = []
+
+        try:
+            cmd = "/usr/sbin/mysqld"
+            conf_path = "/etc/mysql/my.cnf"
+
+            # calculate local_id
+            local_id = hashlib.sha256('%s_%s' % (cmd, conf_path)).hexdigest()
+            results.append({
+                'cmd': 'unknown',
+                'conf_path': 'unknown',
+                'pid': 'unknown',
+                'local_id': local_id
+            })
+        except Exception as e:
+            # log error
+            exception_name = e.__class__.__name__
+            context.log.error('failed to parse remote mysql results due to %s' % exception_name)
+            context.log.debug('additional info:', exc_info=True)
 
         return results

@@ -5,6 +5,9 @@ uuid =
 imagename =
 store_uuid = False
 
+[agent]
+launchers =
+
 [nginx]
 #user = nginx
 #configfile = /etc/nginx/nginx.conf
@@ -31,6 +34,7 @@ configurator = True
 unix_socket = /var/run/mysqld/mysqld.sock
 user = amplify-agent
 password = amplify-agent
+remote = False
 
 [tags]
 tags = foo,bar,foo:bar

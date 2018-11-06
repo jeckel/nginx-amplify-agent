@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import time
-import pymysql
+import copy
 
+import pymysql
 from hamcrest import *
 
 from test.unit.ext.mysql.base import MySQLTestCase
@@ -36,7 +37,9 @@ class MySQLMetricsCollectorTestCase(MySQLTestCase):
         super(MySQLMetricsCollectorTestCase, self).teardown_method(method)
 
     def make_selects(self, amount=5):
-        c = pymysql.connect(**self.mysql_obj.connection_args)
+        conn_kwargs = copy.deepcopy(context.app_config['mysql'])
+        conn_kwargs.pop('remote', None)
+        c = pymysql.connect(**conn_kwargs)
         cursor = c.cursor()
         for i in xrange(amount):
             cursor.execute("SELECT 1 FROM DUAL;")
@@ -80,3 +83,4 @@ class MySQLMetricsCollectorTestCase(MySQLTestCase):
             assert_that(gauges, has_key(metric_name))
         assert_that(gauges, has_key('mysql.global.innodb_buffer_pool_util'))
         assert_that(gauges, has_key('mysql.global.innodb_buffer_pool.hit_ratio'))
+        assert_that(gauges, has_key('mysql.status'))

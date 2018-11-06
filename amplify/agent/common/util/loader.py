@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import logging
-
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."

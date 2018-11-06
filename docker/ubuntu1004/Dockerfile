@@ -27,10 +27,10 @@ RUN easy_install pip
 
 # Copy the application folder inside the container
 ADD . /amplify
-ADD requirements /etc/naas/requirements
+ADD requirements.txt /etc/naas/requirements.txt
 
 # Install agent requirements:
-RUN pip install -r /etc/naas/requirements
+RUN pip install -r /etc/naas/requirements.txt
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/

@@ -13,7 +13,6 @@ __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
-
 simple_config = os.getcwd() + '/test/fixtures/nginx/simple/nginx.conf'
 complex_config = os.getcwd() + '/test/fixtures/nginx/complex/nginx.conf'
 huge_config = os.getcwd() + '/test/fixtures/nginx/huge/nginx.conf'
@@ -32,6 +31,7 @@ log_format_string_concat = os.getcwd() + '/test/fixtures/nginx/custom/log_format
 log_format_unicode_quote = os.getcwd() + '/test/fixtures/nginx/custom/log_format_unicode_quote.conf'
 bad_log_directives_config = os.getcwd() + '/test/fixtures/nginx/broken/bad_logs.conf'
 
+
 class ConfigLogsTestCase(RealNginxTestCase):
 
     def test_logs_path(self):
@@ -46,6 +46,7 @@ class ConfigLogsTestCase(RealNginxTestCase):
         assert_that(nginx_obj.config.access_logs, has_key('/var/log/nginx/access.log'))
         assert_that(nginx_obj.config.error_logs, has_length(1))
         assert_that(nginx_obj.config.error_logs, has_key('/var/log/nginx/error.log'))
+
 
 class ConfigTestCase(BaseTestCase):
 

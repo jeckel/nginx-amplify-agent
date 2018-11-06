@@ -14,6 +14,7 @@ __email__ = "dedm@nginx.com"
 def py_is_version(expected_major, expected_minor):
     return sys.version_info[:2] == (expected_major, expected_minor)
 
+
 is_python_2_6 = py_is_version(2, 6)
 
 
@@ -99,11 +100,11 @@ def install_pip(python='python'):
 def install_pip_deps(package=None):
     if is_python_2_6:
         shell_call(
-            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements-old-gevent' %
+            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements-old-gevent.txt' %
             package
         )
     else:
         shell_call(
-            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements' %
+            '~/.local/bin/pip install --upgrade --target=amplify --no-compile -r packages/%s/requirements.txt' %
             package
         )

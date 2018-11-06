@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from hamcrest import (
-    assert_that, not_none, equal_to, is_, has_length, not_
+    assert_that, not_none, equal_to, is_, has_length, not_,
+    has_key
 )
 import time
 
@@ -100,7 +101,7 @@ class PHPFPMPoolMetricsCollectorTestCase(PHPFPMTestCase):
                 'php.fpm.queue.max': [(1481301159.355574, '0'), (1481301159.456794, '0')],
                 'php.fpm.proc.idle': [(1481301159.355574, '1'), (1481301159.456794, '1')],
                 'php.fpm.proc.total': [(1481301159.355574, '2'), (1481301159.456794, '2')],
-                'php.fpm.proc.active': [(1481301159.355574, '1'), (1481301159.456794, '1')],
+                'php.fpm.proc.active': [(1481301159.355574, '1'), (1481301159.456794, '1')]
             }
         }
         """
@@ -130,4 +131,4 @@ class PHPFPMPoolMetricsCollectorTestCase(PHPFPMTestCase):
         assert_that(counters, has_length(3))
 
         gauges = self.phpfpm_obj.statsd.current['gauge']
-        assert_that(gauges, has_length(7))
+        assert_that(gauges, has_length(8))

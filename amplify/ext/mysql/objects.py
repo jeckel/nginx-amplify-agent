@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+import copy
+
+import pymysql
+
 from amplify.agent.common.context import context
 from amplify.agent.common.util.host import hostname
 from amplify.ext.abstract.object import AbstractExtObject
@@ -29,7 +33,7 @@ class MySQLObject(AbstractExtObject):
         self.conf_path = self.data['conf_path']
 
         # connection args - for now we're reading them from agent conf
-        self.connection_args = context.app_config.get('mysql')
+        self._setup_connection_args()
 
         # state
         self.parsed_conf = None
@@ -48,6 +52,15 @@ class MySQLObject(AbstractExtObject):
     def local_id_args(self):
         return self.cmd, self.conf_path
 
+    def _setup_connection_args(self):
+        connection_args = context.app_config.get('mysql', None)
+
+        if connection_args is not None:
+            if 'port' in connection_args:
+                connection_args['port'] = int(connection_args['port'])
+
+        self.connection_args = connection_args
+
     def _setup_meta_collector(self):
         self.collectors.append(
             MySQLMetaCollector(object=self, interval=self.intervals['meta'])
@@ -57,3 +70,18 @@ class MySQLObject(AbstractExtObject):
         self.collectors.append(
             MySQLMetricsCollector(object=self, interval=self.intervals['metrics'])
         )
+
+    def connect(self):
+        """
+        Connect to mysql with pymysql.
+        """
+        conn_kwargs = copy.deepcopy(context.app_config['mysql'])
+        conn_kwargs.pop('remote', None)
+        # open a connection
+        try:
+            return pymysql.connect(**conn_kwargs)
+        except Exception as e:
+            exception_name = e.__class__.__name__
+            context.log.debug('failed to connect to MySQLd due to %s' % exception_name)
+            context.log.debug('additional info:', exc_info=True)
+            raise

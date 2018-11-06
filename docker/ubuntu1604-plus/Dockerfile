@@ -6,7 +6,7 @@
 # Set the base image to Ubuntu
 FROM ubuntu:16.04
 # no idea why adding this earlier works..
-ADD requirements /etc/naas/requirements
+ADD requirements.txt /etc/naas/requirements.txt
 
 ARG VAULT_ADDR='https://vault.ci.nginx.com'
 ARG VAULT_SKIP_VERIFY=true
@@ -74,7 +74,7 @@ RUN easy_install pip
 ADD . /amplify
 
 # Install agent requirements:
-RUN pip install -r /etc/naas/requirements
+RUN pip install -r /etc/naas/requirements.txt
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/

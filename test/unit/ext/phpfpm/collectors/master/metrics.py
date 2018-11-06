@@ -107,6 +107,10 @@ class PHPFPMMetricsCollectorTestCase(PHPFPMTestCase):
             stamp = metric_records[0][0]
             assert_that(stamp, equal_to(2))
 
+        # test object status
+        gauges = self.phpfpm_obj.statsd.current['gauge']
+        assert_that(gauges['php.fpm.status'][0][1], equal_to(1))
+
     def test_gauge_aggregation(self):
         phpfpm_metrics_collector = PHPFPMMetricsCollector(
             object=self.phpfpm_obj,
@@ -140,19 +144,23 @@ class PHPFPMMetricsCollectorTestCase(PHPFPMTestCase):
         assert_that(self.phpfpm_obj.statsd.current, has_item('gauge'))
 
         gauges = self.phpfpm_obj.statsd.current['gauge']
-        assert_that(gauges, has_length(3))
+        assert_that(gauges, has_length(4))
         """
         gauges:
         {
             'php.fpm.proc.idle': [[2, 2]],
             'php.fpm.proc.active': [[2, 2]],
-            'php.fpm.proc.total': [[2, 4]]
+            'php.fpm.proc.total': [[2, 4]],
+            'php.fpm.status' : [[ts, 1]]
         }
         """
         assert_that(gauges['php.fpm.proc.idle'][0][1], equal_to(2))
         assert_that(gauges['php.fpm.proc.active'][0][1], equal_to(2))
         assert_that(gauges['php.fpm.proc.total'][0][1], equal_to(4))
 
-        for metric_record in gauges.itervalues():
+        for key, metric_record in gauges.iteritems():
+            if key not in tracked_gauges_source1:
+                # skip stuff that doesnt need aggregation - object status metric
+                continue
             stamp = metric_record[0][0]
             assert_that(stamp, equal_to(2))

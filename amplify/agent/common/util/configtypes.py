@@ -12,7 +12,7 @@ def boolean(value):
     """
     Helper function for taking some basic steps to properly converting a "value" into a properly mapped/cast boolean.
     This was originally designed to be used when handling ConfigParser inputs/values that may not be properly cast due
-    to older versions (e.g. amplify-agent must support Python 2.6).
+    to older versions (e.g. agent must support Python 2.6).
     """
     # skip some overhead if value is already a boolean
     if isinstance(value, bool):

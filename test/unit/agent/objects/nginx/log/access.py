@@ -300,7 +300,7 @@ class LogParserTestCase(BaseTestCase):
 
         line = '180.76.15.138 - - [05/May/2016:15:26:57 +0200] "GET / HTTP/1.1" 200 16060 ' + \
                '"-" "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)" ' + \
-               '"-" rt=0.258 ua="-" us="-" ut="-" ul="-" cs=- sn=differentsimgirls.com'
+               '"-" rt=0.258 ua="-" us="-" ut="-" ul="-" cs=- sn=differentsimgirls.com     '
 
         parser = NginxAccessLogParser(user_format)
         parsed = parser.parse(line)
@@ -408,3 +408,29 @@ class LogParserTestCase(BaseTestCase):
             parsed = parser.parse(line)
             assert_that(parsed, not_none())
             assert_that(parsed, has_entries(remote_addr='192.168.128.23', server_name=''))
+
+    def test_ends_with_space_then_empty_var(self):
+        log_format = (
+            '$remote_addr | $http_x_real_ip | $status | $request | $upstream_addr | $upstream_status | $upstream_response_length | $body_bytes_sent | '
+            '$upstream_header_time | $upstream_response_time | $upstream_cache_status | $host | $time_local | $http_x_forwarded_for | $http_referer | $http_user_agent | $request_time | '
+            '$ssl_protocol | $ssl_cipher | $connection_requests | $connection | $bytes_sent | $server_port | $gzip_ratio | '
+            '$time_iso8601 | $geoip_country_code | $geoip_city_country_name | $geoip_region | $geoip_city | '
+            '$region | $city_geo | $city_mm | $tz_geo $tz_mm'
+        )
+
+        line = (
+            '127.0.0.1 | 192.168.0.100 | 200 | GET /foo/bar/123/ HTTP/1.1 | 192.168.0.99:9000 | 200 | 599866 | 52736 | '
+            '1.500 | 1.500 | - | www.example.com | 05/Jun/2018:10:46:46 +0300 | 192.168.0.100 | - | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24 | 1.500 | '
+            'TLSv1.2 | ECDHE-RSA-AES128-GCM-SHA256 | 96 | 12345678 | 54099 | 443 | 11.38 | '
+            '2018-06-05T10:46:46+03:00 | RU | Russian Federation | - | - | '
+            '77 | 0JzQvtGB0LrQstCw |  | UTC+3 '
+        )
+
+        parser = NginxAccessLogParser(log_format)
+        parsed = parser.parse(line)
+
+        assert_that(parsed['region'], equal_to('77'))
+        assert_that(parsed['city_geo'], equal_to('0JzQvtGB0LrQstCw'))
+        assert_that(parsed['city_mm'], equal_to(''))
+        assert_that(parsed['tz_geo'], equal_to('UTC+3'))
+        assert_that(parsed['tz_mm'], equal_to(''))

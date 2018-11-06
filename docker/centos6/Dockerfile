@@ -20,17 +20,17 @@ RUN mkdir /run
 
 # Copy the application folder inside the container
 ADD . /amplify
-ADD requirements /etc/naas/requirements
+ADD requirements.txt /etc/naas/requirements.txt
 
 # Install Python and Basic Python Tools
 RUN yum -y install python python-devel python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py \
+RUN wget --no-check-certificate https://bootstrap.pypa.io/2.6/get-pip.py \
  && python get-pip.py --user \
  && rm -f get-pip.py \
  && ~/.local/bin/pip install setuptools --user \
  && ~/.local/bin/pip install setuptools --upgrade --user \
  && ~/.local/bin/pip install wheel==0.29.0 --user \
- && ~/.local/bin/pip install -r /etc/naas/requirements
+ && ~/.local/bin/pip install -r /etc/naas/requirements.txt
 
 ENV AMPLIFY_ENVIRONMENT development
 ENV PYTHONPATH /amplify/

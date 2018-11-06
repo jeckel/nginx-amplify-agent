@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-
+from copy import deepcopy
 from hamcrest import *
 
 from test.unit.ext.mysql.base import MySQLTestCase, MySQLSupervisordTestCase
@@ -18,17 +18,19 @@ class MySQLManagerTestCase(MySQLTestCase):
 
     def setup_method(self, method):
         super(MySQLManagerTestCase, self).setup_method(method)
+        self.original_app_config = deepcopy(context.app_config.config)
         context._setup_object_tank()
 
     def teardown_method(self, method):
         context._setup_object_tank()
+        context.app_config.config = self.original_app_config
         super(MySQLManagerTestCase, self).teardown_method(method)
 
-    def test_find_all(self):
+    def test_find_local(self):
         mysql_manager = MySQLManager()
         assert_that(mysql_manager, not_none())
 
-        found_masters = mysql_manager._find_all()
+        found_masters = mysql_manager._find_local()
         assert_that(found_masters, not_none())
         assert_that(found_masters, has_length(1))
 
@@ -62,7 +64,7 @@ class MySQLManagerTestCase(MySQLTestCase):
         ]
 
         # find mysql master processes
-        found_masters = MySQLManager()._find_all(ps=ps_output)
+        found_masters = MySQLManager()._find_local(ps=ps_output)
 
         # check that only the first command from the ps output would be recognized as a master process
         assert_that(found_masters, has_length(1))
@@ -150,6 +152,32 @@ class MySQLManagerTestCase(MySQLTestCase):
         master_id = mysql_objects[0].id
         assert_that(master_id, not_(equal_to(old_master_id)))
 
+    def test_find_remote(self):
+        mysql_manager = MySQLManager()
+        assert_that(mysql_manager, not_none())
+
+        # stop mysqld & set remote mysql to True
+        self.stop_mysqld()
+
+        context.app_config['mysql']['remote'] = True
+
+        found_masters = mysql_manager._find_remote()
+        assert_that(found_masters, not_none())
+        assert_that(found_masters, has_length(1))
+
+        found_master = found_masters[0]
+        assert_that(
+            found_master['cmd'],
+            equal_to('unknown')
+        )
+        assert_that(
+            found_master['conf_path'],
+            equal_to('unknown')
+        )
+        assert_that(found_master['pid'],  equal_to('unknown'))
+        assert_that(found_master['local_id'], equal_to(
+            'd47bcca34c2b2836266086c5d5d428b754cc4831e2df6e251b2ffa27bca59b3b'
+        ))
 
 class SupervisorMySQLManagerTestCase(MySQLManagerTestCase, MySQLSupervisordTestCase):
     pass

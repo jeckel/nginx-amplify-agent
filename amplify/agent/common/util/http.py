@@ -12,19 +12,16 @@ from amplify.agent.common.context import context
 requests.packages.urllib3.disable_warnings()
 """
 
-WHY DO YOU DISABLE THIS WARNING?
-
+1. WHY DO YOU DISABLE THIS WARNING?
 We don't want to show you redundant messages.
 
 
-IS IT A REAL PROBLEM?
-
+2. IS IT A REAL PROBLEM?
 No. It is not a real problem.
 It's just a notification that urllib3 uses standard Python SSL library.
 
 
-GIVE ME MORE DETAILS!
-
+3. GIVE ME MORE DETAILS!
 By default, urllib3 uses the standard library’s ssl module.
 Unfortunately, there are several limitations which are addressed by PyOpenSSL.
 
@@ -32,7 +29,7 @@ In order to work with Python OpenSSL bindings urllib3 needs
 requests[security] to be installed, which contains cryptography,
 pyopenssl and other modules.
 
-The problem is we CAN'T ship Amplify with built-in OpenSSL & cryptography.
+The problem is we CAN'T ship this agent with built-in OpenSSL & cryptography.
 You can install those libs manually and enable warnings back.
 
 More details: https://urllib3.readthedocs.org/en/latest/security.html#pyopenssl
@@ -71,7 +68,7 @@ class HTTPClient(Singleton):
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
-            'User-Agent': 'nginx-amplify-agent/%s' % context.version
+            'User-Agent': 'nginx-%s-agent/%s' % (context.agent_name, context.version)
         })
         if self.gzip:
             self.session.headers.update({'Content-Encoding': 'gzip'})
@@ -84,7 +81,7 @@ class HTTPClient(Singleton):
             payload = zlib.compress(payload, self.gzip)
 
         start_time = time.time()
-        result, http_code, amplify_id = '', 500, None
+        result, http_code, request_id = '', 500, None
         try:
             if method == 'get':
                 r = self.session.get(
@@ -104,7 +101,7 @@ class HTTPClient(Singleton):
             http_code = r.status_code
             r.raise_for_status()
             result = r.json() if json else r.text
-            amplify_id = r.headers.get('X-Amplify-ID', None)
+            request_id = r.headers.get('X-Amplify-ID', None)
             return result
         except Exception as e:
             if log:
@@ -117,7 +114,7 @@ class HTTPClient(Singleton):
             context.log.debug(result)
             log_method(
                 '[%s] %s %s %s %s %s %.3f' % (
-                    amplify_id,
+                    request_id,
                     method,
                     url,
                     http_code,

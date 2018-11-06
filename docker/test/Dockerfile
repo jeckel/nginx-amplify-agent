@@ -57,8 +57,8 @@ RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | pyt
  && easy_install supervisor
 
 # install agent requirements:
-ADD docker/test/requirements /etc/naas/requirements
-RUN pip install -I -r /etc/naas/requirements
+ADD docker/test/requirements.txt /etc/naas/requirements.txt
+RUN pip install -I -r /etc/naas/requirements.txt
 
 # install test requirements
 RUN pip install \

@@ -23,11 +23,11 @@ class SystemMetricsCollector(AbstractMetricsCollector):
     Unix system metrics collector
     """
     short_name = 'sys_metrics'
+    status_metric_key = 'amplify.agent.status'
 
     def __init__(self, **kwargs):
         super(SystemMetricsCollector, self).__init__(**kwargs)
         self.register(
-            self.agent,
             self.agent_cpu,
             self.agent_memory_info,
             self.container,
@@ -40,10 +40,6 @@ class SystemMetricsCollector(AbstractMetricsCollector):
             self.la,
             self.netstat
         )
-
-    def agent(self):
-        """ send amplify.agent.status by default """
-        self.object.statsd.agent('amplify.agent.status', 1)
 
     def container(self):
         """ send counter for container object """

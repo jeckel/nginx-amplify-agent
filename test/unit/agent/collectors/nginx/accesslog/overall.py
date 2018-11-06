@@ -411,3 +411,179 @@ class LogsOverallTestCase(NginxCollectorTestCase):
             elif counter_key is not None:
                 if counter_key not in collector.parser.request_variables:
                     assert_that(counter, not_(has_key('C|%s' % counter_name)))
+
+    def test_upstream_status(self):
+        log_format = '$remote_addr - $remote_user [$time_local] ' + \
+                     '"$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' + \
+                     'rt=$request_time us="$upstream_status" ut="$upstream_response_time" cs=$upstream_cache_status'
+
+        lines = [
+            '1.2.3.4 - - [22/Jan/2010:19:34:21 +0300] "GET /foo/ HTTP/1.1" 200 11078 ' +
+            '"http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1" rt=0.010 us="200" ut="2.001, 0.345" cs=MISS',
+
+            '1.2.3.4 - - [22/Jan/2010:20:34:21 +0300] "GET /foo/ HTTP/1.1" 300 1078 ' +
+            '"http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1" rt=0.010 us="500" ut="2.002" cs=HIT',
+
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object,
+                                             log_format=log_format, tail=lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+        assert_that(metrics, has_item('timer'))
+
+        # counter keys
+        counter = metrics['counter']
+        for key in ['C|nginx.http.method.get',
+                    'C|nginx.http.v1_1',
+                    'C|nginx.upstream.next.count',
+                    'C|nginx.upstream.request.count',
+                    'C|nginx.http.status.3xx',
+                    'C|nginx.cache.miss',
+                    'C|nginx.http.status.2xx',
+                    'C|nginx.http.request.body_bytes_sent',
+                    'C|nginx.cache.hit',
+                    'C|nginx.upstream.status.2xx',
+                    'C|nginx.upstream.status.5xx']:
+            assert_that(counter, has_key(key))
+
+        # timer keys
+        timer = metrics['timer']
+        for key in ['G|nginx.upstream.response.time.pctl95',
+                    'C|nginx.upstream.response.time.count',
+                    'C|nginx.http.request.time.count',
+                    'G|nginx.http.request.time',
+                    'G|nginx.http.request.time.pctl95',
+                    'G|nginx.http.request.time.median',
+                    'G|nginx.http.request.time.max',
+                    'G|nginx.upstream.response.time',
+                    'G|nginx.upstream.response.time.median',
+                    'G|nginx.upstream.response.time.max']:
+            assert_that(timer, has_key(key))
+
+        # values
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.upstream.request.count'][0][1],
+                    equal_to(2))
+        assert_that(counter['C|nginx.upstream.status.2xx'][0][1],
+                    equal_to(1))
+        assert_that(counter['C|nginx.upstream.status.5xx'][0][1],
+                    equal_to(1))
+        assert_that(counter['C|nginx.upstream.next.count'][0][1], equal_to(1))
+        assert_that(timer['G|nginx.upstream.response.time.max'][0][1],
+                    equal_to(2.001 + 0.345))
+
+        # check zero values
+        for counter_name, counter_key in collector.counters.iteritems():
+            if counter_key in collector.parser.keys:
+                assert_that(counter, has_key('C|%s' % counter_name))
+                if counter_name not in (
+                        'nginx.http.status.2xx',
+                        'nginx.http.status.3xx',
+                        'nginx.http.method.get',
+                        'nginx.upstream.request.count',
+                        'nginx.upstream.next.count',
+                        'nginx.upstream.response.time.max',
+                        'nginx.http.v1_1',
+                        'nginx.cache.miss',
+                        'nginx.cache.hit',
+                        'nginx.http.request.body_bytes_sent',
+                        'nginx.upstream.status.2xx',
+                        'nginx.upstream.status.5xx'
+                ):
+                    assert_that(counter['C|%s' % counter_name][0][1],
+                                equal_to(0))
+            elif counter_key is not None:
+                if counter_key not in collector.parser.request_variables:
+                    assert_that(counter, not_(has_key('C|%s' % counter_name)))
+
+    def test_upstream_status_multi_value(self):
+        log_format = '$remote_addr - $remote_user [$time_local] ' + \
+                     '"$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' + \
+                     'rt=$request_time us="$upstream_status" ut="$upstream_response_time" cs=$upstream_cache_status'
+
+        lines = [
+            '1.2.3.4 - - [22/Jan/2010:19:34:21 +0300] "GET /foo/ HTTP/1.1" 200 11078 ' +
+            '"http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1" rt=0.010 us="200" ut="2.001, 0.345" cs=MISS',
+
+            '1.2.3.4 - - [22/Jan/2010:20:34:21 +0300] "GET /foo/ HTTP/1.1" 300 1078 ' +
+            '"http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1" rt=0.010 us="502, 504" ut="2.002" cs=HIT',
+
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object,
+                                             log_format=log_format, tail=lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+        assert_that(metrics, has_item('timer'))
+
+        # counter keys
+        counter = metrics['counter']
+        for key in ['C|nginx.http.method.get',
+                    'C|nginx.http.v1_1',
+                    'C|nginx.upstream.next.count',
+                    'C|nginx.upstream.request.count',
+                    'C|nginx.http.status.3xx',
+                    'C|nginx.cache.miss',
+                    'C|nginx.http.status.2xx',
+                    'C|nginx.http.request.body_bytes_sent',
+                    'C|nginx.cache.hit',
+                    'C|nginx.upstream.status.2xx',
+                    'C|nginx.upstream.status.5xx']:
+            assert_that(counter, has_key(key))
+
+        # timer keys
+        timer = metrics['timer']
+        for key in ['G|nginx.upstream.response.time.pctl95',
+                    'C|nginx.upstream.response.time.count',
+                    'C|nginx.http.request.time.count',
+                    'G|nginx.http.request.time',
+                    'G|nginx.http.request.time.pctl95',
+                    'G|nginx.http.request.time.median',
+                    'G|nginx.http.request.time.max',
+                    'G|nginx.upstream.response.time',
+                    'G|nginx.upstream.response.time.median',
+                    'G|nginx.upstream.response.time.max']:
+            assert_that(timer, has_key(key))
+
+        # values
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.upstream.request.count'][0][1],
+                    equal_to(2))
+        assert_that(counter['C|nginx.upstream.status.2xx'][0][1],
+                    equal_to(1))
+        assert_that(counter['C|nginx.upstream.status.5xx'][0][1],
+                    equal_to(2))
+        assert_that(counter['C|nginx.upstream.next.count'][0][1], equal_to(1))
+        assert_that(timer['G|nginx.upstream.response.time.max'][0][1],
+                    equal_to(2.001 + 0.345))
+
+        # check zero values
+        for counter_name, counter_key in collector.counters.iteritems():
+            if counter_key in collector.parser.keys:
+                assert_that(counter, has_key('C|%s' % counter_name))
+                if counter_name not in (
+                        'nginx.http.status.2xx',
+                        'nginx.http.status.3xx',
+                        'nginx.http.method.get',
+                        'nginx.upstream.request.count',
+                        'nginx.upstream.next.count',
+                        'nginx.upstream.response.time.max',
+                        'nginx.http.v1_1',
+                        'nginx.cache.miss',
+                        'nginx.cache.hit',
+                        'nginx.http.request.body_bytes_sent',
+                        'nginx.upstream.status.2xx',
+                        'nginx.upstream.status.5xx'
+                ):
+                    assert_that(counter['C|%s' % counter_name][0][1],
+                                equal_to(0))
+            elif counter_key is not None:
+                if counter_key not in collector.parser.request_variables:
+                    assert_that(counter, not_(has_key('C|%s' % counter_name)))

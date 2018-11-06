@@ -6,6 +6,7 @@ import netaddr
 import psutil
 
 from amplify.agent.common.context import context
+from amplify.agent.common.errors import AmplifySubprocessError
 from amplify.agent.common.util import subp
 from amplify.agent.common.util.ec2 import AmazonEC2
 from amplify.agent.common.util.host import os_name, etc_release, alive_interfaces
@@ -162,7 +163,7 @@ class DebianSystemMetaCollector(SystemMetaCollector):
 
 
 class CentosSystemMetaCollector(SystemMetaCollector):
-    etc_release_re = re.compile('(\w+)\s+(\w+)\s+([\d\.]+)\s+([\w\(\)]+)')
+    etc_release_re = re.compile(r'^(.+?)\s+(\w+)\s+([\d\.]+)\s+([\w\(\)]+)')
 
     def etc_release(self):
         """
@@ -172,7 +173,11 @@ class CentosSystemMetaCollector(SystemMetaCollector):
         super(CentosSystemMetaCollector, self).etc_release()
 
         if self.meta['release']['version_id'] is None and self.meta['release']['version'] is None:
-            etc_release_out, _ = subp.call('cat /etc/centos-release')
+            try:
+                etc_release_out, _ = subp.call('cat /etc/centos-release', check=True)
+            except AmplifySubprocessError:
+                etc_release_out, _ = subp.call('cat /etc/redhat-release', check=True)
+
             for line in etc_release_out:
                 r = re.match(self.etc_release_re, line)
                 if r:

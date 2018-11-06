@@ -108,9 +108,9 @@ class StatsdClient(object):
         else:
             self.current['counter'][metric_name][-1] = [last_stamp, last_value + value]
 
-    def agent(self, metric_name, value, stamp=None):
+    def object_status(self, metric_name, value=1, stamp=None):
         """
-        Agent metrics
+        Object status metrics
         :param metric_name: metric
         :param value: value
         :param stamp: timestamp (current timestamp will be used if this is not specified)

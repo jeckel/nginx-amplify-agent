@@ -25,6 +25,23 @@ class NginxMetricsTestCase(RealNginxTestCase):
         plus.SUPPORTED_API_VERSIONS = self.original_supported_versions
         super(NginxMetricsTestCase, self).teardown_method(method)
 
+    def test_collect_object_status(self):
+        manager = NginxManager()
+        manager._discover_objects()
+        assert_that(manager.objects.objects_by_type[manager.type], has_length(1))
+
+        nginx_obj = manager.objects.objects[manager.objects.objects_by_type[manager.type][0]]
+        # get metrics collector - the third in the list
+        metrics_collector = nginx_obj.collectors[2]
+        metrics_collector.collect()
+
+        # check for status
+        metrics = nginx_obj.statsd.current
+        gauges = metrics['gauge']
+        assert_that(gauges, has_item('nginx.status'))
+        for metric in gauges['nginx.status']:
+            assert_that(metric[1], equal_to(1))
+
     def test_stub_status(self):
         manager = NginxManager()
         manager._discover_objects()
@@ -89,7 +106,6 @@ class NginxMetricsTestCase(RealNginxTestCase):
         metrics = nginx_obj.statsd.current
         assert_that(metrics, has_item('counter'))
         counters = metrics['counter']
-        assert_that(counters, has_item('nginx.master.reloads'))
         assert_that(counters, has_item('nginx.http.conn.accepted'))
         assert_that(counters, has_item('nginx.http.request.count'))
         assert_that(counters, has_item('nginx.http.conn.dropped'))
@@ -135,7 +151,6 @@ class NginxMetricsTestCase(RealNginxTestCase):
         metrics = nginx_obj.statsd.current
         assert_that(metrics, has_item('counter'))
         counters = metrics['counter']
-        assert_that(counters, has_item('nginx.master.reloads'))
         assert_that(counters, has_item('nginx.http.conn.accepted'))
         assert_that(counters, has_item('nginx.http.request.count'))
         assert_that(counters, has_item('nginx.http.conn.dropped'))
@@ -196,7 +211,6 @@ class NginxMetricsTestCase(RealNginxTestCase):
         metrics = nginx_obj.statsd.current
         assert_that(metrics, has_item('counter'))
         counters = metrics['counter']
-        assert_that(counters, has_item('nginx.master.reloads'))
         assert_that(counters, has_item('nginx.http.conn.accepted'))
         assert_that(counters, has_item('nginx.http.request.count'))
         assert_that(counters, has_item('nginx.http.conn.dropped'))
@@ -356,7 +370,6 @@ class NginxMetricsTestCase(RealNginxTestCase):
                 break
 
         assert_that(metrics_collector, not_(equal_to(None)))
-
         metrics_collector.reloads_and_restarts_count()
 
         metrics = nginx_obj.statsd.current

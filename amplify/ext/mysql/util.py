@@ -3,7 +3,7 @@ import re
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
-from amplify.agent.managers.abstract import LAUNCHERS as ORIGINAL_LAUNCHERS
+
 
 __author__ = "Andrew Alexeev"
 __copyright__ = "Copyright (C) Nginx Inc. All rights reserved."

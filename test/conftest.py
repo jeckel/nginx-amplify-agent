@@ -10,7 +10,7 @@ __maintainer__ = "Arie van Luttikhuizen"
 __email__ = "arie@nginx.com"
 
 
-@pytest.yield_fixture
+@pytest.fixture()
 def docker():
     """
     Use this fixture to test how the agent will act in a Docker container.

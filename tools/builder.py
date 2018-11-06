@@ -12,6 +12,7 @@ __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
 
+
 if __name__ == '__main__':
     package = 'nginx-amplify-agent' if len(sys.argv) == 1 else sys.argv[1]
 

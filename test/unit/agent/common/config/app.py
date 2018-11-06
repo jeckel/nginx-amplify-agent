@@ -28,6 +28,9 @@ class TestingConfig(Config):
             api_key=DEFAULT_API_KEY,
             hostname=DEFAULT_HOST
         ),
+        agent=dict(
+            launchers=['supervisord', 'supervisorctl', 'runsv', 'supervise', 'mysqld_safe']
+        ),
         containers=dict(
             system=dict(
                 poll_intervals=dict(

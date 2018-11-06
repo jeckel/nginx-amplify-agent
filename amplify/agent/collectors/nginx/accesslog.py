@@ -134,7 +134,7 @@ class NginxAccessLogsCollector(AbstractCollector):
             try:
                 parsed = self.parser.parse(line)
             except:
-                context.log.debug('could not parse line %s' % line, exc_info=True)
+                context.log.debug('could not parse line %r' % line, exc_info=True)
                 parsed = None
 
             if not parsed:

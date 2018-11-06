@@ -37,3 +37,5 @@ docker/ubuntu1604-controller.yml
 docker/ubuntu1604-controller
 docker/agent-pipeline
 Jenkinsfile
+nginx-controller-agent.py
+controller-agent

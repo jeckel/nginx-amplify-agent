@@ -149,6 +149,14 @@ fi
 
 
 %changelog
+* Thu Jul 26 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
+- 1.4.0-1
+- New metrics for nginx, phpfpm, and mysql status
+- Support monitoring of remote MySQL instances
+- Added LAUNCHERS as a configurable parameter in the Agent config
+- Various renaming of files and variables
+- Various bug fixes
+
 * Thu May 10 2018 Mike Belov <dedm@nginx.com> 1.3.0-1
 - 1.3.0-1
 - New nginx metric: number of config reloads, cache max size

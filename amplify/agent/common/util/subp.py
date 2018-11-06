@@ -37,6 +37,13 @@ def call(command, check=True):
     except:
         raise
     finally:
-        process.stdin.close()
-        process.stdout.close()
-        process.stderr.close()
+        # warning: if GreenletExit was the original exception thrown, no other raised exception in this
+        # finally block should be left unhandled
+
+        # in the case of multiple greenlets trying to run and read from and close stdout/stderr,
+        # this can lead to RuntimeError: reentrant calls.  Watch for exception and ignore
+        for pipe in (process.stdin, process.stdout, process.stderr):
+            try:
+                pipe.close()
+            except:
+                pass

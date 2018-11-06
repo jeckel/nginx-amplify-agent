@@ -42,6 +42,7 @@ STUB_RE = re.compile(r'^Active connections: (?P<connections>\d+)\s+[\w ]+\n'
 
 class NginxMetricsCollector(AbstractMetricsCollector):
     short_name = 'nginx_metrics'
+    status_metric_key = 'nginx.status'
 
     def __init__(self, **kwargs):
         super(NginxMetricsCollector, self).__init__(**kwargs)

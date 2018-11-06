@@ -15,6 +15,7 @@ class PHPFPMMetricsCollector(AbstractMetricsCollector):
     from pool and periodically call increment and finalize.
     """
     short_name = 'phpfpm_metrics'
+    status_metric_key = 'php.fpm.status'
 
     def __init__(self, **kwargs):
         super(PHPFPMMetricsCollector, self).__init__(**kwargs)
@@ -33,3 +34,5 @@ class PHPFPMMetricsCollector(AbstractMetricsCollector):
             self.finalize_gauges()
         except Exception as e:
             self.handle_exception(self.finalize_gauges, e)
+
+        super(PHPFPMMetricsCollector, self).collect(*args, **kwargs)

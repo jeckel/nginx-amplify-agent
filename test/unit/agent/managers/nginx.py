@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import copy
 
 from time import sleep
 from hamcrest import *
@@ -18,7 +19,6 @@ __email__ = "dedm@nginx.com"
 
 
 class NginxManagerTestCase(RealNginxTestCase):
-
     def get_master_workers(self):
         master, workers = None, []
         ps, _ = subp.call('ps -xa -o pid,ppid,command | egrep "PID|nginx" | grep -v egrep')

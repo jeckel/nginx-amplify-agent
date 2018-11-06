@@ -4,7 +4,7 @@ import os
 from hamcrest import *
 
 from amplify.agent.objects.nginx.config.parser import NginxConfigParser, IGNORED_DIRECTIVES
-from test.base import BaseTestCase
+from test.base import BaseTestCase, BaseControllerTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -809,3 +809,42 @@ class ParserTestCase(BaseTestCase):
         cfg = NginxConfigParser(location_with_semicolon_equal)
         assert_that(calling(cfg.parse), not_(raises(TypeError)))
         assert_that(cfg.errors, has_length(0))
+
+
+class ControllerParserTestCase(BaseControllerTestCase):
+    def test_parse_ssl_not_ignored(self):
+        """
+        This test case specifically checks to see that excluded directives (SSL focused) are parsed
+        for controller agent
+        """
+        cfg = NginxConfigParser(ssl_broken_config)
+
+        cfg.parse()
+        subtree = cfg.simplify()
+
+        http = subtree[0]['block']
+        ssl_server = http[1]['block']
+        # check that ignored directives were not ignored
+        # ssl_certificate_key is one of the IGNORED_DIRECTIVE
+        assert_that(ssl_server, has_item(
+            has_entries({'directive': 'ssl_certificate_key'}),
+        ))
+
+    def test_parse_ssl_simple_config_not_ignored(self):
+        cfg = NginxConfigParser(ssl_simple_config)
+
+        cfg.parse()
+        subtree = cfg.simplify()
+
+        http = subtree[4]['block']
+
+        # check that ignored directives were not ignored
+        # ssl_certificate_key, ssl_trusted_certificate are some of the the IGNORED_DIRECTIVE
+        # check ssl settings for specifically the ssl server block
+        ssl_server = http[18]['block']
+        assert_that(ssl_server, has_items(
+            has_entries({'directive': 'ssl_certificate_key'}),
+            has_entries({'directive': 'ssl_trusted_certificate'})
+        ))
+
+        assert_that(cfg.ssl_certificates, has_length(1))

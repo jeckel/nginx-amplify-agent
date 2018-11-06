@@ -35,7 +35,8 @@ class BaseTestCase(TestCase):
         # remove reference to Singleton for GC
         context.setup(
             app='test',
-            app_config=test.unit.agent.common.config.app.TestingConfig()
+            app_config=test.unit.agent.common.config.app.TestingConfig(),
+            agent_name='amplify'
         )
         context.setup_thread_id()
 
@@ -68,7 +69,25 @@ class BaseTestCase(TestCase):
         pass
 
 
-class BaseConfiguratorTestCase(BaseTestCase):
+class BaseControllerTestCase(BaseTestCase):
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """
+        this reloads the top level modules so that everything is
+        reloaded with new context.
+
+        Eg: reload IGNORE_DIRECTIVES in parser based on context
+        """
+
+        from amplify.agent.objects.nginx.config import parser
+        reload(parser)
+
+    def setup_method(self, method):
+        super(BaseControllerTestCase, self).setup_method(method)
+        context.agent_name = 'controller'
+
+
+class BaseConfiguratorTestCase(BaseControllerTestCase):
     @pytest.fixture(autouse=True)
     def setup(self, tmpdir):
         self.tmpdir = tmpdir
@@ -269,7 +288,17 @@ plain_test = pytest.mark.skipif(nginx_installed(), reason='This is a test for pl
 future_test = pytest.mark.skipif(1 > 0, reason='This test will be written in future')
 disabled_test = pytest.mark.skipif(1 > 0, reason='This test has unexpected behavior')
 
-if host.os_name() == 'freebsd':
-    container_test = pytest.mark.skip(reason='FreeBSD cannot run in linux containers')
-else:
-    container_test = pytest.mark.usefixtures('docker')
+
+def container_test(f):
+    """
+    Decorator that makes collectors think they're running inside docker
+    """
+    if host.os_name() == 'freebsd':
+        return pytest.mark.skip(reason='FreeBSD cannot run in linux containers')
+
+    def wrapper(*args, **kwargs):
+        context.app_config['credentials']['imagename'] = 'DockerTest'
+        f(*args, **kwargs)
+        context.app_config['credentials']['imagename'] = None
+
+    return wrapper

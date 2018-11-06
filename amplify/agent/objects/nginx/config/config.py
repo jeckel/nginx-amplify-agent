@@ -123,6 +123,7 @@ class NginxConfig(object):
         self.directories = self.parser.directories
         self.directory_map = self.parser.directory_map
         self.subtree = self.parser.simplify()
+        self.ssl_certificates = {} # gets populated in run_ssl_analysis()
         self.parser_ssl_certificates = self.parser.ssl_certificates
         self.parser_errors = self.parser.errors
 

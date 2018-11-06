@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import ConfigParser
 
-
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
@@ -62,7 +61,7 @@ class AbstractConfig(object):
 
     def apply(self, patch, current=None):
         """
-        Recursevly applies changes to config and return amount of changes.
+        Recursively applies changes to config and return amount of changes.
         Does NOT save changes to disk.
 
         :param patch: patches to config
