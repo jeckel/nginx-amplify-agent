@@ -57,7 +57,7 @@ class MySQLMetaCollector(AbstractMetaCollector):
         if '/' in self.object.cmd:
             self._bin_path = self.object.cmd.split(' ')[0]
 
-        if boolean(context.app_config['mysql'].get('remote', False)) == True:
+        if boolean(context.app_config['mysql'].get('remote', False)):
             self._bin_path = "unknown"
 
         if self._bin_path is None:

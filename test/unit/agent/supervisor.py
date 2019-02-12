@@ -3,6 +3,7 @@ import requests_mock
 import time
 
 from copy import deepcopy
+from collections import defaultdict
 from hamcrest import *
 
 from amplify.agent.common.context import context
@@ -22,12 +23,15 @@ class SupervisorTestCase(RealNginxTestCase):
 
     def setup_method(self, method):
         super(SupervisorTestCase, self).setup_method(method)
+        self.old_app_config_extensions = deepcopy(context.app_config['extensions'])
         self.old_cloud_config = deepcopy(context.app_config.get_config(0).config)
         self.old_backpressure_time = context.backpressure_time
 
     def teardown_method(self, method):
         context.app_config.get_config(0).config = deepcopy(self.old_cloud_config)
+        context.app_config['extensions'] = self.old_app_config_extensions
         context.backpressure_time = self.old_backpressure_time
+        context.capabilities = defaultdict(lambda: False)
         super(SupervisorTestCase, self).teardown_method(method)
 
     def test_talk_to_cloud(self):
@@ -45,7 +49,7 @@ class SupervisorTestCase(RealNginxTestCase):
         with requests_mock.mock() as m:
             m.post(
                 '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
-                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}}'
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}, "capabilities": {"php-fpm": true}}'
             )
 
             old_restart_time = supervisor.last_cloud_talk_restart
@@ -58,6 +62,9 @@ class SupervisorTestCase(RealNginxTestCase):
 
         # check that agent config was changed
         assert_that(context.app_config.config, not_(equal_to(self.old_cloud_config)))
+
+        # check that "phpfpm" is now enabled
+        assert_that(context.capabilities["phpfpm"], equal_to(True))
 
         # check that object configs were also changed
         nginx_manager = supervisor.object_managers['nginx']
@@ -453,6 +460,9 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor = Supervisor()
         assert_that(supervisor.object_managers, has_length(0))
 
+        for name in ('configurator', 'mysql', 'phpfpm'):
+            context.capabilities[name] = True
+
         # load regular ones
         supervisor.init_object_managers()
         assert_that(supervisor.object_managers, has_length(4))
@@ -464,8 +474,45 @@ class SupervisorTestCase(RealNginxTestCase):
         # check indexed configs
         assert_that(context.app_config._configs, has_length(2))
 
+    def test_load_no_ext_managers_by_default(self):
+        supervisor = Supervisor()
+        assert_that(supervisor.object_managers, has_length(0))
+
+        # load regular ones
+        supervisor.init_object_managers()
+        assert_that(supervisor.object_managers, has_length(4))
+
+        # load external ones
+        supervisor.load_ext_managers()
+        assert_that(supervisor.object_managers, has_length(4))
+
+        # check indexed configs
+        assert_that(context.app_config._configs, has_length(1))
+
+    def test_enable_ext_managers_from_backend(self):
+        supervisor = Supervisor()
+        assert_that(supervisor.object_managers, has_length(0))
+
+        with requests_mock.mock() as m:
+            m.post(
+                '%s/%s/agent/' % (DEFAULT_API_URL, DEFAULT_API_KEY),
+                text='{"config": {"cloud": {"push_interval": 30.0, "talk_interval": 60.0, "api_timeout": 10.0}, "containers": {"nginx": {"parse_delay": 60.0, "max_test_duration": 30.0, "run_test": true, "poll_intervals": {"metrics": 20.0, "configs": 20.0, "meta": 30.0, "discover": 10.0, "logs": 10.0}, "upload_ssl": true, "upload_config": true}, "system": {"poll_intervals": {"metrics": 20.0, "meta": 30.0, "discover": 10.0}}}}, "objects": [{"object":{"type":"nginx", "local_id": "b636d4376dea15405589692d3c5d3869ff3a9b26b0e7bb4bb1aa7e658ace1437"}, "config":{"upload_ssl":true}, "filters":[ {"metric": "nginx.http.method.post", "filter_rule_id": 9, "data": [["$request_uri", "~", "/api/timeseries"]]} ] }], "messages": [], "versions": {"current": 0.29, "old": 0.26, "obsolete": 0.21}, "capabilities": {"php-fpm": true}}'
+            )
+            supervisor.talk_to_cloud(force=True)
+
+        # load regular ones
+        supervisor.init_object_managers()
+        assert_that(supervisor.object_managers, has_length(6))
+
+        # load external ones
+        supervisor.load_ext_managers()
+        assert_that(supervisor.object_managers, has_length(6))
+        # only phpfpm (and phpfpm-pool) loaded
+
+        # check indexed configs
+        assert_that(context.app_config._configs, has_length(1))
+
     def test_dont_load_missing_ext_managers(self):
-        old = context.app_config['extensions']
         context.app_config['extensions'] = {}
 
         supervisor = Supervisor()
@@ -479,10 +526,7 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # non loaded
 
-        context.app_config['extensions'] = old
-
     def test_dont_load_false_ext_managers(self):
-        old = context.app_config['extensions']
         context.app_config['extensions'] = dict(phpfpm=False)
 
         supervisor = Supervisor()
@@ -496,10 +540,7 @@ class SupervisorTestCase(RealNginxTestCase):
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # none loaded
 
-        context.app_config['extensions'] = old
-
     def test_dont_load_string_false_ext_managers(self):
-        old = context.app_config['extensions']
         context.app_config['extensions'] = dict(phpfpm='False')
 
         supervisor = Supervisor()
@@ -512,8 +553,6 @@ class SupervisorTestCase(RealNginxTestCase):
         # load external ones
         supervisor.load_ext_managers()
         assert_that(supervisor.object_managers, has_length(4))  # none loaded
-
-        context.app_config['extensions'] = old
 
     def test_freeze_api_url_true(self):
         context.freeze_api_url = True

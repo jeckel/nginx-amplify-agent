@@ -38,7 +38,10 @@ class MySQLManager(ExtObjectManager):
         ]
         discovered_hashes = []
 
-        mysql_daemons = self._find_remote() if boolean(context.app_config['mysql'].get('remote', False)) == True else self._find_local()
+        if boolean(context.app_config['mysql'].get('remote', False)):
+            mysql_daemons = self._find_remote()
+        else:
+            mysql_daemons = self._find_local()
 
         while len(mysql_daemons):
             try:

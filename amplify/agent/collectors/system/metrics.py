@@ -23,7 +23,7 @@ class SystemMetricsCollector(AbstractMetricsCollector):
     Unix system metrics collector
     """
     short_name = 'sys_metrics'
-    status_metric_key = 'amplify.agent.status'
+    status_metric_key = 'controller.agent.status'
 
     def __init__(self, **kwargs):
         super(SystemMetricsCollector, self).__init__(**kwargs)
@@ -44,24 +44,24 @@ class SystemMetricsCollector(AbstractMetricsCollector):
     def container(self):
         """ send counter for container object """
         if self.object.type == 'container':
-            self.object.statsd.latest('amplify.agent.container.count', 1)
+            self.object.statsd.latest('controller.agent.container.count', 1)
 
     def agent_cpu(self):
         """ agent cpu times """
         user, system = context.psutil_process.cpu_percent()
-        self.object.statsd.gauge('amplify.agent.cpu.user', user)
-        self.object.statsd.gauge('amplify.agent.cpu.system', system)
+        self.object.statsd.gauge('controller.agent.cpu.user', user)
+        self.object.statsd.gauge('controller.agent.cpu.system', system)
 
     def agent_memory_info(self):
         """
         agent memory info
 
-        amplify.agent.mem.rss
-        amplify.agent.mem.vms
+        controller.agent.mem.rss
+        controller.agent.mem.vms
         """
         mem_info = context.psutil_process.memory_info()
-        self.object.statsd.gauge('amplify.agent.mem.rss', mem_info.rss)
-        self.object.statsd.gauge('amplify.agent.mem.vms', mem_info.vms)
+        self.object.statsd.gauge('controller.agent.mem.rss', mem_info.rss)
+        self.object.statsd.gauge('controller.agent.mem.vms', mem_info.vms)
 
     def virtual_memory(self):
         """ virtual memory """

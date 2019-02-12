@@ -23,7 +23,6 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
         upstream = NginxApiHttpUpstreamObject(local_name='trac-backend', parent_local_id='nginx123', root_uuid='root123')
         upstream.api_internal_url_cache = 'test_api'
 
-
         # Get the upstream collector
         upstream_collector = upstream.collectors[-1]
 
@@ -356,22 +355,22 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
         assert_that(upstream_collector.last_collect, equal_to(None))
 
         test_peer = {
-             "id": 0,
-             "server": "10.0.0.1:8080",
-             "backup": False,
-             "weight": 1,
-             "state": "up",
-             "active": 0,
-             "requests": 0,
-             "responses": {"1xx": 100, "2xx": 200, "3xx": 300, "4xx": 400, "5xx": 500, "total": 1500},
-             "sent": 0,
-             "received": 0,
-             "fails": 0,
-             "unavail": 0,
-             "health_checks": {"checks": 0, "fails": 0, "unhealthy": 0, "last_passed": True},
-             "downtime": 0,
-             "downstart": 0,
-             "selected": 1456184367000
+            "id": 0,
+            "server": "10.0.0.1:8080",
+            "backup": False,
+            "weight": 1,
+            "state": "up",
+            "active": 0,
+            "requests": 0,
+            "responses": {"1xx": 100, "2xx": 200, "3xx": 300, "4xx": 400, "5xx": 500, "total": 1500},
+            "sent": 0,
+            "received": 0,
+            "fails": 0,
+            "unavail": 0,
+            "health_checks": {"checks": 0, "fails": 0, "unhealthy": 0, "last_passed": True},
+            "downtime": 0,
+            "downstart": 0,
+            "selected": 1456184367000
         }
 
         gauges = upstream.statsd.current['gauge']
@@ -593,8 +592,8 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
 
         assert_that(upstream.statsd.current, not_(has_length(0)))
 
-        assert_that(upstream.statsd.current, not_(has_key('counter')))  # Counters need two data values to compute
-                                                                        # difference
+        # Counters need two data values to compute difference
+        assert_that(upstream.statsd.current, not_(has_key('counter')))
 
         assert_that(upstream.statsd.current, has_key('timer'))
         timers = upstream.statsd.current['timer']
@@ -642,7 +641,7 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
                                     u'health_checks': {
                                         u'fails': 0,
                                         u'checks': 0,
-                                        u'unhealthy': 0\
+                                        u'unhealthy': 0
                                     },
                                     u'unavail': 0,
                                     u'downtime': 0,
@@ -693,7 +692,7 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
                     u'server_zones': {},
                 },
                 u'nginx': {
-                    u'version': u'1.7.11',
+                    u'nginx_version': u'1.7.11',
                     u'load_timestamp': 1473999906889,
                     u'address': u'127.0.0.1',
                     u'generation': 1,
@@ -715,8 +714,8 @@ class ApiHttpUpstreamCollectorTestCase(BaseTestCase):
 
         assert_that(upstream.statsd.current, not_(has_length(0)))
 
-        assert_that(upstream.statsd.current, not_(has_key('counter')))  # Counters need two data values to compute
-                                                                        # difference
+        # Counters need two data values to compute difference
+        assert_that(upstream.statsd.current, not_(has_key('counter')))
 
         assert_that(upstream.statsd.current, has_key('gauge'))
         gauges = upstream.statsd.current['gauge']

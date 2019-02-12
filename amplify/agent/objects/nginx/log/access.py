@@ -125,7 +125,7 @@ class NginxAccessLogParser(object):
                 if key.endswith('_time'):
                     time_var = True
                     # skip empty vars
-                    if value != '-':
+                    if value not in ('', '-'):
                         array_value = []
                         for x in value.replace(' ', '').split(','):
                             x = float(x)

@@ -8,7 +8,7 @@ import atexit
 from threading import current_thread
 from requests.exceptions import HTTPError
 
-from amplify.agent.common.cloud import CloudResponse, HTTP503Error
+from amplify.agent.common.cloud import CloudResponse, HTTP503Error, tuple_to_version
 from amplify.agent.common.context import context
 from amplify.agent.common.util.backoff import exponential_delay
 from amplify.agent.common.errors import AmplifyCriticalException
@@ -42,7 +42,6 @@ class Supervisor(object):
 
         :param foreground: bool run in foreground if True
         :param debug: bool run in debug mode if True
-        :param logfile: str path to the log file
         """
         # daemon specific
         self.stdin_path = '/dev/null'
@@ -122,6 +121,10 @@ class Supervisor(object):
             if not boolean(context.app_config.get('extensions', {}).get(modname, False)):
                 return False
 
+            # not enabled in backend
+            if not context.capabilities[modname]:
+                return False
+
             return True
 
         def _recursive_manager_init(inspected_package, prefix=base_prefix, top_mod=None):
@@ -172,10 +175,8 @@ class Supervisor(object):
                         if inspect.isclass(obj):
                             # and it is a subclass of ObjectManager (but not
                             # ObjectManager itself)
-                            if issubclass(obj, ExtObjectManager) \
-                                    and obj.__name__ not in (
-                                        ExtObjectManager.__name__
-                                    ):
+                            if (issubclass(obj, ExtObjectManager) and
+                                    obj.__name__ not in ExtObjectManager.__name__):
                                 # add to object_managers
                                 self.object_managers[obj.type] = obj()
                                 self.external_object_manager_types.append(obj.type)
@@ -183,19 +184,17 @@ class Supervisor(object):
 
                             # or it is a subclass of AbstractManager (but not
                             # AbstractManager itself or an ObjectManager)
-                            elif issubclass(obj, AbstractExtManager) \
-                                    and obj.__name__ not in (
-                                            AbstractExtManager.__name__,
-                                            ExtObjectManager.__name__
-                                    ):
+                            elif (issubclass(obj, AbstractExtManager) and
+                                  obj.__name__ not in (AbstractExtManager.__name__,
+                                                       ExtObjectManager.__name__)):
                                 # add to external_managers
-                                self.external_managers[obj.name] = obj()
+                                self.external_managers[obj.name] = obj
                                 context.log.debug('loaded "%s" manager from %s' % (obj.name, obj))
 
                             # or it is a subclass of AbstractConfig (but not
                             # AbstractConfig itself)
-                            elif issubclass(obj, AbstractExtConfig) \
-                                    and obj.__name__ != AbstractExtConfig.__name__:
+                            elif (issubclass(obj, AbstractExtConfig) and
+                                  obj.__name__ != AbstractExtConfig.__name__):
                                 # check that the extension is enabled in the config
                                 # add to ConfigTank
                                 config = obj()
@@ -385,14 +384,19 @@ class Supervisor(object):
         if context.version_semver <= cloud_response.versions.obsolete:
             context.log.error(
                 'agent is obsolete - cloud will refuse updates until it is updated (version: %s, current: %s)' %
-                (context.version_major, cloud_response.versions.current)
+                (tuple_to_version(context.version_semver), tuple_to_version(cloud_response.versions.current))
             )
             self.stop()
         elif context.version_semver <= cloud_response.versions.old:
             context.log.warn(
                 'agent is old - update is recommended (version: %s, current: %s)' %
-                (context.version_major, cloud_response.versions.current)
+                (tuple_to_version(context.version_semver), tuple_to_version(cloud_response.versions.current))
             )
+
+        # set capabilities
+        for name, status in cloud_response.capabilities.iteritems():
+            name = ''.join([char.lower() for char in name if char.isalpha()])
+            context.capabilities[name] = status
 
         # update special object configs and filters
         changed_object_managers = set()
@@ -477,8 +481,11 @@ class Supervisor(object):
                         object_manager = self.object_managers[object_manager_name]
                         object_manager.stop()
 
-                    for manager in self.external_managers.values():
-                        manager.stop()
+                    for name in self.external_managers.keys():
+                        attr_string = '%s_manager' % name
+                        thread = getattr(self, attr_string, None)
+                        if thread is not None:
+                            thread.kill()
 
             elif len(changed_object_managers) > 0:
                 context.log.debug(
@@ -508,14 +515,23 @@ class Supervisor(object):
         """
         for name, manager_cls in self.external_managers.iteritems():
             attr_string = '%s_manager' % name
-            attr = getattr(self, attr_string, None)
+            thread = getattr(self, attr_string, None)
 
-            if attr is None:
+            if thread is None:
                 # start and set the manager
-                setattr(self, attr_string, gevent.spawn(manager_cls.start))
-            elif attr.ready and attr.exception:
                 context.log.debug(
-                    'restarting "%s" external manager' % manager_cls.__class__.__name__
+                    'starting "%s" external manager' % manager_cls.__name__
+                )
+                setattr(self, attr_string, gevent.spawn(manager_cls().start))
+            elif thread.dead:
+                # manager was stopped (or thread killed)
+                context.log.debug(
+                    'starting "%s" external manager after stop' % manager_cls.__name__
+                )
+                setattr(self, attr_string, gevent.spawn(manager_cls().start))
+            elif thread.ready and thread.exception:
+                context.log.debug(
+                    'restarting "%s" external manager' % manager_cls.__name__
                 )
                 # restart crashed managers
-                setattr(self, attr_string, gevent.spawn(manager_cls.start))
+                setattr(self, attr_string, gevent.spawn(manager_cls().start))

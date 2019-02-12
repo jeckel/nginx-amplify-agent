@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-import pprint
-from collections import defaultdict
-
 from hamcrest import *
 
 from test.base import BaseTestCase
@@ -197,7 +194,7 @@ class UtilTextTestCase(BaseTestCase):
         assert_that(results['upstream_response_time'], equal_to('2.001, 0.345'))
 
     def test_parse_line_upstream_log_format_empty_upstreams(self):
-        log_format ='$remote_addr - $remote_user [$time_local] ' + \
+        log_format = '$remote_addr - $remote_user [$time_local] ' + \
                      '"$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' + \
                      'rt=$request_time cs=$upstream_cache_status ut="$upstream_response_time"'
 
@@ -219,7 +216,7 @@ class UtilTextTestCase(BaseTestCase):
         assert_that(results['upstream_cache_status'], equal_to('-'))
 
     def test_parse_line_split_upstream_log_format_empty_upstreams(self):
-        log_format ='$remote_addr - $remote_user [$time_local] ' + \
+        log_format = '$remote_addr - $remote_user [$time_local] ' + \
                      '"$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' + \
                      'rt=$request_time cs=$upstream_cache_status ut="$upstream_response_time"'
 

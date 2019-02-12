@@ -4,7 +4,7 @@ import time
 from abc import abstractproperty
 from collections import defaultdict
 from threading import current_thread
-from gevent import queue, GreenletExit
+from gevent import GreenletExit
 
 from amplify.agent.common.context import context
 

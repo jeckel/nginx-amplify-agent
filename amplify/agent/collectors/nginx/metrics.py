@@ -372,35 +372,10 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         """
         stamp = int(time.time())
 
-        def _get_root_endpoints_to_skip():
-            """
-            This searches the tree's main context for http and stream blocks and returns which ones were not found.
-            """
-            if self.object.config is None:
-                return []
-
-            blocks_to_find = set(['http', 'stream'])
-
-            # includes logic must be handled because main contexts can span multiple files in crossplane payloads
-            def _find_blocks_in_main_ctx(index):
-                block = self.object.config.tree['config'][index]['parsed']
-                for stmt in block:
-                    if stmt['directive'] in blocks_to_find:
-                        yield stmt['directive']
-                    elif 'includes' in stmt:
-                        for idx in stmt['includes']:
-                            for directive in _find_blocks_in_main_ctx(index=idx):
-                                yield directive
-
-            # return a list of whichever blocks (from blocks_to_find) were not found in the main context
-            found_in_main_context = _find_blocks_in_main_ctx(index=0)
-            not_in_main_context = blocks_to_find.difference(found_in_main_context)
-            return not_in_main_context
-
         try:
             aggregated_api_payload = traverse_plus_api(
                 location_prefix=self.object.api_internal_url,
-                root_endpoints_to_skip=_get_root_endpoints_to_skip()
+                root_endpoints_to_skip=self.object.api_endpoints_to_skip
             )
         except GreenletExit:
             raise
@@ -420,7 +395,6 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         ssl = aggregated_api_payload.get('ssl', {})
         processes = aggregated_api_payload.get('processes', {})
         stream = aggregated_api_payload.get('stream', {})
-
 
         # gauges
         self.object.statsd.gauge('nginx.http.conn.active', connections.get('active'))

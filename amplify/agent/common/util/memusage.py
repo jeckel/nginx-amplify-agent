@@ -9,7 +9,6 @@ This helper may be done using psutil_process hooks::
 All information from .memory_info() returns bytes.
 """
 import os
-import sys
 
 from functools import wraps
 

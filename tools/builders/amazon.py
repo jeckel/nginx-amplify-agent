@@ -20,7 +20,7 @@ def build(package=None):
     rpm_topdir = os.path.expanduser('~') + '/rpmbuild'
     rpm_sources = rpm_topdir + '/SOURCES'
     python = '/usr/bin/python2.7'
-    amzn = shell_call('rpm --eval "%{amzn}"')
+    amzn = shell_call('rpm --eval "%{amzn}"').strip()
 
     # get version and build
     version, bld = get_version_and_build()
@@ -56,7 +56,7 @@ def build(package=None):
         # remove weird file
         shell_call('rm -rf setup.cfg', important=False)
 
-        if amzn == 1:
+        if amzn == "1":
             # provide a new one - to create a package that will work with the strange amazon linux rpm
             shell_call("echo '[install]' > setup.cfg")
             shell_call("echo 'install_lib = /usr/lib/python2.7/dist-packages' >> setup.cfg")

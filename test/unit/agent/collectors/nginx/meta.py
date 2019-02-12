@@ -183,7 +183,7 @@ class CentosNginxMetaCollectorTestCase(NginxMetaCollectorTestCase):
         collector = CentosNginxMetaCollector(object=nginx_obj, interval=nginx_obj.intervals['meta'])
         collector.meta = collector.default_meta
 
-        #stdout
+        # stdout
         self.push_subp_result(
             stdout_lines=self.from_source_subp_result[0],
             stderr_lines=self.from_source_subp_result[1]
@@ -195,7 +195,7 @@ class CentosNginxMetaCollectorTestCase(NginxMetaCollectorTestCase):
 
         collector.meta = collector.default_meta
 
-        #stderr - seems like some Centos / RPM versions do this, AMPDEV-1995
+        # stderr - seems like some Centos / RPM versions do this, AMPDEV-1995
         self.push_subp_result(
             stdout_lines=self.from_source_subp_result[1],
             stderr_lines=self.from_source_subp_result[0]

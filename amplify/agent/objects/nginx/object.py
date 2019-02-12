@@ -7,7 +7,7 @@ from amplify.agent.collectors.nginx.errorlog import NginxErrorLogsCollector
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import http, net, plus
-from amplify.agent.data.eventd import INFO
+from amplify.agent.data.eventd import INFO, WARNING
 from amplify.agent.objects.abstract import AbstractObject
 from amplify.agent.objects.nginx.binary import nginx_v
 from amplify.agent.objects.nginx.filters import Filter
@@ -60,6 +60,7 @@ class NginxObject(AbstractObject):
             self._setup_config_collector()
 
         # api
+        self.api_endpoints_to_skip = self.get_api_endpoints_to_skip()
         self.api_external_url, self.api_internal_url = self.get_alive_api_urls()
         self.api_enabled = True if (self.api_external_url or self.api_internal_url) else False
         api_url = self.api_internal_url if self.api_internal_url is not None else self.api_external_url
@@ -84,6 +85,10 @@ class NginxObject(AbstractObject):
         self._setup_access_logs()
         self._setup_error_logs()
 
+        # publish events for old object
+        for error in self.config.parser_errors:
+            self.eventd.event(level=WARNING, message=error)
+
     @property
     def definition(self):
         # Type is hard coded so it is not different from ContainerNginxObject.
@@ -92,6 +97,14 @@ class NginxObject(AbstractObject):
     @property
     def config(self):
         return context.nginx_configs[(self.conf_path, self.prefix, self.bin_path)]
+
+    def get_api_endpoints_to_skip(self):
+        """
+        Searches main context for http and stream blocks and returns which ones were not found.
+        """
+        to_find = set(['http', 'stream'])
+        main_ctx = set(stmt['directive'] for stmt in self.config.subtree)
+        return list(to_find - main_ctx)
 
     def get_alive_stub_status_url(self):
         """
@@ -106,7 +119,7 @@ class NginxObject(AbstractObject):
             predefined_uri = context.app_config['nginx']['stub_status']
             urls_to_check.append(http.resolve_uri(predefined_uri))
 
-        stub_status_url = self.__get_alive_status(urls_to_check)
+        stub_status_url = self.__get_alive_status(urls_to_check, what='stub status')
         if stub_status_url:
             # Send stub detected event
             self.eventd.event(
@@ -141,14 +154,14 @@ class NginxObject(AbstractObject):
             predefined_uri = context.app_config['nginx']['plus_status']
             internal_urls.append(http.resolve_uri(predefined_uri))
 
-        internal_status_url = self.__get_alive_status(internal_urls, json=True)
+        internal_status_url = self.__get_alive_status(internal_urls, json=True, what='plus status internal')
         if internal_status_url:
             self.eventd.event(
                 level=INFO,
                 message='nginx internal plus_status detected, %s' % internal_status_url
             )
 
-        external_status_url = self.__get_alive_status(external_urls, json=True)
+        external_status_url = self.__get_alive_status(external_urls, json=True, what='plus status external')
         if len(self.config.plus_status_external_urls) > 0:
             if not external_status_url:
                 external_status_url = self.config.plus_status_external_urls[0]
@@ -181,14 +194,14 @@ class NginxObject(AbstractObject):
             predefined_uri = context.app_config['nginx']['api']
             internal_urls.append(http.resolve_uri(predefined_uri))
 
-        internal_api_url = self.__get_alive_status(internal_urls, json=True)
+        internal_api_url = self.__get_alive_status(internal_urls, json=True, what='api internal')
         if internal_api_url:
             self.eventd.event(
                 level=INFO,
                 message='nginx internal api detected, %s' % internal_api_url
             )
 
-        external_api_url = self.__get_alive_status(external_urls, json=True)
+        external_api_url = self.__get_alive_status(external_urls, json=True, what='api external')
         if len(self.config.api_external_urls) > 0:
             if not external_api_url:
                 external_api_url = self.config.api_external_urls[0]
@@ -200,27 +213,34 @@ class NginxObject(AbstractObject):
 
         return external_api_url, internal_api_url
 
-    def __get_alive_status(self, url_list, json=False):
+    def __get_alive_status(self, url_list, json=False, what='api/stub status/plus status'):
         """
         Tries to find alive status url
         Returns first alive url or None if all founded urls are not responding
 
         :param url_list: [] of urls
         :param json: bool - will try to encode json if True
+        :param what: str - what kind of url (used for logging)
         :return: None or str
         """
         for url in url_list:
-            for proto in ('http://', 'https://'):
-                full_url = '%s%s' % (proto, url) if not url.startswith('http') else url
+            if url.startswith('http://'):
+                full_urls = [url, 'https://'+url[7:]]
+            elif url.startswith('https://'):
+                full_urls = [url, 'http://'+url[8:]]
+            else:
+                full_urls = ['http://'+url, 'https://'+url]
+
+            for full_url in full_urls:
                 try:
                     status_response = context.http_client.get(full_url, timeout=0.5, json=json, log=False)
                     if status_response:
                         if json or 'Active connections' in status_response:
                             return full_url
                     else:
-                        context.log.debug('bad response from stub/plus status url %s' % full_url)
+                        context.log.debug('bad response from %s url %s' % (what, full_url))
                 except:
-                    context.log.debug('bad response from stub/plus status url %s' % full_url)
+                    context.log.debug('bad response from %s url %s' % (what, full_url))
         return None
 
     def __setup_pipeline(self, name):
@@ -278,9 +298,14 @@ class NginxObject(AbstractObject):
 
     def _restore_config_collector(self, previous):
         collector = NginxConfigCollector(object=self, interval=self.intervals['configs'], previous=previous)
-        context.log.debug(
-            '%s restored previous config collector' % self.definition_hash
-        )
+        try:
+            start_time = time.time()
+            collector.collect(no_delay=True)  # run NginxConfigCollector.parse_config on object restart
+        finally:
+            end_time = time.time()
+            context.log.debug(
+                '%s restored previous config collector in %.3f' % (self.definition_hash, end_time - start_time)
+            )
         self.collectors.append(collector)
 
     def _setup_access_logs(self):

@@ -5,6 +5,7 @@ from hamcrest import *
 
 from amplify.agent.common.context import context
 from amplify.agent.managers.nginx import NginxManager
+from amplify.agent.objects.nginx.config.config import NginxConfig
 from test.base import RealNginxTestCase
 
 __author__ = "Mike Belov"
@@ -19,9 +20,11 @@ class ConfigCollectorTestCase(RealNginxTestCase):
     def setup_method(self, method):
         super(ConfigCollectorTestCase, self).setup_method(method)
         self.max_test_time = deepcopy(context.app_config['containers']['nginx']['max_test_duration'])
+        self.original_full_parse = NginxConfig.full_parse
 
     def teardown_method(self, method):
         context.app_config['containers']['nginx']['max_test_duration'] = deepcopy(self.max_test_time)
+        NginxConfig.full_parse = self.original_full_parse
         super(ConfigCollectorTestCase, self).teardown_method(method)
 
     def test_collect(self):
@@ -39,9 +42,7 @@ class ConfigCollectorTestCase(RealNginxTestCase):
         manager = NginxManager()
 
         # wrap NginxConfig.full_parse with a method that counts how many times it's been called
-        from amplify.agent.objects.nginx.config.config import NginxConfig
-
-        def count_full_parse_calls(config_obj):
+        def count_full_parse_calls(config_obj, include_ssl_certs):
             NginxConfig.__full_parse_calls += 1
             config_obj.__full_parse()
 
@@ -97,9 +98,6 @@ class ConfigCollectorTestCase(RealNginxTestCase):
 
         # change the collector's previous files record so that it will call full_parse
         cfg_collector.previous['files'] = {}
-
-        # avoid restarting the object for testing
-        cfg_collector.previous['checksum'] = None
 
         # running collect should now cause the run_time to exceed 0.0, rendering run_config_test False
         cfg_collector.collect(no_delay=True)

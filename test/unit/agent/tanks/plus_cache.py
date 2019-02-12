@@ -93,7 +93,6 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
 
         assert_that(context.plus_cache['https://127.0.0.1:443/plus_status'], not_(has_length(0)))
 
-
     @nginx_plus_test
     def test_plus_api_cache(self):
         time.sleep(1)
@@ -113,7 +112,6 @@ class PlusCacheCollectTestCase(RealNginxTestCase):
         metrics_collector.plus_api()
 
         assert_that(context.plus_cache['https://127.0.0.1:443/api'], not_(has_length(0)))
-
 
     @nginx_plus_test
     def test_plus_status_cache_limit(self):

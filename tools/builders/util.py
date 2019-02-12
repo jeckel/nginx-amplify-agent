@@ -2,7 +2,6 @@
 import subprocess
 import sys
 import os
-import platform
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."

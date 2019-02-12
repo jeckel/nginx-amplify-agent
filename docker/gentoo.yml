@@ -1,7 +1,13 @@
-agent:
-  image: amplify-agent-gentoo
-  volumes:
-   - ../:/amplify
-  external_links:
-   - docker_receiver_1:receiver
-  tty: true
+version: '2.4'
+services:
+  agent-gentoo:
+    image: amplify-agent-gentoo
+    volumes:
+    - ../:/amplify
+    tty: true
+    networks:
+      - controller-backend
+networks:
+  controller-backend:
+    external: true
+

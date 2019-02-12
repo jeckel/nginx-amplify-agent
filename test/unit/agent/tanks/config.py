@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-import gc
 from hamcrest import *
 
 from test.base import BaseTestCase
 from test.unit.agent.common.config.app import TestingConfig
 
-from amplify.agent.common.context import context
 from amplify.agent.tanks.config import ConfigTank
 
 

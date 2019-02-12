@@ -5,6 +5,7 @@ import sys
 import time
 
 from threading import current_thread
+from collections import defaultdict
 
 from amplify.agent import Singleton
 from amplify.agent.common.util.ps import Process
@@ -36,7 +37,7 @@ class Context(Singleton):
 
         # define vars
         self.cpu_last_check = 0
-        self.version_semver = (1, 4, 1)
+        self.version_semver = (1, 7, 0)
         self.version_build = 1
         self.uuid = None
         self.version = '%s-%s' % ('.'.join(map(str, self.version_semver)), self.version_build)
@@ -54,6 +55,7 @@ class Context(Singleton):
         self.cloud_restart = False  # Handle improper duplicate logging of start/stop events.
         self.freeze_api_url = False
         self.agent_name = ''
+        self.capabilities = defaultdict(bool)
 
         self.objects = None
         self.top_object = None  # TODO: Remove top_object entirely in favor of just top_object_id.

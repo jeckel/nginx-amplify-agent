@@ -39,8 +39,7 @@ RUN apt-get update && apt-get install -y mysql-server-5.7
 
 # Install Python and Basic Python Tools
 RUN apt-get install -y python python-dev python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
+RUN curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0'
 
 # Copy the application folder inside the container
 ADD . /amplify

@@ -194,7 +194,7 @@ class NginxConfigParser(object):
                 for d in _fnmatch_pattern(dirs, parts[index]):
                     yield os.path.join(root, d) + '/'
 
-    def _collect_included_files_and_cert_dirs(self, block):
+    def _collect_included_files_and_cert_dirs(self, block, include_ssl_certs):
         for stmt in block:
             if stmt['directive'] == 'include':
                 pattern = self._abspath(stmt['args'][0])
@@ -205,7 +205,7 @@ class NginxConfigParser(object):
                     for filename in self._scan_path_pattern(pattern):
                         self._add_file(filename)
 
-            elif stmt['directive'] == 'ssl_certificate':
+            elif stmt['directive'] == 'ssl_certificate' and include_ssl_certs:
                 cert = self._abspath(stmt['args'][0])
                 if stmt['args'][0] and ('$' not in cert or ' if=$' in cert):
 
@@ -216,9 +216,9 @@ class NginxConfigParser(object):
                         self._add_directory(dirname, check=True)
 
             elif 'block' in stmt:
-                self._collect_included_files_and_cert_dirs(stmt['block'])
+                self._collect_included_files_and_cert_dirs(stmt['block'], include_ssl_certs)
 
-    def parse(self):
+    def parse(self, include_ssl_certs=True):
         # clear results from the previous run
         self.files = {}
         self.directories = {}
@@ -253,7 +253,7 @@ class NginxConfigParser(object):
         for config in self.tree['config']:
             if config['parsed']:
                 self._add_file(config['file'])
-                self._collect_included_files_and_cert_dirs(config['parsed'])
+                self._collect_included_files_and_cert_dirs(config['parsed'], include_ssl_certs=include_ssl_certs)
 
         # construct directory_map
         for dirname, info in self.directories.iteritems():
@@ -278,6 +278,7 @@ class NginxConfigParser(object):
         to compile one large nginx context (similar to parsing nginx -T).
         It's very useful for post-analysis and testing.
         """
+
         def simplify_block(block):
             for stmt in block:
                 # ignore comments

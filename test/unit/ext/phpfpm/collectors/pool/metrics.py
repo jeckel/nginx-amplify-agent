@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-from hamcrest import (
-    assert_that, not_none, equal_to, is_, has_length, not_,
-    has_key
-)
+from hamcrest import assert_that, not_none, equal_to, is_, has_length, not_
 import time
 
 from test.unit.ext.phpfpm.base import PHPFPMTestCase

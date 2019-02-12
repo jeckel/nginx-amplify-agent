@@ -587,3 +587,250 @@ class LogsOverallTestCase(NginxCollectorTestCase):
             elif counter_key is not None:
                 if counter_key not in collector.parser.request_variables:
                     assert_that(counter, not_(has_key('C|%s' % counter_name)))
+
+    # Note: This test case is same as the above, except the log_format & log generated are in multi line
+    def test_collector_multi_line_log_format(self):
+        log_format = '''$remote_addr - $remote_user [$time_local]
+                     "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+                     rt=$request_time us="$upstream_status" ut="$upstream_response_time" cs=$upstream_cache_status'''
+
+        lines = [
+            '1.2.3.4 - - [22/Jan/2010:19:34:21 +0300]',
+            '                     "GET /foo/ HTTP/1.1" 200 11078 "http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1"',
+            '                     rt=0.010 us="200" ut="2.001, 0.345" cs=MISS',
+            '1.2.3.4 - - [22/Jan/2010:20:34:21 +0300]',
+            '                     "GET /foo/ HTTP/1.1" 300 1078 "http://www.rambler.ru/" "Mozilla/5.0 (Windows; U; Windows NT 5.1"',
+            '                     rt=0.010 us="502, 504" ut="2.002" cs=HIT'
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object,
+                                             log_format=log_format, tail=lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+        assert_that(metrics, has_item('timer'))
+
+        # counter keys
+        counter = metrics['counter']
+        for key in ['C|nginx.http.method.get',
+                    'C|nginx.http.v1_1',
+                    'C|nginx.upstream.next.count',
+                    'C|nginx.upstream.request.count',
+                    'C|nginx.http.status.3xx',
+                    'C|nginx.cache.miss',
+                    'C|nginx.http.status.2xx',
+                    'C|nginx.http.request.body_bytes_sent',
+                    'C|nginx.cache.hit',
+                    'C|nginx.upstream.status.2xx',
+                    'C|nginx.upstream.status.5xx']:
+            assert_that(counter, has_key(key))
+
+        # timer keys
+        timer = metrics['timer']
+        for key in ['G|nginx.upstream.response.time.pctl95',
+                    'C|nginx.upstream.response.time.count',
+                    'C|nginx.http.request.time.count',
+                    'G|nginx.http.request.time',
+                    'G|nginx.http.request.time.pctl95',
+                    'G|nginx.http.request.time.median',
+                    'G|nginx.http.request.time.max',
+                    'G|nginx.upstream.response.time',
+                    'G|nginx.upstream.response.time.median',
+                    'G|nginx.upstream.response.time.max']:
+            assert_that(timer, has_key(key))
+
+        # values
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(2))
+        assert_that(counter['C|nginx.upstream.request.count'][0][1],
+                    equal_to(2))
+        assert_that(counter['C|nginx.upstream.status.2xx'][0][1],
+                    equal_to(1))
+        assert_that(counter['C|nginx.upstream.status.5xx'][0][1],
+                    equal_to(2))
+        assert_that(counter['C|nginx.upstream.next.count'][0][1], equal_to(1))
+        assert_that(timer['G|nginx.upstream.response.time.max'][0][1],
+                    equal_to(2.001 + 0.345))
+
+        # check zero values
+        for counter_name, counter_key in collector.counters.iteritems():
+            if counter_key in collector.parser.keys:
+                assert_that(counter, has_key('C|%s' % counter_name))
+                if counter_name not in (
+                        'nginx.http.status.2xx',
+                        'nginx.http.status.3xx',
+                        'nginx.http.method.get',
+                        'nginx.upstream.request.count',
+                        'nginx.upstream.next.count',
+                        'nginx.upstream.response.time.max',
+                        'nginx.http.v1_1',
+                        'nginx.cache.miss',
+                        'nginx.cache.hit',
+                        'nginx.http.request.body_bytes_sent',
+                        'nginx.upstream.status.2xx',
+                        'nginx.upstream.status.5xx'
+                ):
+                    assert_that(counter['C|%s' % counter_name][0][1],
+                                equal_to(0))
+            elif counter_key is not None:
+                if counter_key not in collector.parser.request_variables:
+                    assert_that(counter, not_(has_key('C|%s' % counter_name)))
+
+    def test_empty_time_variable(self):
+        log_format = (
+            '{'
+            '"remote_addr":"$remote_addr",'
+            '"remote_user":"$remote_user",'
+            '"time_local":"$time_local",'
+            '"request_method":"$request_method",'
+            '"request_uri":"$request_uri",'
+            '"status":"$status",'
+            '"bytes_sent":$bytes_sent,'
+            '"http_referer":"$http_referer",'
+            '"http_user_agent":"$http_user_agent",'
+            '"http_cookie":"$http_cookie",'
+            '"sent_http_cookie":"$sent_http_cookie",'
+            '"http_x-forwarded-for":"$http_x_forwarded_for",'
+            '"geoip_city":"",'
+            '"geoip_region":"",'
+            '"geoip_city_country_code":"",'
+            '"http_x_reqid":"$http_x_reqid",'
+            '"request_id":"$request_id",'
+            '"http_cache_control":"$http_cache_control",'
+            '"sent_http_cache_control":"$sent_http_cache_control",'
+            '"host":"$host",'
+            '"sent_http_x_cache_info":"$sent_http_x_cache_info",'
+            '"http_accept_language":"$http_accept_language",'
+            '"sent_http_lf_error":"$sent_http_lf_error",'
+            '"http_device_id":"$http_device_id",'
+            '"http_device_type":"$http_device_type",'
+            '"upstream_connect_time":"$upstream_connect_time",'
+            '"upstream_header_time":"$upstream_header_time",'
+            '"upstream_response_time":"$upstream_response_time",'
+            '"request_time":"$request_time",'
+            '"server_name":"$server_name",'
+            '"http_vsapptype":"$http_vsapptype",'
+            '"http_vsappversion":"$http_vsappversion",'
+            '"http_headers":"$http_headers",'
+            '"sent_http_headers":"$sent_http_headers",'
+            '"upstream_cache_status":"$upstream_cache_status",'
+            '"request_body_masked":"$request_body_masked", '
+            '"http_content_type":"$http_content_type"'
+            '}'
+        )
+
+        lines = [
+            (
+                '{'
+                '"remote_addr":"11.111.11.111",'
+                '"remote_user":"",'
+                '"time_local":"21/Sep/2018:20:41:39 +0000",'
+                '"request_method":"GET",'
+                '"request_uri":"/some/request/uri/",'
+                '"status":"200",'
+                '"bytes_sent":410,'
+                '"http_referer":"https://example.com",'
+                '"http_user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:62.0) Gecko/20100101 Firefox/62.0",'
+                '"http_cookie":"",'
+                '"sent_http_cookie":"",'
+                '"http_x-forwarded-for":"",'
+                '"geoip_city":"",'
+                '"geoip_region":"",'
+                '"geoip_city_country_code":"",'
+                '"http_x_reqid":"",'
+                '"request_id":"abcdef0123456789",'
+                '"http_cache_control":"",'
+                '"sent_http_cache_control":"no-cache",'
+                '"host":"example.com",'
+                '"sent_http_x_cache_info":"",'
+                '"http_accept_language":"en-US,en;q=0.5",'
+                '"sent_http_lf_error":"",'
+                '"http_device_id":"",'
+                '"http_device_type":"",'
+                '"upstream_connect_time":"",'
+                '"upstream_header_time":"",'
+                '"upstream_response_time":"",'
+                '"request_time":"0.000",'
+                '"server_name":"_",'
+                '"http_vsapptype":"",'
+                '"http_vsappversion":"",'
+                '"http_headers":"",'
+                '"sent_http_headers":"",'
+                '"upstream_cache_status":"",'
+                '"request_body_masked":"", '
+                '"http_content_type":""'
+                '}'
+            )
+        ]
+
+        collector = NginxAccessLogsCollector(object=self.fake_object, log_format=log_format, tail=lines)
+        collector.collect()
+
+        # check
+        metrics = self.fake_object.statsd.flush()['metrics']
+        assert_that(metrics, has_item('counter'))
+        assert_that(metrics, has_item('timer'))
+
+        counter = metrics['counter']
+        timer = metrics['timer']
+
+        assert_that(counter, has_items(
+            'C|nginx.cache.bypass',
+            'C|nginx.cache.expired',
+            'C|nginx.cache.hit',
+            'C|nginx.cache.miss',
+            'C|nginx.cache.revalidated',
+            'C|nginx.cache.stale',
+            'C|nginx.cache.updating',
+            'C|nginx.http.method.delete',
+            'C|nginx.http.method.get',
+            'C|nginx.http.method.head',
+            'C|nginx.http.method.options',
+            'C|nginx.http.method.other',
+            'C|nginx.http.method.post',
+            'C|nginx.http.method.put',
+            'C|nginx.http.request.bytes_sent',
+            'C|nginx.http.status.1xx',
+            'C|nginx.http.status.2xx',
+            'C|nginx.http.status.3xx',
+            'C|nginx.http.status.403',
+            'C|nginx.http.status.404',
+            'C|nginx.http.status.4xx',
+            'C|nginx.http.status.500',
+            'C|nginx.http.status.502',
+            'C|nginx.http.status.503',
+            'C|nginx.http.status.504',
+            'C|nginx.http.status.5xx',
+            'C|nginx.http.status.discarded',
+            'C|nginx.upstream.next.count',
+            'C|nginx.upstream.request.count'
+        ))
+
+        assert_that(timer, has_items(
+            'G|nginx.http.request.time',
+            'C|nginx.http.request.time.count',
+            'G|nginx.http.request.time.max',
+            'G|nginx.http.request.time.median',
+            'G|nginx.http.request.time.pctl95'
+        ))
+
+        # values
+        assert_that(counter['C|nginx.http.method.get'][0][1], equal_to(1))
+        assert_that(counter['C|nginx.http.status.2xx'][0][1], equal_to(1))
+        assert_that(counter['C|nginx.http.request.bytes_sent'][0][1], equal_to(410))
+        assert_that(timer['C|nginx.http.request.time.count'][0][1], equal_to(1))
+
+        # check zero values
+        for counter_name, counter_key in collector.counters.iteritems():
+            if counter_key in collector.parser.keys:
+                assert_that(counter, has_key('C|%s' % counter_name))
+                if counter_name not in (
+                    'nginx.http.method.get',
+                    'nginx.http.status.2xx',
+                    'nginx.http.request.bytes_sent'
+                ):
+                    assert_that(counter['C|%s' % counter_name][0][1], equal_to(0))
+            elif counter_key is not None:
+                if counter_key not in collector.parser.request_variables:
+                    assert_that(counter, not_(has_key('C|%s' % counter_name)))

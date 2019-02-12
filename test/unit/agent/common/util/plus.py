@@ -24,7 +24,7 @@ class PlusTestCase(RealNginxTestCase):
 
     @nginx_plus_test
     def test_get_latest_supported_api(self):
-        time.sleep(1) # Give N+ some time to start
+        time.sleep(1)  # Give N+ some time to start
 
         current_api = get_latest_supported_api("https://127.0.0.1:443/api")
         # equal_to will need to be updated once later versions are released
@@ -36,7 +36,7 @@ class PlusTestCase(RealNginxTestCase):
 
     @nginx_plus_test
     def test_get_latest_supported_api_none(self):
-        time.sleep(1) # Give N+ some time to start
+        time.sleep(1)  # Give N+ some time to start
         
         plus.SUPPORTED_API_VERSIONS = [0]
         current_api = get_latest_supported_api("https://127.0.0.1:443/api")
@@ -44,7 +44,7 @@ class PlusTestCase(RealNginxTestCase):
 
     @nginx_plus_test
     def test_traverse_plus_api(self):
-        time.sleep(1) # Give N+ some time to start
+        time.sleep(1)  # Give N+ some time to start
 
         combined_api_payload = traverse_plus_api("https://127.0.0.1:443/api")
 

@@ -53,7 +53,6 @@ RUN mkdir -p /etc/mysql/
 RUN touch /var/log/mysqld.log
 RUN chmod 777 /var/log/mysqld.log
 
-# default-authentication-plugin = mysql_native_password will use auth compatible with MySQL 5.x
 RUN echo "[mysqld] \n\
 skip-host-cache \n\
 skip-name-resolve \n\
@@ -62,8 +61,7 @@ socket=/var/run/mysqld/mysqld.sock \n\
 secure-file-priv=/var/lib/mysql-files \n\
 user=mysql \n\
 log-error=/var/log/mysqld.log \n\
-pid-file=/var/run/mysqld/mysqld.pid \n\
-default-authentication-plugin = mysql_native_password" >> /etc/mysql/my.cnf
+pid-file=/var/run/mysqld/mysqld.pid" >> /etc/mysql/my.cnf
 
 RUN mysqld --initialize-insecure
 
@@ -71,8 +69,7 @@ RUN mysqld -D && mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '
 
 # Install Python and Basic Python Tools
 RUN apt-get install -y python python-dev python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
+RUN curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0'
 
 # Copy the application folder inside the container
 ADD . /amplify

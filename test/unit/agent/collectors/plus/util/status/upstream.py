@@ -342,22 +342,22 @@ class UpstreamCollectorTestCase(BaseTestCase):
         assert_that(upstream_collector.last_collect, equal_to(None))
 
         test_peer = {
-             "id": 0,
-             "server": "10.0.0.1:8080",
-             "backup": False,
-             "weight": 1,
-             "state": "up",
-             "active": 0,
-             "requests": 0,
-             "responses": {"1xx": 100, "2xx": 200, "3xx": 300, "4xx": 400, "5xx": 500, "total": 1500},
-             "sent": 0,
-             "received": 0,
-             "fails": 0,
-             "unavail": 0,
-             "health_checks": {"checks": 0, "fails": 0, "unhealthy": 0, "last_passed": True},
-             "downtime": 0,
-             "downstart": 0,
-             "selected": 1456184367000
+            "id": 0,
+            "server": "10.0.0.1:8080",
+            "backup": False,
+            "weight": 1,
+            "state": "up",
+            "active": 0,
+            "requests": 0,
+            "responses": {"1xx": 100, "2xx": 200, "3xx": 300, "4xx": 400, "5xx": 500, "total": 1500},
+            "sent": 0,
+            "received": 0,
+            "fails": 0,
+            "unavail": 0,
+            "health_checks": {"checks": 0, "fails": 0, "unhealthy": 0, "last_passed": True},
+            "downtime": 0,
+            "downstart": 0,
+            "selected": 1456184367000
         }
 
         gauges = upstream.statsd.current['gauge']
@@ -575,8 +575,8 @@ class UpstreamCollectorTestCase(BaseTestCase):
 
         assert_that(upstream.statsd.current, not_(has_length(0)))
 
-        assert_that(upstream.statsd.current, not_(has_key('counter')))  # Counters need two data values to compute
-                                                                        # difference
+        # Counters need two data values to compute difference
+        assert_that(upstream.statsd.current, not_(has_key('counter')))
 
         assert_that(upstream.statsd.current, has_key('timer'))
         timers = upstream.statsd.current['timer']
@@ -621,8 +621,8 @@ class UpstreamCollectorTestCase(BaseTestCase):
 
         assert_that(upstream.statsd.current, not_(has_length(0)))
 
-        assert_that(upstream.statsd.current, not_(has_key('counter')))  # Counters need two data values to compute
-                                                                        # difference
+        # Counters need two data values to compute difference
+        assert_that(upstream.statsd.current, not_(has_key('counter')))
 
         assert_that(upstream.statsd.current, has_key('gauge'))
         gauges = upstream.statsd.current['gauge']

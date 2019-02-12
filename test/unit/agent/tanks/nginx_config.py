@@ -39,7 +39,7 @@ class NginxConfigTankTestCase(BaseTestCase):
         assert_that(self.nginx_configs.keys(), not_none())
         assert_that(self.nginx_configs.keys(), has_length(0))
 
-        config = self.nginx_configs[('/etc/nginx/nginx.conf', '/usr/share/nginx', '/usr/sbin/nginx')]
+        self.nginx_configs[('/etc/nginx/nginx.conf', '/usr/share/nginx', '/usr/sbin/nginx')]
 
         assert_that(self.nginx_configs.keys(), has_length(1))
         assert_that(self.nginx_configs.keys(), equal_to([('/etc/nginx/nginx.conf', '/usr/share/nginx', '/usr/sbin/nginx')]))

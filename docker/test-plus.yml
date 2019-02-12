@@ -1,5 +1,12 @@
-test:
-  image: amplify-agent-test-plus
-  volumes:
-   - ../:/amplify
-   - /var/lib/mysql
+version: '2.4'
+services:
+  test:
+    image: amplify-agent-test-plus
+    volumes:
+    - ../:/amplify
+    - /var/lib/mysql
+    networks:
+      - controller-backend
+networks:
+  controller-backend:
+    name: controller-backend

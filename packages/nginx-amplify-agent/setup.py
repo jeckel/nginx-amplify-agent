@@ -33,7 +33,7 @@ elif is_deb():
 
 setup(
     name="nginx-amplify-agent",
-    version="1.4.1",
+    version="1.7.0",
     author="Mike Belov",
     author_email="dedm@nginx.com",
     description="NGINX Amplify Agent",
@@ -51,6 +51,7 @@ setup(
         'gevent/*.so',
         'gevent/libev/*.so',
         'psutil/*.so',
+        '.libs_cffi_backend/*.so.*',
         '*.so',
     ]},
     data_files=data_files,

@@ -207,6 +207,37 @@ class RealNginxTestCase(BaseTestCase):
         time.sleep(0.5)
 
 
+class RealNginxTempFileTestCase(BaseTestCase):
+    def setup_method(self, method):
+        super(RealNginxTempFileTestCase, self).setup_method(method)
+        self.conf_path = '/tmp/nginx.conf.%s.%s.conf' % (self.__class__.__name__, method.__name__)
+        subp.call('rm -f %s' % self.conf_path, check=False)
+        subp.call('touch %s' % self.conf_path, check=False)
+
+    def teardown_method(self, method):
+        # use check=False because sometimes this returns code 123 on test-plus for some reason
+        subp.call('pgrep nginx | sudo xargs kill -9', check=False)
+        subp.call('rm -f %s' % self.conf_path, check=False)
+        super(RealNginxTempFileTestCase, self).teardown_method(method)
+
+    def start_nginx(self, check=False):
+        subp.call('/usr/sbin/nginx -c %s' % self.conf_path, check=check)
+
+    def stop_nginx(self, check=False):
+        subp.call('/usr/sbin/nginx -c %s -s stop' % self.conf_path, check=check)
+
+    def reload_nginx(self, check=False):
+        subp.call('/usr/sbin/nginx -c %s -s reload' % self.conf_path, check=check)
+
+    def restart_nginx(self, check=False):
+        self.stop_nginx(check=check)
+        self.start_nginx(check=check)
+
+    def write_config(self, text):
+        with open(self.conf_path, 'w') as fp:
+            fp.write(text)
+
+
 class RealNginxSupervisordTestCase(RealNginxTestCase):
 
     @classmethod

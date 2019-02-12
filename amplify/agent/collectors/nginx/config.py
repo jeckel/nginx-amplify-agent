@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
 import time
 
-from amplify.agent.data.eventd import CRITICAL, WARNING, INFO
 from amplify.agent.collectors.abstract import AbstractCollector
-
 from amplify.agent.common.context import context
-from amplify.agent.objects.nginx.config.config import NginxConfig
+from amplify.agent.data.eventd import CRITICAL, INFO, WARNING
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
-
 
 MAX_SIZE_FOR_TEST = 20 * 1024 * 1024  # 20 MB
 DEFAULT_PARSE_DELAY = 60.0
@@ -26,8 +23,7 @@ class NginxConfigCollector(AbstractCollector):
 
         self.previous = previous or {
             'files': {},
-            'directories': {},
-            'checksum': None
+            'directories': {}
         }
 
         self.parse_delay = context.app_config['containers'].get('nginx', {}).get('parse_delay', DEFAULT_PARSE_DELAY)
@@ -42,7 +38,7 @@ class NginxConfigCollector(AbstractCollector):
 
         Will not run if:
             a) it hasn't been long enough since the last time it parsed (unless `no_delay` is True)
-            b) the configuration files/directories from the last parse haven't changed
+            b) the configuration files from the last parse haven't changed
 
         :param no_delay: bool - ignore delay times for this run (useful for testing)
         """
@@ -54,8 +50,7 @@ class NginxConfigCollector(AbstractCollector):
 
         files, directories = config.collect_structure(include_ssl_certs=self.object.upload_ssl)
 
-        # check if config is changed...only check files here because checking directories as well has too many false
-        # positives
+        # only parse config if config files have changed since last collect
         if files == self.previous['files']:
             return
 
@@ -65,7 +60,7 @@ class NginxConfigCollector(AbstractCollector):
         # parse config tree
         start_time = time.time()
         try:
-            config.full_parse()
+            config.full_parse(include_ssl_certs=self.object.upload_ssl)
         finally:
             elapsed_time = time.time() - start_time
             delay = 0 if no_delay else max(elapsed_time * 2, self.parse_delay)
@@ -81,22 +76,15 @@ class NginxConfigCollector(AbstractCollector):
             self.object.eventd.event(level=WARNING, message=error)
 
         # run ssl checks
-        if self.object.upload_ssl:
-            config.run_ssl_analysis()
-        else:
-            context.log.info('ssl analysis skipped due to users settings')
+        config.run_ssl_analysis()
 
         # run upload
-        checksum = config.checksum()
         if self.object.upload_config:
+            checksum = config.checksum()
             self.upload(config, checksum)
 
-        # config changed, so we need to restart the object
-        if self.previous['checksum']:
-            self.object.need_restart = True
-
         # otherwise run test
-        elif self.object.run_config_test and config.total_size() < MAX_SIZE_FOR_TEST:
+        if self.object.run_config_test and config.total_size() < MAX_SIZE_FOR_TEST:
             run_time = config.run_test()
 
             # send event for testing nginx config
@@ -119,8 +107,6 @@ class NginxConfigCollector(AbstractCollector):
                     )
                 )
                 self.object.run_config_test = False
-
-        self.previous['checksum'] = checksum
 
     def handle_exception(self, method, exception):
         super(NginxConfigCollector, self).handle_exception(method, exception)

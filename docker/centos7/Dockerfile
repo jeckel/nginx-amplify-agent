@@ -15,8 +15,7 @@ RUN yum -y groupinstall 'Development Tools'
 
 # Install Python and Basic Python Tools
 RUN yum -y install python python-devel python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
+RUN curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0'
 
 # Install nginx
 ADD nginx.repo /etc/yum.repos.d/nginx.repo

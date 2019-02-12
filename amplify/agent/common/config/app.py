@@ -54,8 +54,8 @@ class DevelopmentConfig(Config):
     config_changes = dict(
         cloud=dict(
             api_url='http://%s:%s/1.4' % (
-                os.environ.get('RECEIVER_PORT_5000_TCP_ADDR'),
-                os.environ.get('RECEIVER_PORT_5000_TCP_PORT')
+                os.environ.get('RECEIVER', 'receiver'),
+                os.environ.get('RECEIVER_PORT', 5000)
             ),
             verify_ssl_cert=False
         ),

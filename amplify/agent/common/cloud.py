@@ -12,6 +12,10 @@ def _version_to_tuple(version):
     return tuple(map(int, str(version).split('.')))
 
 
+def tuple_to_version(semver):
+    return '.'.join(map(str, semver))
+
+
 class Versions(object):
     def __init__(self, current=None, obsolete=None, old=None):
         self.current = _version_to_tuple(current)
@@ -40,6 +44,7 @@ class CloudResponse(object):
         self.config = response.get('config', {})
         self.messages = response.get('messages', [])
         self.versions = Versions(**response.get('versions'))
+        self.capabilities = response.get('capabilities', {})
 
         self.objects = []
         for raw_object_data in response.get('objects', []):

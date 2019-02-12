@@ -56,23 +56,16 @@ class NginxManager(ObjectManager):
 
         # pass on data from the last config collection to the new object
         config_collector = current_obj.collectors[0]
-        data.update(
-            config_data=dict(
-                previous=config_collector.previous
-            )
-        )
+        data['config_data'] = {
+            'previous': config_collector.previous
+        }
 
-        # if there is information in the configd store, pass it from old to new
-        # object
+        # if there is information in the configd store, pass it from old to new object
         if current_obj.configd.current:
-            data.update(
-                configd=current_obj.configd
-            )
+            data['configd'] = current_obj.configd
 
         # also pass on reloads counter
-        data.update(
-            reloads=current_obj.reloads
-        )
+        data['reloads'] = current_obj.reloads
 
         new_obj = self._init_nginx_object(data=data)
 
@@ -123,7 +116,6 @@ class NginxManager(ObjectManager):
                         level=INFO,
                         message='nginx-%s master process found, pid %s' % (new_obj.version, new_obj.pid)
                     )
-                    
                     self.objects.register(new_obj, parent_id=self.objects.root_id)
                 elif definition_hash in existing_hashes:
                     for obj in self.objects.find_all(types=self.types):
@@ -149,6 +141,7 @@ class NginxManager(ObjectManager):
                             )
                         )
                         data.update(self.object_configs.get(definition_hash, {}))
+
                         new_obj = self._init_nginx_object(data=data)
 
                         # Send nginx master process restart event.

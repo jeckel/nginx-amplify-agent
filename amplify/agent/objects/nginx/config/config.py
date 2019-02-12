@@ -2,25 +2,23 @@
 import hashlib
 import json
 import os
-import re
 import time
-import rstr
 
+import rstr
 from crossplane.lexer import _iterescape
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
 from amplify.agent.common.util.glib import glib
 from amplify.agent.common.util.ssl import ssl_analysis
-from amplify.agent.objects.nginx.config.parser import NginxConfigParser, get_filesystem_info
 from amplify.agent.objects.nginx.binary import nginx_v
+from amplify.agent.objects.nginx.config.parser import NginxConfigParser, get_filesystem_info
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
 __license__ = ""
 __maintainer__ = "Mike Belov"
 __email__ = "dedm@nginx.com"
-
 
 ERROR_LOG_LEVELS = (
     'debug',
@@ -83,13 +81,13 @@ class NginxConfig(object):
     def _teardown_parser(self):
         self.parser = None
 
-    def full_parse(self):
+    def full_parse(self, include_ssl_certs=True):
         context.log.debug('parsing full tree of %s' % self.filename)
 
         # parse raw data
         try:
             self._setup_parser()
-            self.parser.parse()
+            self.parser.parse(include_ssl_certs=include_ssl_certs)
             self._handle_parse()
         except Exception as e:
             context.log.error('failed to parse config at %s (due to %s)' % (self.filename, e.__class__.__name__))
@@ -111,9 +109,9 @@ class NginxConfig(object):
 
         # dump access log files, access log formats, and error log files to the debug log
         context.log.debug(
-            'parsed log formats, access logs, and error logs:' + \
-            '\nlog formats: ' + json.dumps(self.log_formats, indent=4, sort_keys=True) + \
-            '\naccess logs: ' + json.dumps(self.access_logs, indent=4, sort_keys=True) + \
+            'parsed log formats, access logs, and error logs:' +
+            '\nlog formats: ' + json.dumps(self.log_formats, indent=4, sort_keys=True) +
+            '\naccess logs: ' + json.dumps(self.access_logs, indent=4, sort_keys=True) +
             '\nerror logs: ' + json.dumps(self.error_logs, indent=4, sort_keys=True)
         )
 
@@ -123,12 +121,20 @@ class NginxConfig(object):
         self.directories = self.parser.directories
         self.directory_map = self.parser.directory_map
         self.subtree = self.parser.simplify()
-        self.ssl_certificates = {} # gets populated in run_ssl_analysis()
+        self.ssl_certificates = {}  # gets populated in run_ssl_analysis()
         self.parser_ssl_certificates = self.parser.ssl_certificates
         self.parser_errors = self.parser.errors
 
         # now that we have all the things we need from parser, we can tear it down
         self._teardown_parser()
+
+        # clear url values in the config that can/will be used to find metrics
+        # do this now because self._collect_data() will repopulate the lists
+        self.stub_status_urls = []
+        self.plus_status_external_urls = []
+        self.plus_status_internal_urls = []
+        self.api_external_urls = []
+        self.api_internal_urls = []
 
         # go through and collect all logical data
         self._collect_data(self.subtree)
@@ -201,9 +207,11 @@ class NginxConfig(object):
 
             elif directive == 'log_format':
                 name, strings = args[0], args[1:]
+
                 # disregard the (optional) escape parameter
-                # if len(args) > 2 and args[1].startswith('escape='):
-                #     strings = strings.pop(0)
+                if len(strings) > 1 and strings[0].startswith('escape='):
+                    strings.pop(0)
+
                 self.log_formats[name] = ''.join(
                     x.encode('utf-8').decode('string_escape') for x in strings
                 )
@@ -414,9 +422,9 @@ class NginxConfig(object):
                         self.error_logs[error_log_path] = {'log_level': 'error'}
             except Exception as e:
                 exception_name = e.__class__.__name__
-                context.log.error('failed to get configured variables from %s -V due to %s' % (self.binary, exception_name))
+                context.log.error(
+                    'failed to get configured variables from %s -V due to %s' % (self.binary, exception_name))
                 context.log.debug('additional info:', exc_info=True)
-
 
     def add_default_logs(self):
         """

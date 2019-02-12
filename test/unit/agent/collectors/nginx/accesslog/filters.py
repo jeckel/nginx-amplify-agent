@@ -17,35 +17,35 @@ __email__ = "dedm@nginx.com"
 class LogsFiltersTestCase(NginxCollectorTestCase):
 
     lines = [
-            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /img/docker.png HTTP/1.1" 200 0 ' +
-            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
-            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/43.0.2357.124 Safari/537.36"',
+        '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /img/docker.png HTTP/1.1" 200 0 ' +
+        '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
+        '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/43.0.2357.124 Safari/537.36"',
 
-            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /img/docker.png HTTP/1.2" 304 0 ' +
-            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
-            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/43.0.2357.124 Safari/537.36"',
+        '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /img/docker.png HTTP/1.2" 304 0 ' +
+        '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
+        '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/43.0.2357.124 Safari/537.36"',
 
-            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "POST /img/super/docker.png HTTP/1.2" 304 2 ' +
-            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:5000/" ' +
-            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/43.0.2357.124 Safari/537.36"',
+        '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "POST /img/super/docker.png HTTP/1.2" 304 2 ' +
+        '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:5000/" ' +
+        '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/43.0.2357.124 Safari/537.36"',
 
-            '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /api/inventory/objects/ HTTP/1.1" 200 1093 ' +
-            '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
-            '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/43.0.2357.124 Safari/537.36"',
+        '178.23.225.78 - - [18/Jun/2015:17:22:25 +0000] "GET /api/inventory/objects/ HTTP/1.1" 200 1093 ' +
+        '"http://ec2-54-78-3-178.eu-west-1.compute.amazonaws.com:4000/" ' +
+        '"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/43.0.2357.124 Safari/537.36"',
 
-            '127.0.0.1 - - [18/Jun/2015:17:22:33 +0000] "POST /1.0/589fjinijenfirjf/meta/ HTTP/1.1" ' +
-            '202 2 "-" "python-requests/2.2.1 CPython/2.7.6 Linux/3.13.0-48-generic"',
+        '127.0.0.1 - - [18/Jun/2015:17:22:33 +0000] "POST /1.0/589fjinijenfirjf/meta/ HTTP/1.1" ' +
+        '202 2 "-" "python-requests/2.2.1 CPython/2.7.6 Linux/3.13.0-48-generic"',
 
-            '52.6.158.18 - - [18/Jun/2015:17:22:40 +0000] "GET /#/objects HTTP/2.1" 416 84 ' +
-            '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"',
+        '52.6.158.18 - - [18/Jun/2015:17:22:40 +0000] "GET /#/objects HTTP/2.1" 416 84 ' +
+        '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"',
 
-            '52.6.158.18 - - [18/Jun/2015:17:23:40 +0000] "GET /#/objects HTTP/2.1" 502 84 ' +
-            '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"'
-        ]
+        '52.6.158.18 - - [18/Jun/2015:17:23:40 +0000] "GET /#/objects HTTP/2.1" 502 84 ' +
+        '"-" "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)"'
+    ]
 
     def setup_method(self, method):
         super(LogsFiltersTestCase, self).setup_method(method)
@@ -280,7 +280,6 @@ class LogsFiltersTestCase(NginxCollectorTestCase):
         assert_that(timer["G|nginx.upstream.response.time.max"][0][1], equal_to(7.000))
         assert_that(timer["G|nginx.upstream.response.time.median"][0][1], equal_to(4.000))
         assert_that(timer["C|nginx.upstream.response.time.count"][0][1], equal_to(4))
-
 
     def test_separate_4xx_5xx_with_filters(self):
         self.fake_object.filters = [

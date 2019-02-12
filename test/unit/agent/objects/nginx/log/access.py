@@ -2,7 +2,7 @@
 from hamcrest import *
 
 from amplify.agent.objects.nginx.log.access import NginxAccessLogParser
-from test.base import BaseTestCase, disabled_test
+from test.base import BaseTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -434,3 +434,90 @@ class LogParserTestCase(BaseTestCase):
         assert_that(parsed['city_mm'], equal_to(''))
         assert_that(parsed['tz_geo'], equal_to('UTC+3'))
         assert_that(parsed['tz_mm'], equal_to(''))
+
+    def test_format_with_multiple_lines(self):
+
+        splunk_log_format = '''timestamp=$time_iso8601
+                          level=6
+                          body_bytes_sent=$body_bytes_sent
+                          correlation_id=$upstream_http_x_correlation_id
+                          http_referrer="$http_referer"
+                          http_user_agent="$http_user_agent"
+                          level_name=info
+                          organisation=Retail
+                          path="$scheme://$server_name $uri"
+                          querystring=$args
+                          remote_addr="$remote_addr"
+                          request_duration=$request_time
+                          request_method=$request_method
+                          request_path=$uri
+                          request_uri=$request_uri
+                          server_name=$server_name
+                          server_protocol=$server_protocol
+                          source_system="$upstream_http_x_source_system"
+                          status=$status
+                          upstream_addr="$upstream_addr"
+                          upstream_cache_status=$upstream_cache_status
+                          upstream_connect_time=$upstream_connect_time
+                          upstream_header_time=$upstream_header_time
+                          upstream_response_time=$upstream_response_time
+                          upstream_status=$upstream_status
+                          '''
+        splunk_log_record = '''timestamp=2018-07-17T18:07:31+00:00
+                          level=6
+                          body_bytes_sent=97
+                          correlation_id=-
+                          http_referrer="-"
+                          http_user_agent="nginx-amplify-agent/1.5.0-1"
+                          level_name=info
+                          organisation=Retail
+                          path="http:// /basic_status"
+                          querystring=-
+                          remote_addr="127.0.0.1"
+                          request_duration=0.000
+                          request_method=GET
+                          request_path=/basic_status
+                          request_uri=/basic_status
+                          server_name=
+                          server_protocol=HTTP/1.1
+                          source_system="-"
+                          status=200
+                          upstream_addr="-"
+                          upstream_cache_status=-
+                          upstream_connect_time=-
+                          upstream_header_time=-
+                          upstream_response_time=-
+                          upstream_status=-
+                          '''
+
+        parser = NginxAccessLogParser(splunk_log_format)
+        parsed = parser.parse(splunk_log_record)
+
+        expected_keys = [
+            "time_iso8601",
+            "body_bytes_sent",
+            "upstream_http_x_correlation_id",
+            "http_referer",
+            "http_user_agent",
+            "scheme",
+            "uri",
+            "args",
+            "remote_addr",
+            "request_time",
+            "request_method",
+            "request_uri",
+            "server_name",
+            "server_protocol",
+            "upstream_http_x_source_system",
+            "status",
+            "upstream_addr",
+            "upstream_cache_status",
+            "upstream_status"
+        ]
+        # check for the keys
+        assert_that(parsed, has_items(*expected_keys))
+
+        # check for values
+        assert_that(parsed['body_bytes_sent'], equal_to(97))
+        assert_that(parsed['time_iso8601'], equal_to('2018-07-17T18:07:31+00:00'))
+        assert_that(parsed['http_user_agent'], equal_to('nginx-amplify-agent/1.5.0-1'))

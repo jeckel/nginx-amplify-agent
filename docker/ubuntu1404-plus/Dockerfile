@@ -9,16 +9,29 @@ FROM ubuntu:14.04
 # File Author / Maintainer
 MAINTAINER Mike Belov
 
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-RUN apt-get update && apt-get install -y -q wget apt-transport-https
+ARG VAULT_ADDR='https://vault.ci.nginx.com'
+ARG VAULT_SKIP_VERIFY=true
+ARG VAULT_TOKEN
+RUN echo ${VAULT_TOKEN}
 
-# Download certificate and key from the customer portal (https://cs.nginx.com)
-# and copy to the build context
-ADD nginx-repo.crt /etc/ssl/nginx/
-ADD nginx-repo.key /etc/ssl/nginx/
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+RUN apt-get update && apt-get install -y -q wget apt-transport-https \
+ && apt-get install -y -qq curl libcurl3 libcurl3-dev php5-curl && apt-get -y -qq install jq ca-certificates
+
+# get vault
+RUN curl -Ss https://releases.hashicorp.com/vault/0.10.0/vault_0.10.0_linux_amd64.zip \
+    | gunzip - > /usr/local/bin/vault \
+    && chmod +x /usr/local/bin/vault
+
+# setup NGINX repo certs for N+
+RUN mkdir -p /etc/ssl/nginx \
+    && VAULT_TOKEN=${VAULT_TOKEN} vault kv get -format=json certs-dev/nginx-repo.crt  \
+    | jq -r .data.data.cert > /etc/ssl/nginx/nginx-repo.crt \
+    && VAULT_TOKEN=${VAULT_TOKEN} vault kv get -format=json certs-dev/nginx-repo.key  \
+    | jq -r .data.data.key > /etc/ssl/nginx/nginx-repo.key \
+    && chmod +r /etc/ssl/nginx/nginx-repo.*
 
 # Get other files required for installation
-RUN wget -q -O /etc/ssl/nginx/CA.crt https://cs.nginx.com/static/files/CA.crt
 RUN wget -q -O - http://nginx.org/keys/nginx_signing.key | apt-key add -
 RUN wget -q -O /etc/apt/apt.conf.d/90nginx https://cs.nginx.com/static/files/90nginx
 
@@ -33,8 +46,7 @@ RUN apt-get install -y --fix-missing tar curl nano wget dialog net-tools build-e
 
 # Install Python and Basic Python Tools
 RUN apt-get install -y python python-dev python-distribute
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python
-RUN easy_install pip
+RUN curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0'
 
 # Copy the application folder inside the container
 ADD . /amplify

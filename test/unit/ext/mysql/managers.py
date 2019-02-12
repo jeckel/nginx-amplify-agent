@@ -18,12 +18,12 @@ class MySQLManagerTestCase(MySQLTestCase):
 
     def setup_method(self, method):
         super(MySQLManagerTestCase, self).setup_method(method)
-        self.original_app_config = deepcopy(context.app_config.config)
+        self.original_app_config = deepcopy(context.app_config['mysql'])
         context._setup_object_tank()
 
     def teardown_method(self, method):
         context._setup_object_tank()
-        context.app_config.config = self.original_app_config
+        context.app_config['mysql'] = self.original_app_config
         super(MySQLManagerTestCase, self).teardown_method(method)
 
     def test_find_local(self):
@@ -178,6 +178,7 @@ class MySQLManagerTestCase(MySQLTestCase):
         assert_that(found_master['local_id'], equal_to(
             'd47bcca34c2b2836266086c5d5d428b754cc4831e2df6e251b2ffa27bca59b3b'
         ))
+
 
 class SupervisorMySQLManagerTestCase(MySQLManagerTestCase, MySQLSupervisordTestCase):
     pass

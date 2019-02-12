@@ -9,9 +9,9 @@ FROM ubuntu:14.04
 # File Author / Maintainer
 MAINTAINER Mike Belov
 
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
- && apt-get update \
- && apt-get install -y -q wget apt-transport-https
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+RUN apt-get update && apt-get install -y -q wget apt-transport-https \
+ && apt-get install -y -qq curl libcurl3 libcurl3-dev php5-curl && apt-get install -y -qq ca-certificates
 
 # Download certificate and key from the customer portal (https://cs.nginx.com)
 # and copy to the build context
@@ -19,9 +19,8 @@ ADD docker/test-plus/nginx-repo.crt /etc/ssl/nginx/
 ADD docker/test-plus/nginx-repo.key /etc/ssl/nginx/
 
 # Get other files required for installation
-RUN wget -q -O /etc/ssl/nginx/CA.crt https://cs.nginx.com/static/files/CA.crt \
- && wget -q -O - http://nginx.org/keys/nginx_signing.key | apt-key add - \
- && wget -q -O /etc/apt/apt.conf.d/90nginx https://cs.nginx.com/static/files/90nginx
+RUN wget -q -O - http://nginx.org/keys/nginx_signing.key | apt-key add -
+RUN wget -q -O /etc/apt/apt.conf.d/90nginx https://cs.nginx.com/static/files/90nginx
 
 # Install NGINX Plus and  basic applications
 RUN printf "deb https://plus-pkgs.nginx.com/ubuntu `lsb_release -cs` nginx-plus\n" >/etc/apt/sources.list.d/nginx-plus.list \
@@ -55,9 +54,8 @@ ADD docker/test-plus/test.php /var/www/php-fpm/test.php
 # Install Python and Basic Python Tools
 RUN apt-get update \
  && apt-get install -y python python-dev python-distribute \
- && wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python \
- && easy_install pip \
- && easy_install supervisor
+ && curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0' \
+ && pip install supervisor
 
 # Copy the application folder inside the container
 #ADD . /amplify
@@ -72,7 +70,9 @@ RUN pip install \
     pytest-xdist \
     pyhamcrest \
     requests_mock \
-    timeout-decorator
+    timeout-decorator \
+    freezegun \
+    mock
 
 ENV AMPLIFY_ENVIRONMENT testing
 ENV PYTHONPATH /amplify

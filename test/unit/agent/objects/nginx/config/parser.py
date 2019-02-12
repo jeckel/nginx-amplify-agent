@@ -3,8 +3,8 @@ import os
 
 from hamcrest import *
 
-from amplify.agent.objects.nginx.config.parser import NginxConfigParser, IGNORED_DIRECTIVES
-from test.base import BaseTestCase, BaseControllerTestCase
+from amplify.agent.objects.nginx.config.parser import IGNORED_DIRECTIVES, NginxConfigParser
+from test.base import BaseControllerTestCase, BaseTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -672,6 +672,22 @@ class ParserTestCase(BaseTestCase):
         ))
 
         assert_that(cfg.ssl_certificates, has_length(1))
+
+    def test_parse_ssl_exclude_dirs(self):
+        cfg = NginxConfigParser(ssl_simple_config)
+
+        cfg.parse(include_ssl_certs=False)
+        assert_that(cfg.directories, has_length(2))
+        assert_that(cfg.directory_map.keys(), not_(has_item('/amplify/test/fixtures/nginx/ssl/simple/certs.d/')))
+        assert_that(cfg.ssl_certificates, has_length(0))
+
+    def test_parse_ssl_include_dirs(self):
+        cfg = NginxConfigParser(ssl_simple_config)
+
+        cfg.parse(include_ssl_certs=True)
+        assert_that(cfg.directories, has_length(3))
+        assert_that(cfg.directory_map.keys(), has_item('/amplify/test/fixtures/nginx/ssl/simple/certs.d/'))
+        assert_that(cfg.ssl_certificates, has_item('/amplify/test/fixtures/nginx/ssl/simple/certs.d/example.com.crt'))
 
     def test_lightweight_parse_includes_permissions(self):
         """

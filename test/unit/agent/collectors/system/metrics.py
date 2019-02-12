@@ -62,11 +62,11 @@ class SystemMetricsCollectorTestCase(BaseTestCase):
         # check gauges
         assert_that(metrics, has_key('gauge'))
         for gauge in (
-            'amplify.agent.cpu.system',
-            'amplify.agent.cpu.user',
-            'amplify.agent.mem.rss',
-            'amplify.agent.mem.vms',
-            'amplify.agent.status',
+            'controller.agent.cpu.system',
+            'controller.agent.cpu.user',
+            'controller.agent.mem.rss',
+            'controller.agent.mem.vms',
+            'controller.agent.status',
             'system.cpu.idle',
             'system.cpu.iowait',
             'system.cpu.stolen',
@@ -104,8 +104,8 @@ class SystemMetricsCollectorTestCase(BaseTestCase):
         collector = self.get_collector()
         metrics = collector.object.statsd.current
         assert_that(metrics, has_key('gauge'))
-        assert_that(metrics['gauge'], has_entries('amplify.agent.mem.rss', collected_metric(greater_than(0))))
-        assert_that(metrics['gauge'], has_entries('amplify.agent.mem.vms', collected_metric(greater_than(0))))
+        assert_that(metrics['gauge'], has_entries('controller.agent.mem.rss', collected_metric(greater_than(0))))
+        assert_that(metrics['gauge'], has_entries('controller.agent.mem.vms', collected_metric(greater_than(0))))
 
     def test_collect_only_alive_interfaces(self):
         collector = self.get_collector()

@@ -111,7 +111,8 @@ class FCGIApp(FCGIApp_orig):
             rec.contentLength = len(s)
             rec.write(sock)
 
-            if not s: break
+            if not s:
+                break
 
         # Empty FCGI_DATA stream
         rec = Record(FCGI_DATA, requestId)
@@ -152,7 +153,8 @@ class FCGIApp(FCGIApp_orig):
         pos = 0
         while True:
             eolpos = result.find('\n', pos)
-            if eolpos < 0: break
+            if eolpos < 0:
+                break
             line = result[pos:eolpos - 1]
             pos = eolpos + 1
 
@@ -161,7 +163,8 @@ class FCGIApp(FCGIApp_orig):
             line = line.strip()
 
             # Empty line signifies end of headers
-            if not line: break
+            if not line:
+                break
 
             # TODO: Better error handling
             header, value = line.split(':', 1)

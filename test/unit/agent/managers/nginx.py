@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import re
-import copy
 
 from time import sleep
 from hamcrest import *

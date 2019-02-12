@@ -27,6 +27,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 %if (0%{?amzn} == 1)
 Requires: python27
+%define __python /usr/bin/python2.7
 %else
 Requires: python >= 2.6
 %endif
@@ -162,11 +163,24 @@ fi
 
 
 %changelog
+* Thu Nov 15 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.7.0-1
+- 1.7.0-1
+- Various bug fixes
+
+* Thu Sep 20 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.6.0-1
+- 1.6.0-1
+- Added support for log formats with new line characters
+- Various bug fixes
+
+* Thu Sep  6 2018 Raymond Lau <raymond.lau@nginx.com> 1.5.0-1
+- 1.5.0-1
+- Various bug fixes
+
 * Thu Jul 26 2018 Mike Belov <dedm@nginx.com> 1.4.1-1
 - 1.4.1-1
 - Various bug fixes
 
-* Thu Jul 26 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
+* Thu Jun  8 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
 - 1.4.0-1
 - New metrics for nginx, phpfpm, and mysql status
 - Support monitoring of remote MySQL instances

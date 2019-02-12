@@ -62,7 +62,7 @@ class SyslogServer(asyncore.dispatcher):
         try:
             log_record = data.split('amplify: ', 1)[1]  # this implicitly relies on the nginx syslog format specifically
             self.cache.append(log_record)
-        except Exception as e:
+        except Exception:
             context.log.error('error handling syslog message (address:%s, message:"%s")' % (self.address, data))
             context.log.debug('additional info:', exc_info=True)
 
@@ -137,7 +137,7 @@ class SyslogTail(Pipeline):
             except AmplifyAddresssAlreadyInUse as e:
                 if self.listener_setup_attempts < 3:
                     context.log.warning(
-                        'failed to start listener during "SyslogTail.__iter__()" due to "%s", ' \
+                        'failed to start listener during "SyslogTail.__iter__()" due to "%s", '
                         'will try again (attempts: %s)' % (
                             e.__class__.__name__,
                             self.listener_setup_attempts

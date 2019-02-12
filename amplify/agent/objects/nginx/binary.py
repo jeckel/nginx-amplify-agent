@@ -157,7 +157,7 @@ def _parse_arguments(argstring):
                 value += ' --' + next(arg_parts)
 
         # if a key is set multiple times, values are stored as a list
-        if not key in arguments:
+        if key not in arguments:
             arguments[key] = value
         elif not isinstance(arguments[key], list):
             arguments[key] = [arguments[key], value]

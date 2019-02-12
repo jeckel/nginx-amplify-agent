@@ -4,7 +4,6 @@ import time
 from amplify.agent.collectors.abstract import AbstractCollector
 from amplify.agent.common.context import context
 from amplify.agent.pipelines.abstract import Pipeline
-from amplify.agent.pipelines.file import FileTail
 from amplify.agent.objects.nginx.log.access import NginxAccessLogParser
 import copy
 
@@ -83,6 +82,7 @@ class NginxAccessLogsCollector(AbstractCollector):
     def __init__(self, log_format=None, tail=None, **kwargs):
         super(NginxAccessLogsCollector, self).__init__(**kwargs)
         self.parser = NginxAccessLogParser(log_format)
+        self.num_of_lines_in_log_format = self.parser.raw_format.count('\n')+1
         self.tail = tail
         # syslog tails names are "<type>:<name>"
         self.name = tail.name.split(':')[-1] if isinstance(tail, Pipeline) \
@@ -124,12 +124,22 @@ class NginxAccessLogsCollector(AbstractCollector):
         self.init_counters()  # set all counters to 0
 
         count = 0
+        multiline_record = []
         for line in self.tail:
             count += 1
 
             # release GIL every 1000 of lines
-            if count % 1000 == 0:
+            if count % (1000 * self.num_of_lines_in_log_format) == 0:
                 time.sleep(0.001)
+
+            # handle multiline log formats
+            if self.num_of_lines_in_log_format > 1:
+                multiline_record.append(line)
+                if len(multiline_record) < self.num_of_lines_in_log_format:
+                    continue
+                else:
+                    line = '\n'.join(multiline_record)
+                    multiline_record = []
 
             try:
                 parsed = self.parser.parse(line)
@@ -367,7 +377,7 @@ class NginxAccessLogsCollector(AbstractCollector):
         # counters
         upstream_response = False
         if 'upstream_status' in data:
-            for status in data['upstream_status']: # upstream_status is parsed as a list
+            for status in data['upstream_status']:  # upstream_status is parsed as a list
                 if status.isdigit():
                     suffix = '%sxx' % status[0]
                     metric_name = 'nginx.upstream.status.%s' % suffix

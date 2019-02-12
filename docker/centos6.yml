@@ -1,7 +1,12 @@
-agent:
-  image: amplify-agent-centos6
-  volumes:
-   - ../:/amplify
-  external_links:
-   - docker_receiver_1:receiver
-  tty: true
+version: '2.4'
+services:
+  agent-centos6:
+    image: amplify-agent-centos6
+    volumes:
+    - ../:/amplify
+    tty: true
+    networks:
+      - controller-backend
+networks:
+  controller-backend:
+    external: true

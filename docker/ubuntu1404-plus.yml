@@ -1,8 +1,13 @@
-agent:
-  image: amplify-agent-ubuntu1404-plus
-  volumes:
-   - ../:/amplify
-   - /var/lib/mysql
-  external_links:
-   - docker_receiver_1:receiver
-  tty: true
+version: '2.4'
+services:
+  agent-ubuntu1404-plus:
+    image: amplify-agent-ubuntu1404-plus
+    volumes:
+    - ../:/amplify
+    - /var/lib/mysql
+    tty: true
+    networks:
+      - controller-backend
+networks:
+  controller-backend:
+    external: true

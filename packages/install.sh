@@ -431,8 +431,8 @@ case "$os" in
         if ! dpkg -s apt-transport-https > /dev/null 2>&1; then
             printf "\033[32m ${step}. Installing apt-transport-https ...\033[0m"
 
-            apt-get update > /dev/null 2>&1 && \
-            apt-get -y install apt-transport-https > /dev/null 2>&1
+            ${sudo_cmd} apt-get update > /dev/null 2>&1 && \
+            ${sudo_cmd} apt-get -y install apt-transport-https > /dev/null 2>&1
 
             if [ $? -eq 0 ]; then
                 printf "\033[32m done.\033[0m\n"

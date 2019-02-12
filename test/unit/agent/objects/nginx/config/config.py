@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
+
 from hamcrest import *
 
 from amplify.agent.common.context import context
-from amplify.agent.objects.nginx.config.config import NginxConfig, ERROR_LOG_LEVELS
-from test.base import BaseTestCase, RealNginxTestCase
 from amplify.agent.managers.nginx import NginxManager
+from amplify.agent.objects.nginx.config.config import ERROR_LOG_LEVELS, NginxConfig
+from test.base import BaseTestCase, RealNginxTestCase
 
 __author__ = "Mike Belov"
 __copyright__ = "Copyright (C) Nginx, Inc. All rights reserved."
@@ -29,6 +30,7 @@ tabs_everywhere = os.getcwd() + '/test/fixtures/nginx/tabs/nginx.conf'
 status_urls = os.getcwd() + '/test/fixtures/nginx/status_urls/nginx.conf'
 log_format_string_concat = os.getcwd() + '/test/fixtures/nginx/custom/log_format_string_concat.conf'
 log_format_unicode_quote = os.getcwd() + '/test/fixtures/nginx/custom/log_format_unicode_quote.conf'
+log_format_escaped_json = os.getcwd() + '/test/fixtures/nginx/custom/log_format_escaped_json.conf'
 bad_log_directives_config = os.getcwd() + '/test/fixtures/nginx/broken/bad_logs.conf'
 
 
@@ -435,6 +437,22 @@ class ConfigTestCase(BaseTestCase):
         assert_that(ssl_certificates.keys()[0], ends_with('certs.d/example.com.crt'))
         assert_that(ssl_certificates.values()[0], has_item('names'))
 
+    def test_exclude_ssl(self):
+        config = NginxConfig(ssl_simple_config)
+
+        # also check that existing certs get cleared on subsequent parse
+        config.full_parse()
+        config.run_ssl_analysis()
+
+        ssl_certificates = config.ssl_certificates
+        assert_that(ssl_certificates, has_length(1))
+
+        config.full_parse(include_ssl_certs=False)
+        config.run_ssl_analysis()
+
+        ssl_certificates = config.ssl_certificates
+        assert_that(ssl_certificates, has_length(0))
+
     def test_regex_status_url(self):
         from re import sub as re_sub
         """
@@ -544,6 +562,16 @@ class ConfigTestCase(BaseTestCase):
         assert_that(config.log_formats, has_entries({
             'foo': 'site="$server_name" server="$host\xe2\x80\x9d uri="uri"'
         }))
+
+    def test_log_format_with_escape_parameter(self):
+        """
+        Tests that the optional "escape" parameter from log_format gets ignored
+        """
+        config = NginxConfig(log_format_escaped_json)
+        config.full_parse()
+        assert_that(config.log_formats, has_length(1))
+        assert_that(config.log_formats, has_key('masked'))
+        assert_that(config.log_formats['masked'], not_(starts_with('escape=')))
 
     def test_parse_bad_access_and_error_log(self):
         """
@@ -695,7 +723,7 @@ class ExcludeConfigTestCase(BaseTestCase):
             )
         )
 
-       # stub status urls
+        # stub status urls
         assert_that(config.stub_status_urls, has_length(2))
         assert_that(config.stub_status_urls, has_item('http://127.0.0.1:81/basic_status'))
         assert_that(config.stub_status_urls, has_item('https://127.0.0.1:443/basic_status'))

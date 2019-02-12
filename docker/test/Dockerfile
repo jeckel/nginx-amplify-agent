@@ -52,9 +52,8 @@ ADD docker/test/php-fpm-www2.conf /etc/php5/fpm/pool.d/www2.conf
 ADD docker/test/test.php /var/www/php-fpm/test.php
 
 # install basic python tools
-RUN wget --no-check-certificate https://bootstrap.pypa.io/ez_setup.py -O - | python \
- && easy_install "pip==10.0.0" \
- && easy_install supervisor
+RUN curl https://bootstrap.pypa.io/get-pip.py | python - 'pip==18.1.0' \
+ && pip install supervisor
 
 # install agent requirements:
 ADD docker/test/requirements.txt /etc/naas/requirements.txt
@@ -66,7 +65,9 @@ RUN pip install \
     pytest-xdist \
     pyhamcrest \
     requests_mock \
-    timeout-decorator
+    timeout-decorator \
+    freezegun \
+    mock
 
 # set some environment variables
 ENV AMPLIFY_ENVIRONMENT testing

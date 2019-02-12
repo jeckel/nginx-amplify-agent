@@ -163,8 +163,8 @@ class ObjectTankTestCase(BaseTestCase):
         dummy_child_2 = DummyObject()
 
         parent_obj_id = self.object_tank.register(dummy_obj)
-        child_obj_id_1 = self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
-        child_obj_id_2 = self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
         found_obj_list = self.object_tank.find_all(obj_id=parent_obj_id, children=True)
 
         assert_that(found_obj_list, has_length(3))
@@ -177,8 +177,8 @@ class ObjectTankTestCase(BaseTestCase):
         dummy_child_2 = DummyObject()
 
         parent_obj_id = self.object_tank.register(dummy_obj)
-        child_obj_id_1 = self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
-        child_obj_id_2 = self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
         found_obj_list = self.object_tank.find_all(parent_id=parent_obj_id)
 
         assert_that(found_obj_list, has_length(2))
@@ -198,8 +198,8 @@ class ObjectTankTestCase(BaseTestCase):
         dummy_child_2 = DummyObject()
 
         parent_obj_id = self.object_tank.register(dummy_obj)
-        child_obj_id_1 = self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
-        child_obj_id_2 = self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
         tree = self.object_tank.tree(parent_obj_id)
         assert_that(tree, equal_to(
             {
@@ -224,7 +224,7 @@ class ObjectTankTestCase(BaseTestCase):
 
         parent_obj_id = self.object_tank.register(dummy_obj)
         child_obj_id_1 = self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
-        child_obj_id_2 = self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
+        self.object_tank.register(dummy_child_2, parent_id=parent_obj_id)
         tree = self.object_tank.tree(child_obj_id_1)
         assert_that(tree, equal_to(
             {
@@ -240,7 +240,7 @@ class ObjectTankTestCase(BaseTestCase):
 
         parent_obj_id = self.object_tank.register(dummy_obj)
         child_obj_id_1 = self.object_tank.register(dummy_child_1, parent_id=parent_obj_id)
-        child_obj_id_2 = self.object_tank.register(dummy_child_2, parent_id=child_obj_id_1)
+        self.object_tank.register(dummy_child_2, parent_id=child_obj_id_1)
         tree = self.object_tank.tree(parent_obj_id)
         assert_that(tree, equal_to(
             {

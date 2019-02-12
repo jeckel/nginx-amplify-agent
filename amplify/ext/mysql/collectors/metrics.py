@@ -55,8 +55,6 @@ class MySQLMetricsCollector(AbstractMetricsCollector):
         """
         Collects data from MySQLd instance
 
-        :param args: *args
-        :param kwargs: **kwargs
         """
         stamp = int(time.time())
 
@@ -100,27 +98,25 @@ class MySQLMetricsCollector(AbstractMetricsCollector):
 
         # compound gauges
         pool_util = 0
-        if 'mysql.global.innodb_buffer_pool_pages_total' in tracked_gauges and \
-            tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] > 0:
-                pool_util = (
-                    tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] -
-                    tracked_gauges['mysql.global.innodb_buffer_pool_pages_free'][self.object.definition_hash]
-                ) / tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] * 100
-
+        if ('mysql.global.innodb_buffer_pool_pages_total' in tracked_gauges and
+                tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] > 0):
+            pool_util = (
+                (tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] -
+                 tracked_gauges['mysql.global.innodb_buffer_pool_pages_free'][self.object.definition_hash]) /
+                tracked_gauges['mysql.global.innodb_buffer_pool_pages_total'][self.object.definition_hash] * 100
+            )
         tracked_gauges['mysql.global.innodb_buffer_pool_util'] = {
             self.object.definition_hash: pool_util
         }
 
         hit_ratio = 0
-        if 'mysql.global.innodb_buffer_pool_read_requests' in tracked_gauges and \
-            tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] > 0:
-                hit_ratio = (
-                    tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] /
-                    (
-                        tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] +
-                        tracked_gauges['mysql.global.innodb_buffer_pool_reads'][self.object.definition_hash]
-                    )
-                ) * 100
+        if ('mysql.global.innodb_buffer_pool_read_requests' in tracked_gauges and
+                tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] > 0):
+            hit_ratio = (
+                (tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] /
+                 (tracked_gauges['mysql.global.innodb_buffer_pool_read_requests'][self.object.definition_hash] +
+                  tracked_gauges['mysql.global.innodb_buffer_pool_reads'][self.object.definition_hash])) * 100
+            )
 
         tracked_gauges['mysql.global.innodb_buffer_pool.hit_ratio'] = {
             self.object.definition_hash: hit_ratio

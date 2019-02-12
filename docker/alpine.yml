@@ -1,7 +1,12 @@
-agent:
-  image: amplify-agent-alpine
-  volumes:
-   - ../:/amplify
-  external_links:
-   - docker_receiver_1:receiver
-  tty: true
+version: '2.4'
+services:
+  agent-alpine:
+    image: amplify-agent-alpine
+    volumes:
+    - ../:/amplify
+    tty: true
+    networks:
+      - controller-backend
+networks:
+  controller-backend:
+    external: true

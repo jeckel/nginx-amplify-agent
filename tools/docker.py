@@ -24,16 +24,19 @@ def rebuild(folder, name, build_args):
         shell_call('cat packages/*/requirements-old-gevent.txt >> docker/%s/requirements.txt' % folder)
     else:
         shell_call('cat packages/*/requirements.txt >> docker/%s/requirements.txt' % folder)
-    if folder == 'ubuntu1604-controller':
-        shell_call('docker build -t %s -f docker/%s/Dockerfile .' % (name, folder), terminal=True)
-    else:
-        shell_call('docker build %s -t %s docker/%s' % (add_build_args, name, folder), terminal=True)
+
+    shell_call('docker build %s -t %s docker/%s' % (add_build_args, name, folder), terminal=True)
     shell_call('rm docker/%s/requirements.txt' % folder)
 
 
-supported_os = ['ubuntu1604', 'ubuntu1604-plus', 'ubuntu1604-controller', 'ubuntu1604-mysql8', 'ubuntu1404', 'ubuntu1404-plus', 'ubuntu1004', 'debian8', 'centos6', 'centos7', 'alpine']
+supported_os = ['ubuntu1604', 'ubuntu1604-plus', 'ubuntu1604-mysql8', 'ubuntu1404', 'ubuntu1404-plus', 'debian8', 'centos6', 'centos7', 'alpine', 'gentoo']
 
 usage = "usage: %prog -h"
+
+
+def get_comma_separated_args(option, opt, value, parser):
+    setattr(parser.values, option.dest, value.split(','))
+
 
 option_list = (
     Option(
@@ -74,11 +77,21 @@ option_list = (
     ),
     Option(
         '--os',
-        action='store',
+        action='callback',
+        callback=get_comma_separated_args,
         dest='os',
         type='string',
         help='OS from %s. Default is %s' % (supported_os, supported_os[0]),
-        default=supported_os[0],
+        default=[]
+    ),
+    Option(
+        '--scale',
+        action='callback',
+        dest='scale',
+        callback=get_comma_separated_args,
+        type='string',
+        help='Number of instances of Agent',
+        default=[],
     ),
     Option(
         '--all',
@@ -108,27 +121,41 @@ if __name__ == '__main__':
 
         runcmd = 'docker-compose -f docker/agents.yml up'
     else:
-        shell_call('docker-compose -f docker/%s.yml down' % options.os, terminal=True)
 
-        if options.rebuild:
-            rebuild('%s' % options.os, 'amplify-agent-%s' % options.os, options.build_args)
+        if len(options.os) == 0:  # set default os
+            options.os.append(supported_os[0])
 
-        if options.shell:
-            rows, columns = os.popen('stty size', 'r').read().split()
-            color_print("\n= USEFUL COMMANDS =" + "="*(int(columns)-20))
-            for helper in (
-                "service nginx start",
-                "service php7.0-fpm start",
-                "service mysql start",
-                "python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development",
-                "python /amplify/nginx-amplify-agent.py stop --config=/amplify/etc/agent.conf.development"
-            ):
-                color_print(helper, color='yellow')
-            color_print("="*int(columns)+"\n")
+        runcmd = 'docker-compose'
+        scale_cmd = ''
+        for os_name in options.os:
+            shell_call('docker-compose -f docker/%s.yml down' % os_name, terminal=True)
 
-            runcmd = 'docker-compose -f docker/%s.yml run agent bash' % options.os
-        else:
-            runcmd = 'docker-compose -f docker/%s.yml up' % options.os
+            if options.rebuild:
+                rebuild('%s' % os_name, 'amplify-agent-%s' % os_name, options.build_args)
+
+            if options.shell:
+                rows, columns = os.popen('stty size', 'r').read().split()
+                color_print("\n= USEFUL COMMANDS =" + "="*(int(columns)-20))
+                for helper in (
+                    "service nginx start",
+                    "service php7.0-fpm start",
+                    "service mysql start",
+                    "python /amplify/nginx-amplify-agent.py start --config=/amplify/etc/agent.conf.development",
+                    "python /amplify/nginx-amplify-agent.py stop --config=/amplify/etc/agent.conf.development"
+                ):
+                    color_print(helper, color='yellow')
+                color_print("="*int(columns)+"\n")
+
+                runcmd += ' -f docker/{0!s}.yml run agent-{0!s} bash'.format(os_name)
+            else:
+                scale = 1  # set default scale
+                if len(options.scale) != 0:
+                    scale = options.scale.pop(0)
+                scale_cmd += ' --scale agent-{0!s}={1}'.format(os_name, scale)
+                runcmd += ' -f docker/{0!s}.yml'.format(os_name)
+
+        if not options.shell:
+            runcmd += ' up' + scale_cmd
 
     if options.background and not options.shell:
         runcmd += ' -d'

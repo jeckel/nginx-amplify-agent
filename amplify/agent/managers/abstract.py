@@ -3,6 +3,7 @@ import abc
 import time
 
 from threading import current_thread
+from gevent.greenlet import GreenletExit
 
 from amplify.agent.common.context import context
 from amplify.agent.common.util import subp
@@ -110,6 +111,9 @@ class AbstractManager(object):
                 self._wait(self.interval)
                 context.inc_action_id()
                 self._run()
+        except GreenletExit as e:
+            self.stop()
+            raise e
         except Exception as e:
             context.log.error('manager execution failed due to "%s"' % e.__class__.__name__)
             context.log.debug('additional info:', exc_info=True)

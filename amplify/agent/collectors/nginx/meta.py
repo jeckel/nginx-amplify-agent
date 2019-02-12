@@ -34,7 +34,7 @@ class NginxMetaCollector(AbstractMetaCollector):
     @property
     def default_meta(self):
         meta = {
-            'type': 'nginx', # Hard coded since only 1 'nginx' object in backend.
+            'type': 'nginx',  # Hard coded since only 1 'nginx' object in backend.
             'local_id': self.object.local_id,
             'root_uuid': context.uuid,
             'running': True,

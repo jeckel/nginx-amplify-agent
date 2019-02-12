@@ -2,12 +2,6 @@
 import glob
 import os
 from collections import defaultdict
-from io import BytesIO
-from ConfigParser import ConfigParser
-
-from amplify.agent.common.context import context
-
-from amplify.agent.common.util.sfile import StringFile
 
 
 __author__ = "Grant Hulegaard"
