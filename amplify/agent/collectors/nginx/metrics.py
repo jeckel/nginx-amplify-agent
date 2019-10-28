@@ -163,7 +163,8 @@ class NginxMetricsCollector(AbstractMetricsCollector):
         """
         if self.object.api_enabled and self.object.api_internal_url:
             self.plus_api()
-        elif self.object.plus_status_enabled and self.object.plus_status_internal_url:
+        elif self.object.plus_status_enabled and self.object.plus_status_internal_url \
+            and self.object.status_directive_supported:
             self.plus_status()
         elif self.object.stub_status_enabled and self.object.stub_status_url:
             self.stub_status()

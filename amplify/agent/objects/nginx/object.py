@@ -90,6 +90,17 @@ class NginxObject(AbstractObject):
             self.eventd.event(level=WARNING, message=error)
 
     @property
+    def status_directive_supported(self):
+        release = self.parsed_v['plus']['release']
+        if release is not None:
+            if release.startswith('nginx-plus-r'):
+                r = release.split('-')[2].lstrip('r')
+                if r.isdigit():
+                    if int(r) <= 15:
+                        return True
+        return False
+
+    @property
     def definition(self):
         # Type is hard coded so it is not different from ContainerNginxObject.
         return {'type': 'nginx', 'local_id': self.local_id, 'root_uuid': self.root_uuid}

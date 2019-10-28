@@ -186,7 +186,7 @@ def is_rpm():
 def is_amazon():
     os_release, _ = subp.call('cat /etc/os-release', check=False)
     for line in os_release:
-        if 'amazon linux ami' in line.lower():
+        if 'amazon linux' in line.lower():
             return True
     return False
 

@@ -261,7 +261,7 @@ class NginxConfig(object):
                     if url not in self.stub_status_urls:
                         self.stub_status_urls.append(url)
 
-            elif directive == 'status' and 'ip_port' in ctx:
+            elif (directive == 'status' or self._is_plus_dashboard(stmt, ctx)) and 'ip_port' in ctx:
                 # use different url builders for external and internal urls
                 for url in self._status_url(ctx, server_preferred=True):
                     if url not in self.plus_status_external_urls:
@@ -287,6 +287,23 @@ class NginxConfig(object):
 
             elif 'block' in stmt:
                 self._collect_data(stmt['block'], ctx=ctx)
+
+    @staticmethod
+    def _is_plus_dashboard(stmt, ctx):
+        """
+        Now that the `status` directive is deprecated this method is used to determine
+        plus dashboard urls. It does so by checking to see if the config follows the
+        conventional pattern for including the plus dashboard:
+            location = /dashboard.html {
+                root /usr/share/nginx/html;
+            }
+        Obviously this is not perfect, but it's the best we can do now that the `status`
+        directive is gone.
+        """
+        correct_directive = stmt['directive'] == 'root'
+        correct_arguments = stmt['args'] == ['/usr/share/nginx/html']
+        correct_location = ctx.get('location', '/').endswith('dashboard.html')
+        return correct_directive and correct_arguments and correct_location
 
     @staticmethod
     def _status_url(ctx, server_preferred=False):

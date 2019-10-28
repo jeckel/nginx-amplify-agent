@@ -35,6 +35,12 @@ Requires: initscripts >= 8.36
 Requires(post): chkconfig
 
 
+%if 0%{?rhel} >= 8
+%define _debugsource_template %{nil}
+%undefine _missing_build_ids_terminate_build
+%endif
+
+
 %description
 The NGINX Amplify Agent is a small, Python application that
 provides system and NGINX metric collection. It is part of
@@ -76,7 +82,9 @@ mkdir -p %{buildroot}/var/run/amplify-agent/
 %if %{use_systemd}
 %{__mkdir} -p %{buildroot}/%{_unitdir}
 %{__install} -m644 %SOURCE1 %{buildroot}/%{_unitdir}/amplify-agent.service
-rm -rf %{buildroot}/etc/init.d
+%endif
+%if 0%{?rhel} >= 8
+sed -i -e 's,/usr/bin/python,/usr/bin/python2,g' %{buildroot}/usr/bin/nginx-amplify-agent.py
 %endif
 
 
@@ -94,9 +102,8 @@ rm -rf %{buildroot}/etc/init.d
 %attr(0755,nginx,nginx) %dir /var/run/amplify-agent
 %if %{use_systemd}
 %{_unitdir}/amplify-agent.service
-%else
-/etc/init.d/amplify-agent
 %endif
+/etc/init.d/amplify-agent
 /etc/logrotate.d/amplify-agent
 
 
@@ -163,6 +170,15 @@ fi
 
 
 %changelog
+* Mon Sep 23 2019 Andrei Belov <defan@nginx.com> 1.7.0-5
+- improved nginx-plus status URL discovery method
+- updated crossplane, psutil, and requests modules
+- init script fixed for Debian 10 "buster"
+
+* Thu Mar 28 2019 Andrei Belov <defan@nginx.com> 1.7.0-4
+- 1.7.0-4
+- fixed agent's user auto-detection
+
 * Thu Nov 15 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.7.0-1
 - 1.7.0-1
 - Various bug fixes
@@ -180,7 +196,7 @@ fi
 - 1.4.1-1
 - Various bug fixes
 
-* Thu Jun  8 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
+* Fri Jun  8 2018 Grant Hulegaard <grant.hulegaard@nginx.com> 1.4.0-1
 - 1.4.0-1
 - New metrics for nginx, phpfpm, and mysql status
 - Support monitoring of remote MySQL instances

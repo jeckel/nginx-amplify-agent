@@ -5,17 +5,10 @@ After=network-online.target remote-fs.target nss-lookup.target
 Wants=network-online.target
 
 [Service]
-User=nginx
-Group=nginx
 Type=forking
 PIDFile=/var/run/amplify-agent/amplify-agent.pid
-PermissionsStartOnly=true
-ExecStartPre=/bin/mkdir -p /var/run/amplify-agent
-ExecStartPre=/bin/chown nginx /var/run/amplify-agent
-ExecStartPre=/bin/chown nginx /etc/amplify-agent/agent.conf
-ExecStartPre=/bin/chown nginx /var/log/amplify-agent/agent.log
-ExecStart=/usr/bin/nginx-amplify-agent.py start --config=/etc/amplify-agent/agent.conf --pid=/var/run/amplify-agent/amplify-agent.pid
-ExecStop=/usr/bin/nginx-amplify-agent.py stop --config=/etc/amplify-agent/agent.conf --pid=/var/run/amplify-agent/amplify-agent.pid
+ExecStart=/etc/init.d/amplify-agent start
+ExecStop=/etc/init.d/amplify-agent stop
 
 [Install]
 WantedBy=multi-user.target
