@@ -28,6 +28,8 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 %if (0%{?amzn} == 1)
 Requires: python27
 %define __python /usr/bin/python2.7
+%else if (0%{?rhel} >= 8)
+Requires: python2
 %else
 Requires: python >= 2.6
 %endif
