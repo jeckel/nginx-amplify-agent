@@ -1,6 +1,7 @@
 #!/bin/sh
 
-pip_url="https://bootstrap.pypa.io/get-pip.py"
+#pip_url="https://bootstrap.pypa.io/get-pip.py"
+pip_url="https://bootstrap.pypa.io/pip/2.7/get-pip.py"
 agent_url="https://github.com/nginxinc/nginx-amplify-agent"
 agent_conf_path="/etc/amplify-agent"
 agent_conf_file="${agent_conf_path}/agent.conf"
